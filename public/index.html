@@ -2,296 +2,168 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HOME ID — Ma Maison</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
-  <!-- =========================
-       BARRE DU HAUT
-  ========================== -->
+  <!-- BARRE DU HAUT -->
   <header class="topbar">
     <div class="brand">
-      <div class="brand-icon">
-        ⌂
-      </div>
-      <div>
-        HOME <strong>ID</strong>
-      </div>
+      <div class="brand-icon">⌂</div>
+      <div>HOME <strong>ID</strong></div>
     </div>
-    <div class="user">
-      <span class="user-icon">
-        👤
-      </span>
-      <span>
-        Propriétaire
-      </span>
+    <div class="user" id="user-badge">
+      <span class="user-icon">👤</span>
+      <span id="user-role-label">Propriétaire</span>
     </div>
   </header>
-  <!-- =========================
-       CONTENU PRINCIPAL
-  ========================== -->
+
+  <!-- CONTENU PRINCIPAL -->
   <main class="container">
+
     <!-- INTRODUCTION -->
     <section class="welcome">
       <div>
-        <div class="eyebrow">
-          IDENTITÉ NUMÉRIQUE
-        </div>
-        <h1>
-          Ma Maison
-        </h1>
-        <p>
-          Toute la mémoire technique de votre maison,
-          au même endroit.
-        </p>
+        <div class="eyebrow">IDENTITÉ NUMÉRIQUE</div>
+        <h1>Ma Maison</h1>
+        <p>Toute la mémoire technique de votre maison, au même endroit.</p>
       </div>
-      <button
-        class="button primary"
-        onclick="showMessage('Cette fonction arrivera bientôt.')"
-      >
+      <button class="button primary" onclick="openAddMenu()">
         + Ajouter
       </button>
     </section>
-    <!-- =========================
-         CARTE MAISON
-    ========================== -->
+
+    <!-- CARTE MAISON -->
     <section class="house-card">
       <div class="house-info">
-        <div class="house-image">
-          🏠
-        </div>
+        <div class="house-image">🏠</div>
         <div>
-          <div class="eyebrow">
-            MA MAISON
-          </div>
-          <h2>
-            Maison #HID-DEMO-001
-          </h2>
-          <p>
-            Votre maison, son histoire et tous ses systèmes.
-          </p>
+          <div class="eyebrow">MA MAISON</div>
+          <h2>Maison #HID-DEMO-001</h2>
+          <p>Votre maison, son histoire et tous ses systèmes.</p>
         </div>
       </div>
       <div class="house-details">
         <div>
-          <span>
-            Construction
-          </span>
-          <strong>
-            1987
-          </strong>
+          <span>Construction</span>
+          <strong>1987</strong>
         </div>
         <div>
-          <span>
-            Surface
-          </span>
-          <strong>
-            185 m²
-          </strong>
+          <span>Surface</span>
+          <strong>185 m²</strong>
         </div>
         <div>
-          <span>
-            Terrain
-          </span>
-          <strong>
-            1 200 m²
-          </strong>
+          <span>Terrain</span>
+          <strong>1 200 m²</strong>
         </div>
       </div>
-      <button
-        class="button secondary"
-        onclick="openPlan()"
-      >
+      <button class="button secondary" onclick="openPlan()">
         🗺️ Voir le plan
       </button>
     </section>
-    <!-- =========================
-         GRILLE PRINCIPALE
-    ========================== -->
+
+    <!-- GRILLE PRINCIPALE -->
     <div class="dashboard-grid">
-      <!-- =========================
-           SYSTÈMES
-      ========================== -->
+
+      <!-- SYSTÈMES -->
       <section class="card systems-card">
         <div class="card-header">
           <div>
-            <div class="eyebrow">
-              INSTALLATIONS
-            </div>
-            <h2>
-              Mes systèmes
-            </h2>
+            <div class="eyebrow">INSTALLATIONS</div>
+            <h2>Mes systèmes</h2>
           </div>
-          <button
-            class="link-button"
-            onclick="showMessage('Gestion des systèmes bientôt disponible.')"
-          >
-            Gérer
+          <button class="link-button" onclick="openAddEquipmentModal()">
+            + Équipement
           </button>
         </div>
-        <div
-          id="systems"
-          class="systems"
-        >
-          <!-- Les systèmes seront chargés
-               automatiquement par JavaScript -->
+        <div id="systems" class="systems">
+          <!-- Chargé par JavaScript -->
         </div>
       </section>
-      <!-- =========================
-           ENTRETIEN
-      ========================== -->
+
+      <!-- ENTRETIEN -->
       <section class="card">
         <div class="card-header">
           <div>
-            <div class="eyebrow">
-              À VENIR
-            </div>
-            <h2>
-              Entretien
-            </h2>
+            <div class="eyebrow">À VENIR</div>
+            <h2>Entretien</h2>
           </div>
+          <button class="link-button" onclick="openAddAlertModal()">
+            + Rappel
+          </button>
         </div>
         <div id="alerts">
           <!-- Chargé par JavaScript -->
         </div>
       </section>
-      <!-- =========================
-           PROFESSIONNELS
-      ========================== -->
+
+      <!-- PROFESSIONNELS -->
       <section class="card">
         <div class="card-header">
           <div>
-
-            <div class="eyebrow">
-              ACCÈS
-            </div>
-            <h2>
-              Professionnels
-            </h2>
+            <div class="eyebrow">ACCÈS</div>
+            <h2>Professionnels</h2>
           </div>
-          <button
-            class="link-button"
-            onclick="showMessage('Gestion des professionnels bientôt disponible.')"
-          >
-            Gérer
+          <button class="link-button" onclick="openQrSimulatorModal()">
+            Simuler QR Pro
           </button>
         </div>
-
         <div id="professionals">
           <!-- Chargé par JavaScript -->
         </div>
       </section>
 
-
-      <!-- =========================
-           DOCUMENTS
-      ========================== -->
-
+      <!-- DOCUMENTS -->
       <section class="card documents-card">
-
         <div class="card-header">
-
           <div>
-
-            <div class="eyebrow">
-              DOCUMENTS
-            </div>
-
-            <h2>
-              Ma bibliothèque
-            </h2>
-
+            <div class="eyebrow">DOCUMENTS</div>
+            <h2>Ma bibliothèque</h2>
           </div>
-
-          <button
-            class="button secondary"
-            onclick="showMessage('Import de documents bientôt disponible.')"
-          >
+          <button class="button secondary" onclick="openImportModal()">
             Importer
           </button>
         </div>
         <div class="documents">
-          <div class="document">
-            <div class="document-icon">
-              📐
-            </div>
-            <strong>
-              Plans
-            </strong>
-            <span>
-              2 fichiers
-            </span>
+          <div class="document" onclick="showMessage('2 fichiers de plans disponibles dans vos systèmes')">
+            <div class="document-icon">📐</div>
+            <strong>Plans</strong>
+            <span>2 fichiers</span>
           </div>
-          <div class="document">
-            <div class="document-icon">
-              🧾
-            </div>
-
-            <strong>
-              Factures
-            </strong>
-
-            <span>
-              12 fichiers
-            </span>
+          <div class="document" onclick="showMessage('12 factures enregistrées')">
+            <div class="document-icon">🧾</div>
+            <strong>Factures</strong>
+            <span>12 fichiers</span>
           </div>
-          <div class="document">
-            <div class="document-icon">
-              🛡️
-            </div>
-            <strong>
-              Garanties
-            </strong>
-            <span>
-              6 fichiers
-            </span>
+          <div class="document" onclick="showMessage('6 garanties actives')">
+            <div class="document-icon">🛡️</div>
+            <strong>Garanties</strong>
+            <span>6 fichiers</span>
           </div>
-          <div class="document">
-            <div class="document-icon">
-              📖
-            </div>
-            <strong>
-              Notices
-            </strong>
-            <span>
-              9 fichiers
-            </span>
+          <div class="document" onclick="showMessage('9 notices techniques téléchargeables')">
+            <div class="document-icon">📖</div>
+            <strong>Notices</strong>
+            <span>9 fichiers</span>
           </div>
         </div>
       </section>
+
     </div>
   </main>
-  <!-- =========================
-       FENÊTRE MODALE
-  ========================== -->
-  <div
-    id="modal"
-    class="modal hidden"
-  >
+
+  <!-- FENÊTRE MODALE -->
+  <div id="modal" class="modal hidden">
     <div class="modal-content">
-      <button
-        class="close"
-        onclick="closeModal()"
-      >
-        ×
-      </button>
-      <div id="modal-content">
-      </div>
+      <button class="close" onclick="closeModal()">×</button>
+      <div id="modal-content"></div>
     </div>
   </div>
-  <!-- =========================
-       MESSAGE TEMPORAIRE
-  ========================== -->
-  <div
-    id="toast"
-    class="toast"
-  >
-  </div>
+
+  <!-- MESSAGE TEMPORAIRE -->
+  <div id="toast" class="toast"></div>
+
   <script src="/app.js"></script>
 </body>
 </html>
