@@ -1,512 +1,385 @@
-/* ============================================
-IDENTIFIANT DE LA MAISON — JAVASCRIPT
-=========================================== */
+let homeData = null;
 
-soit homeData = null;
+async function init() {
+  try {
+    const response = await fetch("/api/home");
 
+    if (!response.ok) {
+      throw new Error("Impossible de récupérer la maison");
+    }
 
-/* ============================================
-INITIALISATION
-=========================================== */
+    homeData = await response.json();
 
-fonction asynchrone init() {
+    displaySystems();
+    displayAlerts();
+    displayProfessionals();
 
-essayer {
-
-const réponse = await fetch("/api/home");
-
-si (!response.ok) {
-throw new Error("Impossible de récupérer la maison");
-}
-
-homeData = await response.json();
-
-afficherSystèmes();
-
-afficherAlertes();
-
-afficherProfessionnels();
-
-} attraper (erreur) {
-
-console.error(erreur);
-
-afficherMessage(
-"Impossible de charger HOME ID."
-);
-
-}
-
+  } catch (error) {
+    console.error(error);
+    showMessage("Impossible de charger HOME ID.");
+  }
 }
 
 
-/* ============================================
-AFFICHER LES SYSTÈMES
-=========================================== */
+function displaySystems() {
+  const container = document.getElementById("systems");
 
-fonction displaySystems() {
+  if (!container) return;
 
-const conteneur =
-document.getElementById("systems");
+  container.innerHTML = homeData.systems.map(system => {
 
-si (!conteneur) retourner;
+    return `
+      <div
+        class="system"
+        onclick="openSystem('${system.id}')"
+      >
 
+        <div class="system-icon">
+          ${system.icon}
+        </div>
 
-container.innerHTML =
-homeData.systems.map(system => {
+        <div class="system-name">
+          ${system.name}
+        </div>
 
-retourner `
+        <div class="status ${system.color}">
+          <span class="dot"></span>
+          ${system.status}
+        </div>
 
-<div
-classe="système"
-onclick="openSystem('${ system.id }')"
->
+      </div>
+    `;
 
-<div class="system-icon">
-${system.icon}
-</div>
-
-<div class="system-name">
-${ system.name }
-</div>
-
-<div class="statut ${system.color}">
-
-<span class="dot"></span>
-
-${system.status}
-
-</div>
-
-</div>
-
-`;
-
-}).rejoindre("");
-
+  }).join("");
 }
 
 
-/* ============================================
-AFFICHER LES ENTRETIENS
-=========================================== */
+function displayAlerts() {
+  const container = document.getElementById("alerts");
 
-fonction afficherAlertes() {
+  if (!container) return;
 
-const conteneur =
-document.getElementById("alertes");
+  container.innerHTML = homeData.alerts.map(alert => {
 
-si (!conteneur) retourner;
+    return `
+      <div class="alert">
 
+        <span class="date">
+          ${alert.date}
+        </span>
 
-container.innerHTML =
-homeData.alerts.map(alert => {
+        <strong>
+          ${alert.title}
+        </strong>
 
-retourner `
+        <p>
+          ${alert.text}
+        </p>
 
-<div class="alerte">
+      </div>
+    `;
 
-<span class="date">
-${alerte.date}
-</span>
-
-<strong>
-${alerte.titre}
-</strong>
-
-<p>
-${alerte.text}
-</p>
-
-</div>
-
-`;
-
-}).rejoindre("");
-
+  }).join("");
 }
 
 
-/* ============================================
-AFFICHER LES PROFESSIONNELS
-=========================================== */
+function displayProfessionals() {
+  const container = document.getElementById("professionals");
 
-fonction afficherProfessionnels() {
+  if (!container) return;
 
-const conteneur =
-document.getElementById("professionals");
+  container.innerHTML = homeData.professionals.map(pro => {
 
-si (!conteneur) retourner;
+    return `
+      <div class="pro">
 
+        <span class="access-active">
+          ${pro.access}
+        </span>
 
-container.innerHTML =
-homeData.professionals.map(pro => {
+        <strong>
+          ${pro.name}
+        </strong>
 
-retourner `
+        <p>
+          ${pro.domain}
+          · accès jusqu'au
+          ${pro.expires}
+        </p>
 
-<div class="pro">
+      </div>
+    `;
 
-<span class="access-active">
-${pro.access}
-</span>
-
-<strong>
-${ pro.name }
-</strong>
-
-<p>
-${pro.domain}
-· accès jusqu'au
-${pro.expires}
-</p>
-
-</div>
-
-`;
-
-}).rejoindre("");
-
+  }).join("");
 }
 
 
-/* ============================================
-OUVRIR UN SYSTÈME
-=========================================== */
+async function openSystem(systemId) {
 
-fonction asynchrone openSystem(systemId) {
+  try {
 
-essayer {
+    const response =
+      await fetch(`/api/systems/${systemId}`);
 
-réponse constante =
-attendre la récupération(
-`/api/systems/${systemId}`
-);
+    if (!response.ok) {
+      throw new Error("Système introuvable");
+    }
 
-si (!response.ok) {
+    const system = await response.json();
 
-lancer une nouvelle erreur(
-"Système introuvable"
-);
+    let equipmentHTML = "";
 
-}
+    if (
+      system.equipment &&
+      system.equipment.length > 0
+    ) {
 
-système constant =
-attendre la réponse.json();
+      equipmentHTML = system.equipment.map(item => {
 
+        return `
+          <div class="equipment">
 
-let equipmentHTML = "";
+            <strong>
+              ${item.name}
+            </strong>
 
-si (
-système.équipement &&
-longueur de l'équipement du système > 0
-) {
+            <span>
 
-équipementHTML =
-système.équipement.map(élément => {
+              ${item.model
+                ? item.model + " · "
+                : ""
+              }
 
-retourner `
+              ${item.installed
+                ? "Installé le " + item.installed
+                : ""
+              }
 
-<div class="équipement">
+              ${item.warranty
+                ? " · Garantie " + item.warranty
+                : ""
+              }
 
-<strong>
-${ item.name }
-</strong>
+            </span>
 
-<span>
+          </div>
+        `;
 
-${
-objet.modèle
-? item.model + " · "
-: ""
-}
+      }).join("");
 
-${
-élément installé
-? "Installé le " +
-élément installé
-: ""
-}
+    } else {
 
-${
-article.garantie
-? " · Garantie " +
-article.garantie
-: ""
-}
+      equipmentHTML =
+        "<p>Aucun équipement enregistré.</p>";
 
-</span>
+    }
 
-</div>
 
-`;
+    let documentsHTML = "";
 
-}).rejoindre("");
+    if (
+      system.documents &&
+      system.documents.length > 0
+    ) {
 
-} autre {
+      documentsHTML = system.documents.map(document => {
 
-équipementHTML =
-"<p>Aucun équipement enregistré.</p>";
+        return `
+          <div class="equipment">
+            📄 ${document}
+          </div>
+        `;
 
-}
+      }).join("");
 
+    } else {
 
-let documentsHTML = "";
+      documentsHTML =
+        "<p>Aucun document.</p>";
 
-si (
-système.documents &&
-system.documents.length > 0
-) {
+    }
 
-documentsHTML =
-système.documents.map(document => {
 
-retourner `
+    const modalContent =
+      document.getElementById("modal-content");
 
-<div class="équipement">
 
-📄 ${document}
+    modalContent.innerHTML = `
 
-</div>
+      <div class="eyebrow">
+        ${system.icon} SYSTÈME
+      </div>
 
-`;
+      <h2>
+        ${system.name}
+      </h2>
 
-}).rejoindre("");
+      <p style="
+        color:#737c76;
+        font-size:13px;
+      ">
 
-} autre {
+        Dernier entretien :
+        ${system.lastMaintenance || "—"}
 
-documentsHTML =
-"<p>Document Aucun.</p>";
+        <br>
 
-}
+        Prochain entretien :
+        ${system.nextMaintenance || "—"}
 
+      </p>
 
-const modalContent =
-document.getElementById(
-"contenu modal"
-);
+      <h3>
+        Équipements
+      </h3>
 
+      ${equipmentHTML}
 
-modalContent.innerHTML = `
+      <h3>
+        Documents
+      </h3>
 
-<div class="eyebrow">
-${system.icon} SYSTÈME
-</div>
+      ${documentsHTML}
 
-<h2>
-${ system.name }
-</h2>
+    `;
 
+    openModal();
 
-<p style="
-couleur : #737c76 ;
-taille de police : 13 px ;
-">
+  } catch (error) {
 
-Dernier entretien :
-${system.lastMaintenance || "—"}
+    console.error(error);
 
-<br>
+    showMessage(
+      "Impossible d'ouvrir ce système."
+    );
 
-Prochain entretien :
-${system.nextMaintenance || "—"}
-
-</p>
-
-
-<h3>
-Équipements
-</h3>
-
-${equipmentHTML}
-
-
-<h3>
-Documents
-</h3>
-
-${documentsHTML}
-
-`;
-
-
-ouvrirModal();
-
-} attraper (erreur) {
-
-console.error(erreur);
-
-afficherMessage(
-"Impossible d'ouvrir ce système."
-);
-
-}
-
+  }
 }
 
 
-/* ============================================
-PLAN DE LA MAISON
-=========================================== */
+function openPlan() {
 
-fonction openPlan() {
+  const modalContent =
+    document.getElementById("modal-content");
 
-const modalContent =
-document.getElementById(
-"contenu modal"
-);
+  modalContent.innerHTML = `
 
+    <div class="eyebrow">
+      CARTOGRAPHIE
+    </div>
 
-modalContent.innerHTML = `
+    <h2>
+      Plan de la maison
+    </h2>
 
-<div class="eyebrow">
-CARTOGRAPHIE
-</div>
+    <p style="
+      color:#737c76;
+      font-size:13px;
+    ">
 
-<h2>
-Plan de la maison
-</h2>
+      Cette fonctionnalité sera l'une
+      des prochaines grandes fonctions
+      de HOME ID.
 
-<p style="
-couleur : #737c76 ;
-taille de police : 13 px ;
-">
+    </p>
 
-Cette fonctionnalité sera l'une
-des prochaines grandes fonctions
-de l'identifiant HOME.
+    <div style="
+      height:300px;
+      border:1px dashed #cdd4ce;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:#f8f9f7;
+      margin-top:20px;
+      text-align:center;
+    ">
 
-</p>
+      <div>
 
+        <div style="
+          font-size:42px;
+          margin-bottom:12px;
+        ">
+          🗺️
+        </div>
 
-<div style="
-hauteur : 300 px ;
-bordure:1px pointillée #cdd4ce;
-bordure-radius:16px;
-affichage : grille ;
-placer-éléments:centre;
-arrière-plan : #f8f9f7 ;
-marge supérieure : 20 px ;
-alignement du texte : centré ;
-">
+        <strong>
+          Plan interactif
+        </strong>
 
-<div>
+        <br>
 
-<div style="
-taille de police : 42 px ;
-marge inférieure : 12 px ;
-">
-🗺️
-</div>
+        <small style="
+          color:#7c867f;
+        ">
 
-<strong>
-Plan interactif
-</strong>
+          Import PDF / JPG / PNG
 
-<br>
+          <br>
 
-<small style="
-couleur : #7c867f ;
-">
+          puis positionnement
+          des équipements.
 
-Importer PDF / JPG / PNG
+        </small>
 
-<br>
+      </div>
 
-puisposition
-des équipements.
+    </div>
 
-</small>
+  `;
 
-</div>
-
-</div>
-
-`;
-
-
-ouvrirModal();
-
+  openModal();
 }
 
 
-/* ============================================
-OUVRIR / FERMER LA MODALE
-=========================================== */
+function openModal() {
 
-fonction openModal() {
+  const modal =
+    document.getElementById("modal");
 
-const modal =
-document.getElementById("modal");
-
-modal.classList.remove("hidden");
-
+  modal.classList.remove("hidden");
 }
 
 
-fonction closeModal() {
+function closeModal() {
 
-const modal =
-document.getElementById("modal");
+  const modal =
+    document.getElementById("modal");
 
-modal.classList.add("hidden");
-
+  modal.classList.add("hidden");
 }
 
-
-/* ============================================
-FERMER EN CLIQUANT À CÔTÉ
-=========================================== */
 
 document.addEventListener(
-"clic",
-fonction(événement) {
+  "click",
+  function(event) {
 
-const modal =
-document.getElementById("modal");
+    const modal =
+      document.getElementById("modal");
 
-si (
-event.target === modal
-) {
+    if (event.target === modal) {
+      closeModal();
+    }
 
-fermerModal();
-
-}
-
-}
+  }
 );
 
 
-/* ============================================
-MESSAGE
-=========================================== */
+function showMessage(message) {
 
-fonction afficherMessage(message) {
+  const toast =
+    document.getElementById("toast");
 
-const toast =
-document.getElementById("toast");
+  toast.textContent = message;
 
+  toast.classList.add("show");
 
-toast.textContent =
-message;
+  setTimeout(() => {
 
+    toast.classList.remove("show");
 
-toast.classList.add("show");
-
-
-définirTimeout(
-() => {
-
-toast.classList.remove("show");
-
-},
-2500
-);
-
+  }, 2500);
 }
 
-
-/* ============================================
-DÉMARRAGE
-=========================================== */
 
 init();
