@@ -8,7 +8,6 @@
 </head>
 <body>
 
-  <!-- BARRE DU HAUT -->
   <header class="topbar">
     <div class="brand">
       <div class="brand-icon">⌂</div>
@@ -21,19 +20,15 @@
   </header>
 
   <main class="container">
-    <!-- INTRODUCTION -->
     <section class="welcome">
       <div>
         <div class="eyebrow">IDENTITÉ NUMÉRIQUE</div>
         <h1 id="display-house-name">...</h1>
         <p>Toute la mémoire technique de votre maison, au même endroit.</p>
       </div>
-      <button class="button primary" onclick="openAddMenu()">
-        + Ajouter
-      </button>
+      <button class="button primary" onclick="openAddMenu()">+ Ajouter</button>
     </section>
 
-    <!-- CARTE MAISON -->
     <section class="house-card">
       <div class="house-info">
         <div class="house-image">🏠</div>
@@ -44,61 +39,56 @@
         </div>
       </div>
       <div class="house-details">
-        <div>
-          <span>Construction</span>
-          <strong id="display-house-year">-</strong>
-        </div>
-        <div>
-          <span>Surface</span>
-          <strong id="display-house-surface">-</strong>
-        </div>
-        <div>
-          <span>Terrain</span>
-          <strong id="display-house-land">-</strong>
-        </div>
+        <div><span>Construction</span><strong id="display-house-year">-</strong></div>
+        <div><span>Surface</span><strong id="display-house-surface">-</strong></div>
+        <div><span>Terrain</span><strong id="display-house-land">-</strong></div>
       </div>
-      <button class="button secondary" onclick="openPlan()">
-        🗺️ Voir le plan
-      </button>
+      <button class="button secondary" onclick="openPlan()">🗺️ Voir le plan</button>
     </section>
 
-    <!-- GRILLE PRINCIPALE -->
     <div class="dashboard-grid">
+      
       <!-- SYSTÈMES -->
       <section class="card systems-card">
         <div class="card-header">
-          <div>
-            <div class="eyebrow">INSTALLATIONS</div>
-            <h2>Mes systèmes</h2>
-          </div>
-          <button class="link-button" onclick="openAddEquipmentModal()">
-            + Équipement
-          </button>
+          <div><div class="eyebrow">INSTALLATIONS</div><h2>Mes systèmes</h2></div>
         </div>
-        <div id="systems" class="systems">
-          <!-- Chargé par JavaScript -->
+        <div id="systems" class="systems"></div>
+      </section>
+
+      <!-- ENTRETIEN (Restauré) -->
+      <section class="card">
+        <div class="card-header">
+          <div><div class="eyebrow">À VENIR</div><h2>Entretien</h2></div>
         </div>
+        <div id="alerts"></div>
       </section>
 
       <!-- PROFESSIONNELS -->
       <section class="card">
         <div class="card-header">
-          <div>
-            <div class="eyebrow">ACCÈS</div>
-            <h2>Professionnels</h2>
-          </div>
-          <button class="link-button" onclick="openQrSimulatorModal()">
-            Simuler QR Pro
-          </button>
+          <div><div class="eyebrow">ACCÈS</div><h2>Professionnels</h2></div>
+          <button class="link-button" onclick="openQrSimulatorModal()">Simuler QR Pro</button>
         </div>
-        <div id="professionals">
-          <!-- Chargé par JavaScript -->
+        <div id="professionals"></div>
+      </section>
+
+      <!-- DOCUMENTS (Restauré) -->
+      <section class="card documents-card">
+        <div class="card-header">
+          <div><div class="eyebrow">DOCUMENTS</div><h2>Ma bibliothèque</h2></div>
+        </div>
+        <div class="documents">
+          <div class="document"><div class="document-icon">📐</div><strong>Plans</strong><span>2 fichiers</span></div>
+          <div class="document"><div class="document-icon">🧾</div><strong>Factures</strong><span>0 fichiers</span></div>
+          <div class="document"><div class="document-icon">🛡️</div><strong>Garanties</strong><span>0 fichiers</span></div>
+          <div class="document"><div class="document-icon">📖</div><strong>Notices</strong><span>0 fichiers</span></div>
         </div>
       </section>
+
     </div>
   </main>
 
-  <!-- FENÊTRE MODALE -->
   <div id="modal" class="modal hidden">
     <div class="modal-content">
       <button class="close" onclick="closeModal()">×</button>
@@ -106,7 +96,6 @@
     </div>
   </div>
 
-  <!-- MESSAGE TEMPORAIRE -->
   <div id="toast" class="toast"></div>
 
   <script src="/app.js"></script>
