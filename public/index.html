@@ -14,141 +14,155 @@
       <div class="brand-icon">⌂</div>
       <div>HOME <strong>ID</strong></div>
     </div>
-    <div class="user" id="user-badge">
+    <div class="user" id="user-badge" style="display: none;">
       <span class="user-icon">👤</span>
       <span id="user-role-label">Propriétaire</span>
     </div>
   </header>
 
-  <!-- CONTENU PRINCIPAL -->
   <main class="container">
 
-    <!-- INTRODUCTION -->
-    <section class="welcome">
-      <div>
-        <div class="eyebrow">IDENTITÉ NUMÉRIQUE</div>
-        <h1>Ma Maison</h1>
-        <p>Toute la mémoire technique de votre maison, au même endroit.</p>
+    <!-- ==========================================
+         VUE 1 : ONBOARDING (MAISON VIERGE)
+    =========================================== -->
+    <div id="onboarding-view" class="hidden">
+      <div class="onboarding-card">
+        <div class="onboarding-icon">✨</div>
+        <h1>Bienvenue sur HOME ID</h1>
+        <p>Votre carnet d'information du logement numérique. Commençons par configurer votre maison.</p>
+        
+        <form onsubmit="submitSetup(event)" class="onboarding-form">
+          <div class="form-group">
+            <label>Nom de la maison *</label>
+            <input type="text" id="setup-name" placeholder="ex: Villa des Pins, Ma Maison..." required>
+          </div>
+          
+          <div class="form-group">
+            <label>Année de construction *</label>
+            <input type="number" id="setup-year" placeholder="ex: 2018" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Surface habitable (m²)</label>
+              <input type="number" id="setup-surface" placeholder="ex: 120">
+            </div>
+            <div class="form-group">
+              <label>Surface terrain (m²)</label>
+              <input type="number" id="setup-land" placeholder="ex: 500">
+            </div>
+          </div>
+
+          <button type="submit" class="button primary" style="width: 100%; padding: 16px; margin-top: 10px; font-size: 16px;">
+            Créer ma maison
+          </button>
+        </form>
       </div>
-      <button class="button primary" onclick="openAddMenu()">
-        + Ajouter
-      </button>
-    </section>
+    </div>
 
-    <!-- CARTE MAISON -->
-    <section class="house-card">
-      <div class="house-info">
-        <div class="house-image">🏠</div>
+    <!-- ==========================================
+         VUE 2 : TABLEAU DE BORD (MAISON CONFIGURÉE)
+    =========================================== -->
+    <div id="dashboard-view" class="hidden">
+      <!-- INTRODUCTION -->
+      <section class="welcome">
         <div>
-          <div class="eyebrow">MA MAISON</div>
-          <h2>Maison #HID-DEMO-001</h2>
-          <p>Votre maison, son histoire et tous ses systèmes.</p>
+          <div class="eyebrow">IDENTITÉ NUMÉRIQUE</div>
+          <h1 id="display-house-name">Ma Maison</h1>
+          <p>Toute la mémoire technique de votre maison, au même endroit.</p>
         </div>
+        <button class="button primary" onclick="openAddMenu()">
+          + Ajouter
+        </button>
+      </section>
+
+      <!-- CARTE MAISON -->
+      <section class="house-card">
+        <div class="house-info">
+          <div class="house-image">🏠</div>
+          <div>
+            <div class="eyebrow">MA MAISON</div>
+            <h2 id="display-house-id">Maison #HID-XXX</h2>
+            <p>Votre maison, son histoire et tous ses systèmes.</p>
+          </div>
+        </div>
+        <div class="house-details">
+          <div>
+            <span>Construction</span>
+            <strong id="display-house-year">-</strong>
+          </div>
+          <div>
+            <span>Surface</span>
+            <strong id="display-house-surface">-</strong>
+          </div>
+          <div>
+            <span>Terrain</span>
+            <strong id="display-house-land">-</strong>
+          </div>
+        </div>
+        <button class="button secondary" onclick="openPlan()">
+          🗺️ Voir le plan
+        </button>
+      </section>
+
+      <!-- GRILLE PRINCIPALE -->
+      <div class="dashboard-grid">
+
+        <!-- SYSTÈMES -->
+        <section class="card systems-card">
+          <div class="card-header">
+            <div>
+              <div class="eyebrow">INSTALLATIONS</div>
+              <h2>Mes systèmes</h2>
+            </div>
+            <button class="link-button" onclick="openAddEquipmentModal()">
+              + Équipement
+            </button>
+          </div>
+          <div id="systems" class="systems">
+            <!-- Chargé par JavaScript -->
+          </div>
+        </section>
+
+        <!-- ENTRETIEN -->
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="eyebrow">À VENIR</div>
+              <h2>Entretien</h2>
+            </div>
+            <button class="link-button" onclick="showMessage('Bientôt disponible')">
+              + Rappel
+            </button>
+          </div>
+          <div id="alerts">
+            <!-- Chargé par JavaScript -->
+          </div>
+        </section>
+
+        <!-- PROFESSIONNELS -->
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="eyebrow">ACCÈS</div>
+              <h2>Professionnels</h2>
+            </div>
+            <button class="link-button" onclick="openQrSimulatorModal()">
+              Simuler QR Pro
+            </button>
+          </div>
+          <div id="professionals">
+            <!-- Chargé par JavaScript -->
+          </div>
+        </section>
       </div>
-      <div class="house-details">
-        <div>
-          <span>Construction</span>
-          <strong>1987</strong>
-        </div>
-        <div>
-          <span>Surface</span>
-          <strong>185 m²</strong>
-        </div>
-        <div>
-          <span>Terrain</span>
-          <strong>1 200 m²</strong>
-        </div>
+
+      <!-- BOUTON DE RÉINITIALISATION (Pour tes tests) -->
+      <div style="text-align: center; margin-top: 60px;">
+        <button class="link-button" style="color: #a24b4b;" onclick="resetDemo()">
+          ⚠️ Réinitialiser la maison (Test)
+        </button>
       </div>
-      <button class="button secondary" onclick="openPlan()">
-        🗺️ Voir le plan
-      </button>
-    </section>
-
-    <!-- GRILLE PRINCIPALE -->
-    <div class="dashboard-grid">
-
-      <!-- SYSTÈMES -->
-      <section class="card systems-card">
-        <div class="card-header">
-          <div>
-            <div class="eyebrow">INSTALLATIONS</div>
-            <h2>Mes systèmes</h2>
-          </div>
-          <button class="link-button" onclick="openAddEquipmentModal()">
-            + Équipement
-          </button>
-        </div>
-        <div id="systems" class="systems">
-          <!-- Chargé par JavaScript -->
-        </div>
-      </section>
-
-      <!-- ENTRETIEN -->
-      <section class="card">
-        <div class="card-header">
-          <div>
-            <div class="eyebrow">À VENIR</div>
-            <h2>Entretien</h2>
-          </div>
-          <button class="link-button" onclick="openAddAlertModal()">
-            + Rappel
-          </button>
-        </div>
-        <div id="alerts">
-          <!-- Chargé par JavaScript -->
-        </div>
-      </section>
-
-      <!-- PROFESSIONNELS -->
-      <section class="card">
-        <div class="card-header">
-          <div>
-            <div class="eyebrow">ACCÈS</div>
-            <h2>Professionnels</h2>
-          </div>
-          <button class="link-button" onclick="openQrSimulatorModal()">
-            Simuler QR Pro
-          </button>
-        </div>
-        <div id="professionals">
-          <!-- Chargé par JavaScript -->
-        </div>
-      </section>
-
-      <!-- DOCUMENTS -->
-      <section class="card documents-card">
-        <div class="card-header">
-          <div>
-            <div class="eyebrow">DOCUMENTS</div>
-            <h2>Ma bibliothèque</h2>
-          </div>
-          <button class="button secondary" onclick="openImportModal()">
-            Importer
-          </button>
-        </div>
-        <div class="documents">
-          <div class="document" onclick="showMessage('2 fichiers de plans disponibles dans vos systèmes')">
-            <div class="document-icon">📐</div>
-            <strong>Plans</strong>
-            <span>2 fichiers</span>
-          </div>
-          <div class="document" onclick="showMessage('12 factures enregistrées')">
-            <div class="document-icon">🧾</div>
-            <strong>Factures</strong>
-            <span>12 fichiers</span>
-          </div>
-          <div class="document" onclick="showMessage('6 garanties actives')">
-            <div class="document-icon">🛡️</div>
-            <strong>Garanties</strong>
-            <span>6 fichiers</span>
-          </div>
-          <div class="document" onclick="showMessage('9 notices techniques téléchargeables')">
-            <div class="document-icon">📖</div>
-            <strong>Notices</strong>
-            <span>9 fichiers</span>
-          </div>
-        </div>
-      </section>
 
     </div>
   </main>
