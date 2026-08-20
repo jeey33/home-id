@@ -4,25 +4,17 @@ async function init() {
   try {
     const urlParams = new URLSearchParams(window.location.search);
     const roleParam = urlParams.get("role") || "";
-
     const response = await fetch(`/api/home?role=${roleParam}`);
     
-    if (!response.ok) {
-      window.location.reload(); // Redirection automatique via serveur si pas configuré
-      return;
-    }
-
+    if (!response.ok) { window.location.reload(); return; }
+    
     homeData = await response.json();
-
     updateUserBadge(homeData.role);
     populateHouseInfo();
     displaySystems();
     displayAlerts();
     displayProfessionals();
-
-  } catch (error) {
-    console.error(error);
-  }
+  } catch (error) { console.error(error); }
 }
 
 function populateHouseInfo() {
@@ -37,32 +29,28 @@ function updateUserBadge(role) {
   const label = document.getElementById("user-role-label");
   if (role === "electricien") label.textContent = "Accès Électricien";
   else if (role === "pisciniste") label.textContent = "Accès Pisciniste";
-  else if (role === "clim") label.textContent = "Accès Climatisation";
+  else if (role === "clim") label.textContent = "Accès Clim/Chauffage";
   else label.textContent = "Propriétaire";
 }
 
 function displaySystems() {
   const container = document.getElementById("systems");
   if (!container) return;
-
   if (homeData.systems.length === 0) {
     container.innerHTML = "<p style='grid-column:1/-1; color:#77827a;'>Aucun système accessible.</p>";
     return;
   }
-
   container.innerHTML = homeData.systems.map(system => {
     const equipCount = system.equipment > 0 
       ? `<div style="font-size:11px; color:#77827a; margin-top:4px;">${system.equipment} équipement(s)</div>` 
       : `<div style="font-size:11px; color:#a26b28; margin-top:4px;">Vide</div>`;
-
     return `
       <div class="system" onclick="openSystem('${system.id}')">
         <div class="system-icon">${system.icon}</div>
         <div class="system-name">${system.name}</div>
         <div class="status ${system.color}"><span class="dot"></span>${system.status}</div>
         ${equipCount}
-      </div>
-    `;
+      </div>`;
   }).join("");
 }
 
@@ -70,15 +58,11 @@ function displayAlerts() {
   const container = document.getElementById("alerts");
   if (!container) return;
   if (!homeData.alerts || homeData.alerts.length === 0) {
-    container.innerHTML = "<p style='color:#77827a; font-size:13px;'>Aucun rappel d'entretien de prévu.</p>";
+    container.innerHTML = "<p style='color:#77827a; font-size:13px;'>Aucun rappel de prévu.</p>";
     return;
   }
   container.innerHTML = homeData.alerts.map(alert => `
-    <div class="alert">
-      <span class="date">${alert.date}</span>
-      <strong>${alert.title}</strong>
-      <p>${alert.text}</p>
-    </div>
+    <div class="alert"><span class="date">${alert.date}</span><strong>${alert.title}</strong><p>${alert.text}</p></div>
   `).join("");
 }
 
@@ -86,39 +70,29 @@ function displayProfessionals() {
   const container = document.getElementById("professionals");
   if (!container) return;
   if (!homeData.professionals || homeData.professionals.length === 0) {
-    container.innerHTML = "<p style='color:#77827a; font-size:13px;'>Aucun accès professionnel actif.</p>";
+    container.innerHTML = "<p style='color:#77827a; font-size:13px;'>Aucun accès pro actif.</p>";
     return;
   }
   container.innerHTML = homeData.professionals.map(pro => `
-    <div class="pro">
-      <span class="access-active">${pro.access}</span>
-      <strong>${pro.name}</strong>
-      <p>${pro.domain} · accès jusqu'au ${pro.expires}</p>
-    </div>
+    <div class="pro"><span class="access-active">${pro.access}</span><strong>${pro.name}</strong><p>${pro.domain} · accès jusqu'au ${pro.expires}</p></div>
   `).join("");
 }
 
-// ==========================================
-// AFFICHAGE PROFOND DES ÉQUIPEMENTS
-// ==========================================
 async function openSystem(systemId) {
   try {
     const response = await fetch(`/api/systems/${systemId}`);
     const system = await response.json();
-
     let equipmentHTML = "";
+    
     if (system.equipment && system.equipment.length > 0) {
       equipmentHTML = system.equipment.map(item => {
-        // Rendu des caractéristiques poussées (specs)
         let specsHTML = "";
         if (item.specs && Object.keys(item.specs).length > 0) {
           specsHTML = `<div class="specs-grid">` + 
             Object.entries(item.specs).filter(([k,v]) => v).map(([key, value]) => `
               <div class="spec-tag"><strong>${key}</strong>: ${value}</div>
-            `).join("") + 
-          `</div>`;
+            `).join("") + `</div>`;
         }
-
         return `
           <div class="equipment-deep">
             <div class="equip-header">
@@ -126,110 +100,72 @@ async function openSystem(systemId) {
               <span class="equip-model">${item.model ? item.model : "Modèle non précisé"}</span>
             </div>
             ${specsHTML}
-            <div class="equip-footer">Installé le : ${item.installed}</div>
-          </div>
-        `;
+            <div class="equip-footer">Enregistré le : ${item.installed}</div>
+          </div>`;
       }).join("");
     } else {
-      equipmentHTML = `
-        <div style="background:#f8f9f7; padding:20px; text-align:center; border-radius:12px; margin-top:10px;">
-          <p style='color:#707a74; font-size:13px; margin:0 0 10px 0;'>Aucun équipement enregistré.</p>
-        </div>
-      `;
+      equipmentHTML = `<div style="background:#f8f9f7; padding:20px; text-align:center; border-radius:12px; margin-top:10px;"><p style='color:#707a74; font-size:13px; margin:0 0 10px 0;'>Aucun équipement enregistré.</p></div>`;
     }
 
-    const modalContent = document.getElementById("modal-content");
-    modalContent.innerHTML = `
+    document.getElementById("modal-content").innerHTML = `
       <div class="eyebrow">${system.icon} SYSTÈME</div>
       <h2>${system.name}</h2>
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; border-bottom:1px solid #e3e8e4; padding-bottom:10px;">
         <h3 style="margin:0;">Équipements de pointe</h3>
         <button class="button secondary" style="padding:4px 10px; font-size:12px;" onclick="openAddEquipmentModal('${systemId}')">+ Ajouter</button>
       </div>
-      <div style="margin-top:15px;">
-        ${equipmentHTML}
-      </div>
-    `;
+      <div style="margin-top:15px;">${equipmentHTML}</div>`;
     openModal();
-  } catch (error) {
-    showMessage("Impossible d'ouvrir ce système.");
-  }
+  } catch (error) { showMessage("Erreur réseau"); }
 }
 
-// ==========================================
-// MENU 3 OPTIONS RESTAURÉ
-// ==========================================
 function openAddMenu() {
-  const modalContent = document.getElementById("modal-content");
-  modalContent.innerHTML = `
+  document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">ACTION RAPIDE</div>
     <h2>Que voulez-vous ajouter ?</h2>
     <div style="display:flex; flex-direction:column; gap:12px; margin-top:20px;">
       <button class="button secondary" style="text-align:left; padding:16px;" onclick="openAddEquipmentModal()">
-        ➕ <strong>Un équipement détaillé</strong><br>
-        <small style="color:#6d7771;">Moteur, filtre, PAC, caractéristiques techniques...</small>
+        ➕ <strong>Un équipement / Appareil</strong><br><small style="color:#6d7771;">Portail, Pompe, Box Internet, Compteur...</small>
       </button>
       <button class="button secondary" style="text-align:left; padding:16px;" onclick="openAddAlertModal()">
-        📅 <strong>Un entretien ou un rappel</strong><br>
-        <small style="color:#6d7771;">Programmer un hivernage, un ramonage...</small>
+        📅 <strong>Un entretien ou rappel</strong><br><small style="color:#6d7771;">Ramonage, vidange, remplacement filtre...</small>
       </button>
       <button class="button secondary" style="text-align:left; padding:16px;" onclick="openImportModal()">
-        📄 <strong>Un document ou une notice</strong><br>
-        <small style="color:#6d7771;">PDF, facture, schéma électrique...</small>
+        📄 <strong>Un document</strong><br><small style="color:#6d7771;">Facture, notice, garantie PDF...</small>
       </button>
-    </div>
-  `;
+    </div>`;
   openModal();
 }
 
-// ==========================================
-// FORMULAIRE DYNAMIQUE PROFOND
-// ==========================================
 function openAddEquipmentModal(preselectedSystem = "") {
-  const modalContent = document.getElementById("modal-content");
-  const systemOptions = homeData.systems.map(sys => {
-    const selected = sys.id === preselectedSystem ? "selected" : "";
-    return `<option value="${sys.id}" ${selected}>${sys.name}</option>`;
-  }).join("");
-
-  modalContent.innerHTML = `
+  const systemOptions = homeData.systems.map(sys => `<option value="${sys.id}" ${sys.id === preselectedSystem ? "selected" : ""}>${sys.name}</option>`).join("");
+  document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">EXPERT</div>
-    <h2>Configuration de l'équipement</h2>
+    <h2>Ajouter un équipement</h2>
     <form onsubmit="submitEquipment(event)" style="display:flex; flex-direction:column; gap:15px; margin-top:15px;">
-      
       <div style="background:#f8f9f7; padding:15px; border-radius:12px; border:1px solid #e3e8e4;">
-        <label style="font-size:12px; font-weight:700; color:#59645d; display:block; margin-bottom:5px;">Système concerné</label>
+        <label style="font-size:12px; font-weight:700; color:#59645d; display:block; margin-bottom:5px;">Dans quelle catégorie ?</label>
         <select id="form-sys-id" required style="width:100%; padding:10px; border-radius:8px; border:1px solid #cdd4ce;" onchange="renderDynamicFields()">
-          <option value="" disabled selected>-- Choisissez un système --</option>
+          <option value="" disabled selected>-- Choisissez une catégorie --</option>
           ${systemOptions}
         </select>
       </div>
-
       <div>
         <label style="font-size:12px; font-weight:700; color:#59645d; display:block; margin-bottom:5px;">Nom de l'appareil *</label>
-        <input type="text" id="form-name" placeholder="ex: Pompe de filtration" required style="width:100%; padding:10px; border-radius:8px; border:1px solid #cdd4ce;">
+        <input type="text" id="form-name" placeholder="ex: Moteur portail, Box Fibre, Adoucisseur..." required style="width:100%; padding:10px; border-radius:8px; border:1px solid #cdd4ce;">
       </div>
-      
       <div>
         <label style="font-size:12px; font-weight:700; color:#59645d; display:block; margin-bottom:5px;">Marque / Modèle</label>
-        <input type="text" id="form-model" placeholder="ex: Hayward Super Pump" style="width:100%; padding:10px; border-radius:8px; border:1px solid #cdd4ce;">
+        <input type="text" id="form-model" placeholder="ex: Somfy Evolvia, Freebox Pop, Culligan..." style="width:100%; padding:10px; border-radius:8px; border:1px solid #cdd4ce;">
       </div>
-
-      <!-- CONTENEUR DES CHAMPS SPÉCIFIQUES -->
       <div id="dynamic-fields-container" style="display:flex; flex-direction:column; gap:10px;"></div>
-
-      <button type="submit" class="button primary" style="margin-top:10px;">Enregistrer l'équipement complet</button>
-    </form>
-  `;
+      <button type="submit" class="button primary" style="margin-top:10px;">Sauvegarder l'appareil</button>
+    </form>`;
   openModal();
-  
-  // Si on a préselectionné via le bouton dans la modale système, on affiche les champs de suite
-  if(preselectedSystem) {
-    document.getElementById('form-sys-id').value = preselectedSystem;
-    renderDynamicFields();
-  }
+  if(preselectedSystem) renderDynamicFields();
 }
 
+// LE GÉNÉRATEUR EXHAUSTIF DE CHAMPS (La vraie puissance de l'outil)
 function renderDynamicFields() {
   const sysId = document.getElementById("form-sys-id").value;
   const container = document.getElementById("dynamic-fields-container");
@@ -237,56 +173,117 @@ function renderDynamicFields() {
 
   if (sysId === "piscine") {
     html = `
-      <div style="border-left: 3px solid #4b9b69; padding-left: 10px; margin-top:10px;">
-        <h4 style="margin:0 0 10px 0; font-size:13px; color:#4b9b69;">Caractéristiques Bassin & Filtration</h4>
+      <div style="border-left: 3px solid #d18a35; padding-left: 10px; margin-top:5px;">
+        <h4 style="margin:0 0 10px 0; font-size:13px; color:#d18a35;">Fiche Technique Bassin</h4>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-          <input type="text" id="spec-volume" placeholder="Volume (ex: 45m3)" class="spec-input">
-          <select id="spec-traitement" class="spec-input">
-            <option value="">-- Traitement --</option>
-            <option value="Sel (Électrolyseur)">Au Sel</option>
-            <option value="Chlore (Galets)">Chlore</option>
-            <option value="Brome">Brome</option>
+          <input type="text" data-key="Volume" placeholder="Volume (ex: 45m3)" class="spec-input">
+          <select data-key="Traitement" class="spec-input">
+            <option value="">-- Traitement --</option><option value="Électrolyse (Sel)">Au Sel</option><option value="Chlore">Chlore</option><option value="Brome/Oxygène">Brome / UV</option>
           </select>
-          <select id="spec-filtre" class="spec-input">
-            <option value="">-- Type Filtre --</option>
-            <option value="Sable">Sable / Verre</option>
-            <option value="Cartouche">Cartouche</option>
+          <select data-key="Filtre" class="spec-input">
+            <option value="">-- Type Filtre --</option><option value="Sable/Verre">Sable / Verre</option><option value="Cartouche">Cartouche</option>
           </select>
-          <input type="text" id="spec-media" placeholder="Réf Média (ex: Verre 150kg)" class="spec-input">
+          <input type="text" data-key="Charge filtrante" placeholder="Média (ex: Verre 150kg)" class="spec-input">
         </div>
-      </div>
-    `;
+      </div>`;
   } else if (sysId === "chauffage") {
     html = `
-      <div style="border-left: 3px solid #d18a35; padding-left: 10px; margin-top:10px;">
+      <div style="border-left: 3px solid #d18a35; padding-left: 10px; margin-top:5px;">
         <h4 style="margin:0 0 10px 0; font-size:13px; color:#d18a35;">Caractéristiques Thermiques</h4>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-          <select id="spec-energie" class="spec-input">
-            <option value="">-- Énergie --</option>
-            <option value="Gaz de ville">Gaz de ville</option>
-            <option value="Électrique (PAC)">Électrique (PAC)</option>
-            <option value="Granulés/Bois">Bois / Granulés</option>
+          <select data-key="Énergie" class="spec-input">
+            <option value="">-- Énergie --</option><option value="Gaz de ville">Gaz de ville</option><option value="Électrique (PAC)">PAC / Électrique</option><option value="Bois/Granulés">Bois / Granulés</option><option value="Fioul">Fioul</option>
           </select>
-          <input type="text" id="spec-puissance" placeholder="Puissance (ex: 12 kW)" class="spec-input">
+          <input type="text" data-key="Puissance" placeholder="Puissance (ex: 12 kW)" class="spec-input">
+          <select data-key="Diffusion" class="spec-input">
+            <option value="">-- Diffusion --</option><option value="Plancher chauffant">Plancher chauffant</option><option value="Radiateurs">Radiateurs</option><option value="Air pulsé (Gainable)">Air pulsé</option>
+          </select>
+          <input type="text" data-key="Entretien annuel" placeholder="Mois d'entretien (ex: Octobre)" class="spec-input">
         </div>
-      </div>
-    `;
+      </div>`;
   } else if (sysId === "electricite") {
     html = `
-      <div style="border-left: 3px solid #a24b4b; padding-left: 10px; margin-top:10px;">
-        <h4 style="margin:0 0 10px 0; font-size:13px; color:#a24b4b;">Caractéristiques Réseau</h4>
-        <input type="text" id="spec-puissance-compteur" placeholder="Puissance souscrite (ex: 9 kVA - Monophasé)" class="spec-input" style="width:100%;">
-      </div>
-    `;
+      <div style="border-left: 3px solid #4b9b69; padding-left: 10px; margin-top:5px;">
+        <h4 style="margin:0 0 10px 0; font-size:13px; color:#4b9b69;">Tableau & Réseau</h4>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <select data-key="Type d'abonnement" class="spec-input">
+            <option value="">-- Phase --</option><option value="Monophasé">Monophasé</option><option value="Triphasé">Triphasé</option>
+          </select>
+          <select data-key="Puissance Souscrite" class="spec-input">
+            <option value="">-- Puissance --</option><option value="6 kVA">6 kVA</option><option value="9 kVA">9 kVA</option><option value="12 kVA">12 kVA</option><option value="36 kVA">36 kVA</option>
+          </select>
+          <select data-key="Type Compteur" class="spec-input">
+            <option value="">-- Compteur --</option><option value="Linky">Linky</option><option value="Électronique ancien">Électronique</option>
+          </select>
+          <input type="text" data-key="PDL / PRM" placeholder="N° PDL (14 chiffres)" class="spec-input">
+        </div>
+      </div>`;
+  } else if (sysId === "eau") {
+    html = `
+      <div style="border-left: 3px solid #4b9b69; padding-left: 10px; margin-top:5px;">
+        <h4 style="margin:0 0 10px 0; font-size:13px; color:#4b9b69;">Plomberie & Traitement</h4>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <select data-key="Type d'équipement" class="spec-input">
+            <option value="">-- Type --</option><option value="Chauffe-eau (Cumulus)">Cumulus</option><option value="Chauffe-eau Thermodynamique">Thermodynamique</option><option value="Adoucisseur">Adoucisseur</option><option value="Surpresseur">Surpresseur</option>
+          </select>
+          <input type="text" data-key="Capacité / Volume" placeholder="Capacité (ex: 200L)" class="spec-input">
+          <input type="text" data-key="Consommable" placeholder="Consommable (ex: Sel pastilles)" class="spec-input" style="grid-column: 1 / -1;">
+        </div>
+      </div>`;
+  } else if (sysId === "climatisation") {
+    html = `
+      <div style="border-left: 3px solid #4b9b69; padding-left: 10px; margin-top:5px;">
+        <h4 style="margin:0 0 10px 0; font-size:13px; color:#4b9b69;">Génie Climatique</h4>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <select data-key="Type d'installation" class="spec-input">
+            <option value="">-- Type --</option><option value="Split mural">Split mural</option><option value="Gainable">Gainable</option><option value="VMC Double Flux">VMC Double Flux</option>
+          </select>
+          <select data-key="Gaz réfrigérant" class="spec-input">
+            <option value="">-- Gaz --</option><option value="R32">R32</option><option value="R410A">R410A</option><option value="R290">R290</option>
+          </select>
+          <select data-key="Fonction Réversible" class="spec-input">
+            <option value="">-- Réversible --</option><option value="Oui">Oui (Chaud/Froid)</option><option value="Non">Non</option>
+          </select>
+        </div>
+      </div>`;
+  } else if (sysId === "exterieur") {
+    html = `
+      <div style="border-left: 3px solid #4b9b69; padding-left: 10px; margin-top:5px;">
+        <h4 style="margin:0 0 10px 0; font-size:13px; color:#4b9b69;">Aménagement & Motorisation</h4>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <select data-key="Installation" class="spec-input">
+            <option value="">-- Type --</option><option value="Portail motorisé">Portail motorisé</option><option value="Porte de garage">Porte de garage</option><option value="Arrosage auto">Arrosage automatique</option><option value="Store Banne">Store Banne</option>
+          </select>
+          <select data-key="Alimentation" class="spec-input">
+            <option value="">-- Énergie --</option><option value="Sur Secteur 230V">Secteur 230V</option><option value="Solaire / Batterie">Solaire / Batterie</option>
+          </select>
+          <input type="text" data-key="Mécanisme" placeholder="Méca (ex: Vérin, Bras...)" class="spec-input" style="grid-column: 1 / -1;">
+        </div>
+      </div>`;
+  } else if (sysId === "domotique") {
+    html = `
+      <div style="border-left: 3px solid #4b9b69; padding-left: 10px; margin-top:5px;">
+        <h4 style="margin:0 0 10px 0; font-size:13px; color:#4b9b69;">Technologie, Réseau & Alarme</h4>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <select data-key="Catégorie" class="spec-input">
+            <option value="">-- Catégorie --</option><option value="Box Internet / Routeur">Box Internet</option><option value="Centrale Alarme">Alarme</option><option value="Caméra Sécurité">Caméra</option><option value="Box Domotique">Serveur Domotique</option>
+          </select>
+          <select data-key="Protocole Radio" class="spec-input">
+            <option value="">-- Protocole --</option><option value="Wi-Fi">Wi-Fi</option><option value="Zigbee">Zigbee</option><option value="Z-Wave">Z-Wave</option><option value="RTS / io-homecontrol">RTS / IO</option><option value="Filaire (RJ45)">Filaire</option>
+          </select>
+          <select data-key="Batterie de secours" class="spec-input">
+            <option value="">-- Secours --</option><option value="Onduleur / Batterie intégrée">Oui (Batterie)</option><option value="Aucun">Non</option>
+          </select>
+          <input type="text" data-key="Connectivité" placeholder="Réseau (ex: Fibre, 4G, ADSL)" class="spec-input">
+        </div>
+      </div>`;
   }
-
   container.innerHTML = html;
 }
 
+// SAUVEGARDE INTELLIGENTE : Collecte automatiquement tous les champs 'spec-input'
 async function submitEquipment(event) {
   event.preventDefault();
-  
-  // Collecte des champs standards
   const payload = {
     systemId: document.getElementById("form-sys-id").value,
     name: document.getElementById("form-name").value,
@@ -294,108 +291,72 @@ async function submitEquipment(event) {
     specs: {}
   };
 
-  // Collecte des champs dynamiques spécifiques
-  if (payload.systemId === "piscine") {
-    payload.specs["Volume"] = document.getElementById("spec-volume")?.value;
-    payload.specs["Traitement"] = document.getElementById("spec-traitement")?.value;
-    payload.specs["Filtre"] = document.getElementById("spec-filtre")?.value;
-    payload.specs["Charge Filtrante"] = document.getElementById("spec-media")?.value;
-  } else if (payload.systemId === "chauffage") {
-    payload.specs["Énergie"] = document.getElementById("spec-energie")?.value;
-    payload.specs["Puissance"] = document.getElementById("spec-puissance")?.value;
-  } else if (payload.systemId === "electricite") {
-    payload.specs["Abonnement"] = document.getElementById("spec-puissance-compteur")?.value;
-  }
+  const specInputs = document.querySelectorAll('.spec-input');
+  specInputs.forEach(input => {
+    if (input.value) {
+      payload.specs[input.getAttribute('data-key')] = input.value;
+    }
+  });
 
   try {
     const response = await fetch("/api/equipment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
     });
-
     if (response.ok) {
-      closeModal();
-      showMessage("Équipement expert sauvegardé !");
-      init();
+      closeModal(); showMessage("Équipement expert sauvegardé !"); init();
     }
-  } catch (error) {
-    showMessage("Erreur réseau.");
-  }
+  } catch (error) { showMessage("Erreur réseau."); }
 }
 
-// === ALERTES & DOCUMENTS ===
-
 function openAddAlertModal() {
-  const modalContent = document.getElementById("modal-content");
-  modalContent.innerHTML = `
+  document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">NOUVEAU RAPPEL</div>
     <h2>Programmer un entretien</h2>
     <form onsubmit="submitAlert(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="alert-title" placeholder="Titre (ex: Filtre Sable)" required style="padding:10px; border-radius:8px; border:1px solid #cdd4ce;">
-      <input type="text" id="alert-text" placeholder="Action (ex: Faire un lavage à contre-courant)" required style="padding:10px; border-radius:8px; border:1px solid #cdd4ce;">
-      <input type="text" id="alert-date" placeholder="Date (ex: 15/06/2026)" required style="padding:10px; border-radius:8px; border:1px solid #cdd4ce;">
+      <input type="text" id="alert-title" placeholder="Titre (ex: Adoucisseur, Portail...)" required style="padding:10px; border-radius:8px; border:1px solid #cdd4ce;">
+      <input type="text" id="alert-text" placeholder="Action (ex: Changer la cartouche, graisser l'axe)" required style="padding:10px; border-radius:8px; border:1px solid #cdd4ce;">
+      <input type="text" id="alert-date" placeholder="Date limite (ex: 15/06/2026)" required style="padding:10px; border-radius:8px; border:1px solid #cdd4ce;">
       <button type="submit" class="button primary">Programmer</button>
-    </form>
-  `;
+    </form>`;
   openModal();
 }
-
 async function submitAlert(event) {
   event.preventDefault();
-  const payload = {
-    title: document.getElementById("alert-title").value,
-    text: document.getElementById("alert-text").value,
-    date: document.getElementById("alert-date").value
-  };
+  const payload = { title: document.getElementById("alert-title").value, text: document.getElementById("alert-text").value, date: document.getElementById("alert-date").value };
   await fetch("/api/alerts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-  closeModal();
-  showMessage("Entretien programmé !");
-  init();
+  closeModal(); showMessage("Entretien programmé !"); init();
 }
 
 function openImportModal() {
-  const modalContent = document.getElementById("modal-content");
-  modalContent.innerHTML = `
+  document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">BIBLIOTHÈQUE</div>
     <h2>Importer un document</h2>
     <div style="border:2px dashed #cdd4ce; border-radius:16px; padding:30px; text-align:center; background:#f8f9f7; margin-top:15px;">
       <div style="font-size:36px; margin-bottom:10px;">📄</div>
       <strong>Glissez votre fichier PDF ici</strong><br>
-      <small style="color:#7c867f;">Facture, notice technique, schéma unifilaire...</small>
-      <br><br>
-      <button class="button primary" onclick="showMessage('Fichier enregistré dans la bibliothèque.'); closeModal();">Parcourir les fichiers</button>
-    </div>
-  `;
+      <small style="color:#7c867f;">Facture, notice technique, plan...</small><br><br>
+      <button class="button primary" onclick="showMessage('Fichier ajouté.'); closeModal();">Parcourir les fichiers</button>
+    </div>`;
   openModal();
 }
 
 function openQrSimulatorModal() {
-  const modalContent = document.getElementById("modal-content");
-  modalContent.innerHTML = `
+  document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">TEST SIMULATION QR CODE</div>
     <h2>Scanner en tant que...</h2>
     <div style="display:flex; flex-direction:column; gap:10px; margin-top:20px;">
       <a href="/" class="button secondary" style="text-decoration:none; text-align:center;">👤 Propriétaire</a>
-      <a href="/?role=pisciniste" class="button secondary" style="text-decoration:none; text-align:center;">🏊 Pisciniste (Vue Restreinte)</a>
-    </div>
-  `;
+      <a href="/?role=electricien" class="button secondary" style="text-decoration:none; text-align:center;">⚡ Artisan Réseau/Élec (Vue Restreinte)</a>
+    </div>`;
   openModal();
 }
 
 function openPlan() { showMessage("Plan interactif à venir."); }
 function openModal() { document.getElementById("modal").classList.remove("hidden"); }
 function closeModal() { document.getElementById("modal").classList.add("hidden"); }
-
-document.addEventListener("click", function(event) {
-  if (event.target === document.getElementById("modal")) closeModal();
-});
-
+document.addEventListener("click", function(event) { if (event.target === document.getElementById("modal")) closeModal(); });
 function showMessage(message) {
-  const toast = document.getElementById("toast");
-  toast.textContent = message;
-  toast.classList.add("show");
+  const toast = document.getElementById("toast"); toast.textContent = message; toast.classList.add("show");
   setTimeout(() => toast.classList.remove("show"), 2500);
 }
-
 init();
