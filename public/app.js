@@ -188,39 +188,58 @@ function openAddEquipmentModal(preselectedSystem = "") {
   modalContent.innerHTML = `
     <div class="eyebrow">NOUVEL ÉQUIPEMENT</div>
     <h2>Ajouter un équipement</h2>
-    <form onsubmit="submitEquipment(event)" style="display:flex; flex-direction:column; gap:14px; margin-top:18px;">
+
+    <!-- BOUTON SCAN IA -->
+    <div style="background:#eef4f0; border:2px dashed #4b9b69; border-radius:16px; padding:20px; text-align:center; margin-top:15px;">
+      <div style="font-size:32px; margin-bottom:8px;">📷</div>
+      <strong>Scanner la plaque signalétique</strong><br>
+      <small style="color:#59645d;">Prenez en photo l'étiquette de l'appareil, l'IA s'occupe du reste.</small>
+      <br><br>
+      <label class="button primary" style="display:inline-block; cursor:pointer;">
+        ⚡ Prenez une photo
+        <input type="file" accept="image/*" capture="environment" id="camera-input" style="display:none;" onchange="handlePhotoScan(event)">
+      </label>
+    </div>
+
+    <div style="text-align:center; margin:15px 0; color:#77827a; font-size:12px; font-weight:700;">OU SAISIE MANUELLE</div>
+
+    <form onsubmit="submitEquipment(event)" style="display:flex; flex-direction:column; gap:12px;">
       <div>
         <label style="font-size:12px; font-weight:700; color:#59645d;">Système concerné</label>
-        <select id="form-sys-id" required style="width:100%; padding:10px; border-radius:10px; border:1px solid #cdd4ce; margin-top:4px;">
+        <select id="form-sys-id" required style="width:100%; padding:10px; border-radius:10px; border:1px solid #cdd4ce;">
           ${systemOptions}
         </select>
       </div>
 
       <div>
         <label style="font-size:12px; font-weight:700; color:#59645d;">Nom de l'équipement *</label>
-        <input type="text" id="form-name" placeholder="ex: Pompe à chaleur" required style="width:100%; padding:10px; border-radius:10px; border:1px solid #cdd4ce; margin-top:4px;">
+        <input type="text" id="form-name" placeholder="ex: Pompe à chaleur" required style="width:100%; padding:10px; border-radius:10px; border:1px solid #cdd4ce;">
       </div>
 
       <div>
         <label style="font-size:12px; font-weight:700; color:#59645d;">Marque et Modèle</label>
-        <input type="text" id="form-model" placeholder="ex: Daikin FTXM35R" style="width:100%; padding:10px; border-radius:10px; border:1px solid #cdd4ce; margin-top:4px;">
+        <input type="text" id="form-model" placeholder="ex: Daikin FTXM35R" style="width:100%; padding:10px; border-radius:10px; border:1px solid #cdd4ce;">
       </div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-        <div>
-          <label style="font-size:12px; font-weight:700; color:#59645d;">Date d'installation</label>
-          <input type="text" id="form-installed" placeholder="ex: 12/06/2024" style="width:100%; padding:10px; border-radius:10px; border:1px solid #cdd4ce; margin-top:4px;">
-        </div>
-        <div>
-          <label style="font-size:12px; font-weight:700; color:#59645d;">Fin de garantie</label>
-          <input type="text" id="form-warranty" placeholder="ex: 12/06/2027" style="width:100%; padding:10px; border-radius:10px; border:1px solid #cdd4ce; margin-top:4px;">
-        </div>
-      </div>
-
-      <button type="submit" class="button primary" style="margin-top:10px;">Enregistrer l'équipement</button>
+      <button type="submit" class="button secondary" style="margin-top:5px;">Enregistrer manuellement</button>
     </form>
   `;
   openModal();
+}
+
+// Fonction de simulation de l'analyse IA de la photo
+function handlePhotoScan(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  showMessage("Analyse de la plaque signalétique par l'IA...");
+
+  // Simulation de la réponse de l'IA après 2 secondes
+  setTimeout(() => {
+    document.getElementById("form-name").value = "Climatiseur Murale";
+    document.getElementById("form-model").value = "Daikin FTXM35R";
+    showMessage("Équipement identifié ! Notice associée.");
+  }, 2000);
 }
 
 async function submitEquipment(event) {
