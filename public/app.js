@@ -6,81 +6,32 @@ async function init() {
     const roleParam = urlParams.get("role") || "";
 
     const response = await fetch(`/api/home?role=${roleParam}`);
-    homeData = await response.json();
-
-    const onboardingView = document.getElementById("onboarding-view");
-    const dashboardView = document.getElementById("dashboard-view");
-    const userBadge = document.getElementById("user-badge");
-
-    // SI LA MAISON N'EST PAS CONFIGURÉE
-    if (!homeData.isSetup) {
-      onboardingView.classList.remove("hidden");
-      dashboardView.classList.add("hidden");
-      userBadge.style.display = "none";
+    
+    // Si la requête échoue (ex: 403 car pas configuré), on force le rechargement de la page
+    // Le serveur redirigera automatiquement vers setup.html
+    if (!response.ok) {
+      window.location.reload();
       return;
     }
 
-    // SI LA MAISON EST CONFIGURÉE
-    onboardingView.classList.add("hidden");
-    dashboardView.classList.remove("hidden");
-    userBadge.style.display = "flex";
+    homeData = await response.json();
 
-    // Mise à jour de l'UI
     updateUserBadge(homeData.role);
     populateHouseInfo();
     displaySystems();
-    displayAlerts();
     displayProfessionals();
 
   } catch (error) {
-    console.error(error);
-    showMessage("Erreur de connexion au serveur.");
+    console.error("Erreur d'initialisation :", error);
   }
 }
-
-// === ONBOARDING (CRÉATION MAISON) ===
-
-async function submitSetup(event) {
-  event.preventDefault();
-
-  const payload = {
-    name: document.getElementById("setup-name").value,
-    year: document.getElementById("setup-year").value,
-    surface: document.getElementById("setup-surface").value,
-    land: document.getElementById("setup-land").value
-  };
-
-  try {
-    const response = await fetch("/api/setup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    if (response.ok) {
-      showMessage("Maison configurée avec succès !");
-      init(); // Recharge l'interface
-    }
-  } catch (error) {
-    showMessage("Erreur lors de la création.");
-  }
-}
-
-async function resetDemo() {
-  if(confirm("Voulez-vous vraiment effacer la maison et recommencer ?")) {
-    await fetch("/api/reset", { method: "POST" });
-    window.location.href = "/";
-  }
-}
-
-// === TABLEAU DE BORD ===
 
 function populateHouseInfo() {
   document.getElementById("display-house-name").textContent = homeData.name;
   document.getElementById("display-house-id").textContent = `Maison #${homeData.id}`;
   document.getElementById("display-house-year").textContent = homeData.year;
-  document.getElementById("display-house-surface").textContent = homeData.surface ? `${homeData.surface} m²` : "Non renseigné";
-  document.getElementById("display-house-land").textContent = homeData.land ? `${homeData.land} m²` : "Non renseigné";
+  document.getElementById("display-house-surface").textContent = homeData.surface ? `${homeData.surface} m²` : "—";
+  document.getElementById("display-house-land").textContent = homeData.land ? `${homeData.land} m²` : "—";
 }
 
 function updateUserBadge(role) {
@@ -101,7 +52,6 @@ function displaySystems() {
   }
 
   container.innerHTML = homeData.systems.map(system => {
-    // Affiche le nombre d'équipements
     const equipCount = system.equipment > 0 
       ? `<div style="font-size:11px; color:#77827a; margin-top:4px;">${system.equipment} équipement(s)</div>` 
       : `<div style="font-size:11px; color:#a26b28; margin-top:4px;">Vide</div>`;
@@ -115,26 +65,6 @@ function displaySystems() {
           ${system.status}
         </div>
         ${equipCount}
-      </div>
-    `;
-  }).join("");
-}
-
-function displayAlerts() {
-  const container = document.getElementById("alerts");
-  if (!container) return;
-  
-  if (!homeData.alerts || homeData.alerts.length === 0) {
-    container.innerHTML = "<p style='color:#77827a; font-size:13px; padding:10px 0;'>Aucun rappel de prévu.</p>";
-    return;
-  }
-
-  container.innerHTML = homeData.alerts.map(alert => {
-    return `
-      <div class="alert">
-        <span class="date">${alert.date}</span>
-        <strong>${alert.title}</strong>
-        <p>${alert.text}</p>
       </div>
     `;
   }).join("");
@@ -160,8 +90,6 @@ function displayProfessionals() {
   }).join("");
 }
 
-// === MODALES ET AJOUTS ===
-
 async function openSystem(systemId) {
   try {
     const response = await fetch(`/api/systems/${systemId}`);
@@ -173,18 +101,15 @@ async function openSystem(systemId) {
         return `
           <div class="equipment">
             <strong>${item.name}</strong>
-            <span>
-              ${item.model ? item.model + " · " : ""}
-              ${item.installed ? "Installé : " + item.installed : ""}
-            </span>
+            <span>${item.model ? item.model + " · " : ""}Installé : ${item.installed}</span>
           </div>
         `;
       }).join("");
     } else {
       equipmentHTML = `
         <div style="background:#f8f9f7; padding:20px; text-align:center; border-radius:12px; margin-top:10px;">
-          <p style='color:#707a74; font-size:13px; margin:0 0 10px 0;'>Aucun équipement enregistré dans ce système.</p>
-          <button class="button secondary" onclick="openAddEquipmentModal('${systemId}')">Ajouter mon premier équipement</button>
+          <p style='color:#707a74; font-size:13px; margin:0 0 10px 0;'>Aucun équipement enregistré.</p>
+          <button class="button secondary" onclick="openAddEquipmentModal('${systemId}')">Ajouter un équipement</button>
         </div>
       `;
     }
@@ -200,7 +125,6 @@ async function openSystem(systemId) {
       </div>
       ${equipmentHTML}
     `;
-
     openModal();
   } catch (error) {
     showMessage("Impossible d'ouvrir ce système.");
@@ -234,13 +158,13 @@ function openAddEquipmentModal(preselectedSystem = "") {
     <h2>Ajouter un appareil</h2>
     <form onsubmit="submitEquipment(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
       <div>
-        <label style="font-size:12px; font-weight:700; color:#59645d;">Système concerné</label>
+        <label style="font-size:12px; font-weight:700; color:#59645d;">Système</label>
         <select id="form-sys-id" required style="width:100%; padding:10px; border-radius:10px; border:1px solid #cdd4ce;">
           ${systemOptions}
         </select>
       </div>
       <div>
-        <label style="font-size:12px; font-weight:700; color:#59645d;">Nom (ex: Pompe à chaleur) *</label>
+        <label style="font-size:12px; font-weight:700; color:#59645d;">Nom *</label>
         <input type="text" id="form-name" required style="width:100%; padding:10px; border-radius:10px; border:1px solid #cdd4ce;">
       </div>
       <div>
@@ -292,20 +216,14 @@ function openQrSimulatorModal() {
 }
 
 function openPlan() {
-  showMessage("Plan interactif à venir.");
+  showMessage("Bientôt disponible.");
 }
 
-function openModal() {
-  document.getElementById("modal").classList.remove("hidden");
-}
-
-function closeModal() {
-  document.getElementById("modal").classList.add("hidden");
-}
+function openModal() { document.getElementById("modal").classList.remove("hidden"); }
+function closeModal() { document.getElementById("modal").classList.add("hidden"); }
 
 document.addEventListener("click", function(event) {
-  const modal = document.getElementById("modal");
-  if (event.target === modal) closeModal();
+  if (event.target === document.getElementById("modal")) closeModal();
 });
 
 function showMessage(message) {
