@@ -1,6 +1,4 @@
-/* ============================================
-   HOME ID — INTERFACE
-   ============================================ */
+/* HOME ID — INTERFACE */
 
 * {
   box-sizing: border-box;
@@ -14,22 +12,11 @@ body {
   margin: 0;
   background: #f4f6f3;
   color: #17211c;
-  font-family:
-    Inter,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.5;
 }
 
-/* ============================================
-   BARRE DU HAUT
-   ============================================ */
-
+/* BARRE DU HAUT */
 .topbar {
   height: 72px;
   background: rgba(255, 255, 255, 0.94);
@@ -86,20 +73,14 @@ body {
   font-size: 17px;
 }
 
-/* ============================================
-   CONTENEUR
-   ============================================ */
-
+/* CONTENEUR */
 .container {
   width: min(1180px, calc(100% - 40px));
   margin: 0 auto;
   padding: 48px 0 80px;
 }
 
-/* ============================================
-   INTRODUCTION
-   ============================================ */
-
+/* INTRODUCTION */
 .welcome {
   display: flex;
   justify-content: space-between;
@@ -133,19 +114,13 @@ body {
   font-size: 17px;
 }
 
-/* ============================================
-   BOUTONS
-   ============================================ */
-
+/* BOUTONS */
 .button,
 .link-button {
   border: 0;
   cursor: pointer;
   font: inherit;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    background 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .button {
@@ -186,10 +161,7 @@ body {
   padding: 8px 0;
 }
 
-/* ============================================
-   CARTE MAISON
-   ============================================ */
-
+/* CARTE MAISON */
 .house-card {
   background: #17211c;
   color: white;
@@ -258,10 +230,7 @@ body {
   font-weight: 650;
 }
 
-/* ============================================
-   GRILLE
-   ============================================ */
-
+/* GRILLE */
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -296,10 +265,7 @@ body {
   letter-spacing: -0.025em;
 }
 
-/* ============================================
-   SYSTÈMES
-   ============================================ */
-
+/* SYSTÈMES */
 .systems {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -313,10 +279,7 @@ body {
   border-radius: 17px;
   background: #fafcfb;
   cursor: pointer;
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
 .system:hover {
@@ -357,34 +320,14 @@ body {
   display: inline-block;
 }
 
-.status.green {
-  color: #36714d;
-}
+.status.green { color: #36714d; }
+.status.green .dot { background: #4b9b69; }
+.status.orange { color: #a26b28; }
+.status.orange .dot { background: #d18a35; }
+.status.red { color: #a24b4b; }
+.status.red .dot { background: #c65b5b; }
 
-.status.green .dot {
-  background: #4b9b69;
-}
-
-.status.orange {
-  color: #a26b28;
-}
-
-.status.orange .dot {
-  background: #d18a35;
-}
-
-.status.red {
-  color: #a24b4b;
-}
-
-.status.red .dot {
-  background: #c65b5b;
-}
-
-/* ============================================
-   ENTRETIEN
-   ============================================ */
-
+/* ENTRETIEN */
 .alert {
   padding: 15px 0;
   border-bottom: 1px solid #e8ece9;
@@ -412,10 +355,7 @@ body {
   font-size: 13px;
 }
 
-/* ============================================
-   PROFESSIONNELS
-   ============================================ */
-
+/* PROFESSIONNELS */
 .pro {
   position: relative;
   padding: 15px 0;
@@ -448,10 +388,7 @@ body {
   font-weight: 700;
 }
 
-/* ============================================
-   DOCUMENTS
-   ============================================ */
-
+/* DOCUMENTS */
 .documents {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -467,6 +404,12 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.document:hover {
+  transform: translateY(-2px);
 }
 
 .document-icon {
@@ -482,10 +425,7 @@ body {
   color: #78827b;
 }
 
-/* ============================================
-   ÉQUIPEMENTS
-   ============================================ */
-
+/* ÉQUIPEMENTS */
 .equipment {
   display: flex;
   flex-direction: column;
@@ -507,10 +447,7 @@ body {
   font-size: 12px;
 }
 
-/* ============================================
-   MODALE
-   ============================================ */
-
+/* MODALE */
 .modal {
   position: fixed;
   inset: 0;
@@ -563,10 +500,7 @@ body {
   line-height: 1;
 }
 
-/* ============================================
-   MESSAGE
-   ============================================ */
-
+/* MESSAGE TEMPORAIRE */
 .toast {
   position: fixed;
   left: 50%;
@@ -579,9 +513,7 @@ body {
   font-size: 13px;
   opacity: 0;
   pointer-events: none;
-  transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
   z-index: 200;
 }
 
@@ -590,152 +522,38 @@ body {
   transform: translate(-50%, 0);
 }
 
-/* ============================================
-   RESPONSIVE — TABLETTE
-   ============================================ */
-
+/* RESPONSIVE */
 @media (max-width: 850px) {
-
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .card.documents-card {
-    grid-column: auto;
-  }
-
-  .systems {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .documents {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .card.documents-card { grid-column: auto; }
+  .systems { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .documents { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-/* ============================================
-   RESPONSIVE — MOBILE
-   ============================================ */
-
 @media (max-width: 600px) {
-
-  .topbar {
-    height: 62px;
-    padding: 0 17px;
-  }
-
-  .brand {
-    font-size: 18px;
-  }
-
-  .brand-icon {
-    width: 34px;
-    height: 34px;
-    font-size: 19px;
-  }
-
-  .user {
-    font-size: 12px;
-  }
-
-  .user-icon {
-    width: 30px;
-    height: 30px;
-  }
-
-  .container {
-    width: min(100% - 28px, 1180px);
-    padding: 30px 0 55px;
-  }
-
-  .welcome {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  .welcome h1 {
-    font-size: 48px;
-  }
-
-  .welcome p {
-    font-size: 15px;
-    margin-top: 14px;
-  }
-
-  .house-card {
-    padding: 22px;
-    border-radius: 21px;
-  }
-
-  .house-info {
-    gap: 14px;
-  }
-
-  .house-image {
-    width: 52px;
-    height: 52px;
-    flex-basis: 52px;
-    font-size: 25px;
-  }
-
-  .house-card h2 {
-    font-size: 27px;
-  }
-
-  .house-details {
-    gap: 20px 28px;
-  }
-
-  .dashboard-grid {
-    gap: 16px;
-  }
-
-  .card {
-    padding: 20px;
-    border-radius: 19px;
-  }
-
-  .card h2 {
-    font-size: 27px;
-  }
-
-  .systems {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 9px;
-  }
-
-  .system {
-    min-height: 125px;
-    padding: 14px;
-  }
-
-  .system-icon {
-    width: 38px;
-    height: 38px;
-    font-size: 20px;
-    margin-bottom: 10px;
-  }
-
-  .system-name {
-    font-size: 13px;
-  }
-
-  .documents {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .document {
-    min-height: 115px;
-    padding: 15px;
-  }
-
-  .modal {
-    padding: 12px;
-  }
-
-  .modal-content {
-    padding: 24px;
-    border-radius: 20px;
-  }
+  .topbar { height: 62px; padding: 0 17px; }
+  .brand { font-size: 18px; }
+  .brand-icon { width: 34px; height: 34px; font-size: 19px; }
+  .user { font-size: 12px; }
+  .user-icon { width: 30px; height: 30px; }
+  .container { width: min(100% - 28px, 1180px); padding: 30px 0 55px; }
+  .welcome { align-items: flex-start; flex-direction: column; gap: 20px; }
+  .welcome h1 { font-size: 48px; }
+  .welcome p { font-size: 15px; margin-top: 14px; }
+  .house-card { padding: 22px; border-radius: 21px; }
+  .house-info { gap: 14px; }
+  .house-image { width: 52px; height: 52px; flex-basis: 52px; font-size: 25px; }
+  .house-card h2 { font-size: 27px; }
+  .house-details { gap: 20px 28px; }
+  .dashboard-grid { gap: 16px; }
+  .card { padding: 20px; border-radius: 19px; }
+  .card h2 { font-size: 27px; }
+  .systems { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .system { min-height: 125px; padding: 14px; }
+  .system-icon { width: 38px; height: 38px; font-size: 20px; margin-bottom: 10px; }
+  .system-name { font-size: 13px; }
+  .documents { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .document { min-height: 115px; padding: 15px; }
+  .modal { padding: 12px; }
+  .modal-content { padding: 24px; border-radius: 20px; }
 }
