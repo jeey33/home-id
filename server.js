@@ -214,14 +214,6 @@ app.get("/api/systems/:id", (req, res) => {
   res.json(system);
 });
 
-// Pour toutes les autres pages,
-// on renvoie notre application principale
-app.get("*", (req, res) => {
-  res.sendFile(
-    path.join(__dirname, "public", "index.html")
-  );
-});
-
 // Démarrage du serveur
 app.listen(PORT, () => {
   console.log(`HOME ID fonctionne sur le port ${PORT}`);
