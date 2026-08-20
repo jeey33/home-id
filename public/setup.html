@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Initialisation — HOME ID</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body style="display: flex; align-items: center; justify-content: center; min-height: 100vh;">
+
+  <div class="onboarding-card">
+    <div class="onboarding-icon">✨</div>
+    <h1>Bienvenue sur HOME ID</h1>
+    <p>Votre carnet d'information du logement numérique. Commençons par configurer votre maison.</p>
+    
+    <form id="setup-form" class="onboarding-form">
+      <div class="form-group">
+        <label>Nom de la maison *</label>
+        <input type="text" id="setup-name" placeholder="ex: Villa des Pins, Ma Maison..." required>
+      </div>
+      
+      <div class="form-group">
+        <label>Année de construction *</label>
+        <input type="number" id="setup-year" placeholder="ex: 2018" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Surface habitable (m²)</label>
+          <input type="number" id="setup-surface" placeholder="ex: 120">
+        </div>
+        <div class="form-group">
+          <label>Surface terrain (m²)</label>
+          <input type="number" id="setup-land" placeholder="ex: 500">
+        </div>
+      </div>
+
+      <button type="submit" class="button primary" style="width: 100%; padding: 16px; margin-top: 10px; font-size: 16px;">
+        Créer ma maison
+      </button>
+    </form>
+    
+    <!-- Message temporaire -->
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <script>
+    document.getElementById("setup-form").addEventListener("submit", async function(event) {
+      event.preventDefault();
+      
+      const payload = {
+        name: document.getElementById("setup-name").value,
+        year: document.getElementById("setup-year").value,
+        surface: document.getElementById("setup-surface").value,
+        land: document.getElementById("setup-land").value
+      };
+
+      try {
+        const response = await fetch("/api/setup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          // La création a réussi, on redirige vers le tableau de bord
+          window.location.href = "/";
+        } else {
+          showToast("Erreur lors de la création.");
+        }
+      } catch (error) {
+        showToast("Erreur réseau.");
+      }
+    });
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2500);
+    }
+  </script>
+</body>
+</html>
