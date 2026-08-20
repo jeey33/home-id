@@ -1,0 +1,888 @@
+/* ============================================
+IDENTIFICATION DE LA MAISON — PRINCIPE DE STYLE
+=========================================== */
+
+* {
+box-sizing: border-box;
+}
+
+html {
+comportement de défilement : fluide ;
+}
+
+corps {
+marge : 0 ;
+police-family:
+Entre,
+-système-apple,
+Police système BlinkMac,
+"Segoe UI",
+sans empattement;
+
+arrière-plan : #f5f6f3 ;
+couleur : #18201c ;
+}
+
+
+/* ============================================
+BARRE DU HAUT
+=========================================== */
+
+.topbar {
+hauteur : 72px ;
+
+arrière-plan : #ffffff ;
+
+bordure inférieure : 1px solide #e3e7e2 ;
+
+affichage : flexible ;
+aligner les éléments : centrer ;
+justificatif-contenu : espace-entre ;
+
+rembourrage : 0 6vw ;
+
+position : collante ;
+haut : 0 ;
+
+z-index : 100 ;
+}
+
+
+/* LOGO */
+
+.marque {
+affichage : flexible ;
+aligner les éléments : centrer ;
+écart : 11 px ;
+
+taille de police : 20px ;
+police-weight: 700;
+
+espacement des lettres : 0,08 em ;
+}
+
+.marque forte {
+police-weight: 900;
+}
+
+
+.brand-icon {
+largeur : 36 px ;
+hauteur : 36px ;
+
+bordure-radius: 11px;
+
+arrière-plan : #18221c ;
+couleur : blanc ;
+
+affichage : grille ;
+place-items: centre;
+
+taille de police : 19 px ;
+}
+
+
+/* UTILISATEUR */
+
+.utilisateur {
+affichage : flexible ;
+aligner les éléments : centrer ;
+écart : 8 px ;
+
+arrière-plan : #f0f2ee ;
+
+marge intérieure : 9px 14px ;
+
+bordure-radius: 999px;
+
+taille de police : 13 px ;
+police-weight: 600;
+}
+
+.icône-utilisateur {
+taille de police : 15 px ;
+}
+
+
+/* ============================================
+CONTENEUR
+=========================================== */
+
+.conteneur {
+largeur : min(1132px, calc(100% - 36px));
+
+marge : 0 automatique ;
+
+marge inférieure : 70px ;
+}
+
+
+/* ============================================
+INTRODUCTION
+=========================================== */
+
+.accueillir {
+marge supérieure : 48px ;
+marge inférieure : 28px ;
+
+affichage : flexible ;
+
+justificatif-contenu : espace-entre ;
+align-items: flex-end;
+
+écart : 25 px ;
+}
+
+
+.sourcil {
+marge inférieure : 8 px ;
+
+taille de police : 11 px ;
+
+espacement des lettres : 0,16 em ;
+
+police-weight: 800;
+
+couleur : #7a837d ;
+}
+
+
+.bienvenue h1 {
+marge : 0 ;
+
+taille de police : 44 px ;
+
+hauteur de ligne : 1 ;
+
+espacement des lettres : -0,045em ;
+}
+
+
+.bienvenue p {
+marge supérieure : 12px ;
+
+couleur : #737c76 ;
+
+taille de police : 15 px ;
+}
+
+
+/* ============================================
+BOUTONS
+=========================================== */
+
+.bouton {
+bordure : 0 ;
+
+bordure-radius: 11px;
+
+marge intérieure : 12px 17px ;
+
+taille de police : 13 px ;
+
+police-weight: 700;
+
+curseur : pointeur ;
+
+transition:
+transformation 0,15s,
+ombre portée 0,15 s ;
+}
+
+
+.button:hover {
+transform: translateY(-1px);
+}
+
+
+.primaire {
+arrière-plan : #18221c ;
+
+couleur : blanc ;
+
+ombre portée :
+0 7px 18px rgba(24, 34, 28, 0.15);
+}
+
+
+.secondaire {
+arrière-plan : #eef1ed ;
+
+couleur : #27322b ;
+}
+
+
+.link-button {
+bordure : 0 ;
+
+arrière-plan : transparent ;
+
+couleur : #526059 ;
+
+taille de police : 13 px ;
+
+police-weight: 700;
+
+curseur : pointeur ;
+}
+
+
+/* ============================================
+CARTE MAISON
+=========================================== */
+
+.carte-maison {
+fond : blanc ;
+
+bordure : 1px solide #e1e5e0 ;
+
+bordure-radius: 20px;
+
+marge intérieure : 24 px ;
+
+affichage : flexible ;
+
+aligner les éléments : centrer ;
+
+écart : 28px ;
+
+ombre portée :
+0 8px 30px rgba(24, 34, 28, 0.04);
+
+marge inférieure : 24px ;
+}
+
+
+.house-info {
+affichage : flexible ;
+
+aligner les éléments : centrer ;
+
+écart : 16 px ;
+
+largeur minimale : 300 px ;
+
+flex : 1 ;
+}
+
+
+.house-image {
+largeur : 66 px ;
+hauteur : 66px ;
+
+bordure-radius: 17px;
+
+arrière-plan : #edf1ec ;
+
+affichage : grille ;
+place-items: centre;
+
+taille de police : 32 px ;
+}
+
+
+.house-card h2 {
+marge : 0 ;
+
+taille de police : 18 px ;
+
+espacement des lettres : -0,02em ;
+}
+
+
+.carte-maison p {
+marge : 5px 0 0 ;
+
+couleur : #7b847e ;
+
+taille de police : 12px ;
+}
+
+
+/* MAISON D'INFORMATION */
+
+.détails-maison {
+affichage : flexible ;
+
+écart : 38px ;
+}
+
+
+.house-details div {
+affichage : flexible ;
+
+direction flexible : colonne ;
+
+écart : 5 px ;
+}
+
+
+.house-details span {
+couleur : #858e88 ;
+
+taille de police : 11 px ;
+}
+
+
+.house-details fort {
+taille de police : 16 px ;
+}
+
+
+/* ============================================
+TABLEAU DE BORD
+=========================================== */
+
+.dashboard-grid {
+affichage : grille ;
+
+grille-template-columns: 1fr 1fr;
+
+écart : 24 px ;
+}
+
+
+/* ============================================
+CARTES
+=========================================== */
+
+.carte {
+fond : blanc ;
+
+bordure : 1px solide #e1e5e0 ;
+
+bordure-radius: 20px;
+
+marge intérieure : 24 px ;
+
+ombre portée :
+0 8px 30px rgba(24, 34, 28, 0.035);
+}
+
+
+.carte-système,
+.documents-card {
+colonne de grille : étendue 2 ;
+}
+
+
+.card-header {
+affichage : flexible ;
+
+align-items: flex-start;
+
+justificatif-contenu : espace-entre ;
+
+marge inférieure : 20px ;
+}
+
+
+.card h2 {
+marge : 0 ;
+
+taille de police : 20px ;
+
+espacement des lettres : -0,025em ;
+}
+
+
+/* ============================================
+SYSTÈMES
+=========================================== */
+
+.systèmes {
+affichage : grille ;
+
+colonnes du modèle de grille :
+répéter(3, 1fr);
+
+écart : 12 px ;
+}
+
+
+.système {
+bordure : 1px solide #e6e9e5 ;
+
+bordure-radius: 15px;
+
+marge intérieure : 17 px ;
+
+curseur : pointeur ;
+
+arrière-plan : #ffffff ;
+
+transition:
+transformation 0,18s,
+ombre portée 0,18 s,
+couleur de bordure 0,18s ;
+}
+
+
+.system:hover {
+transform: translateY(-2px);
+
+couleur de bordure : #ccd3cd ;
+
+ombre portée :
+0 9px 25px rgba(24, 34, 28, 0.07);
+}
+
+
+.system-icon {
+taille de police : 25 px ;
+}
+
+
+.nom-système {
+marge supérieure : 11px ;
+
+taille de police : 14px ;
+
+police-weight: 700;
+}
+
+
+.statut {
+marge supérieure : 8px ;
+
+affichage : flexible ;
+
+aligner les éléments : centrer ;
+
+écart : 6 px ;
+
+taille de police : 11 px ;
+}
+
+
+.dot {
+largeur : 7 px ;
+hauteur : 7px ;
+
+rayon de bordure : 50 % ;
+}
+
+
+.status.green .dot {
+arrière-plan : #55a76e ;
+}
+
+
+.status.orange .dot {
+arrière-plan : #e2a03c ;
+}
+
+
+/* ============================================
+ENTRETIEN
+=========================================== */
+
+.alerte {
+marge intérieure : 14px 0 ;
+
+bordure inférieure : 1px solide #edf0ec ;
+}
+
+
+.alerte:dernier-enfant {
+bordure inférieure : 0 ;
+}
+
+
+.alerte forte {
+taille de police : 13 px ;
+}
+
+
+.alerte p {
+marge : 4px 0 0 ;
+
+couleur : #7b847e ;
+
+taille de police : 12px ;
+}
+
+
+.date {
+flotter : droite ;
+
+couleur : #89918b ;
+
+taille de police : 11 px ;
+}
+
+
+/* ============================================
+PROFESSIONNELS
+=========================================== */
+
+.pro {
+marge intérieure : 14px 0 ;
+
+bordure inférieure : 1px solide #edf0ec ;
+}
+
+
+.pro:dernier-enfant {
+bordure inférieure : 0 ;
+}
+
+
+.pro fort {
+taille de police : 13 px ;
+}
+
+
+.pro p {
+marge : 5px 0 0 ;
+
+couleur : #7b847e ;
+
+taille de police : 12px ;
+}
+
+
+.access-active {
+flotter : droite ;
+
+couleur : #4e9061 ;
+
+taille de police : 11 px ;
+
+police-weight: 700;
+}
+
+
+/* ============================================
+DOCUMENTS
+=========================================== */
+
+.documents {
+affichage : grille ;
+
+colonnes du modèle de grille :
+répéter(4, 1fr);
+
+écart : 12 px ;
+}
+
+
+.document {
+marge intérieure : 18px ;
+
+bordure-radius: 15px;
+
+arrière-plan : #f7f8f6 ;
+
+curseur : pointeur ;
+
+transition:
+transformation 0,15s,
+arrière-plan 0,15 s ;
+}
+
+
+.document:hover {
+transform: translateY(-2px);
+
+arrière-plan : #f1f3ef ;
+}
+
+
+.document-icon {
+taille de police : 24 px ;
+
+marge inférieure : 12px ;
+}
+
+
+.document fort {
+affichage : bloc ;
+
+taille de police : 13 px ;
+}
+
+
+.document span {
+affichage : bloc ;
+
+marge supérieure : 5 px ;
+
+couleur : #858e88 ;
+
+taille de police : 11 px ;
+}
+
+
+/* ============================================
+MODALE
+=========================================== */
+
+.modal {
+position : fixe ;
+
+encart : 0 ;
+
+arrière-plan:
+rgba(10, 16, 12, 0,45);
+
+affichage : grille ;
+
+place-items: centre;
+
+marge intérieure : 20px ;
+
+z-index: 200;
+}
+
+
+.modal.hidden {
+affichage : aucun ;
+}
+
+
+.modal-content {
+largeur : min(720px, 100 %) ;
+
+hauteur maximale : 85vh ;
+
+débordement-y : automatique ;
+
+fond : blanc ;
+
+bordure-radius: 22px;
+
+marge intérieure : 30 px ;
+
+position : relative ;
+
+ombre portée :
+0 25px 70px rgba(0, 0, 0, 0.2);
+}
+
+
+.fermer {
+position : absolue ;
+
+haut : 12px ;
+
+droite : 17px ;
+
+bordure : 0 ;
+
+arrière-plan : transparent ;
+
+taille de police : 28 px ;
+
+curseur : pointeur ;
+
+couleur : #68716b ;
+}
+
+
+.modal-content h2 {
+marge supérieure : 0 ;
+}
+
+
+.modal-content h3 {
+marge supérieure : 25px ;
+
+taille de police : 15 px ;
+}
+
+
+.équipement {
+marge intérieure : 14px 0 ;
+
+bordure inférieure : 1px solide #edf0ec ;
+}
+
+
+.équipement solide {
+affichage : bloc ;
+
+taille de police : 13 px ;
+}
+
+
+.équipement span {
+affichage : bloc ;
+
+marge supérieure : 4 px ;
+
+couleur : #7c857f ;
+
+taille de police : 11 px ;
+}
+
+
+/* ============================================
+MESSAGE
+=========================================== */
+
+.griller {
+position : fixe ;
+
+gauche : 50 % ;
+bas : 22px ;
+
+transformer:
+translate(-50%, 20px);
+
+arrière-plan : #18221c ;
+
+couleur : blanc ;
+
+marge intérieure : 12px 18px ;
+
+bordure-radius: 10px;
+
+taille de police : 13 px ;
+
+opacité : 0 ;
+
+événements de pointeur : aucun ;
+
+transition:
+opacité 0,2s,
+transformer 0,2s ;
+
+z-index: 300;
+}
+
+
+.toast.show {
+opacité : 1 ;
+
+transformer:
+traduire(-50%, 0);
+}
+
+
+/* ============================================
+MOBILE
+=========================================== */
+
+@media (max-width: 850px) {
+
+.accueillir {
+align-items: flex-start;
+}
+
+
+.carte-maison {
+flex-wrap : envelopper ;
+}
+
+
+.house-info {
+largeur : 100 % ;
+}
+
+
+.détails-maison {
+flex : 1 ;
+
+justificatif-contenu : espace-entre ;
+}
+
+
+.dashboard-grid {
+grid-template-columns: 1fr;
+}
+
+
+.carte-système,
+.documents-card {
+colonne de grille : étendue 1 ;
+}
+
+
+.systèmes {
+colonnes du modèle de grille :
+répéter(2, 1fr);
+}
+
+
+.documents {
+colonnes du modèle de grille :
+répéter(2, 1fr);
+}
+
+}
+
+
+/* ============================================
+PETITS TÉLÉPHONES
+=========================================== */
+
+@media (max-width: 520px) {
+
+.topbar {
+marge intérieure : 0 18px ;
+}
+
+
+.conteneur {
+largeur : calc(100% - 28px);
+}
+
+
+.accueillir {
+marge supérieure : 32px ;
+}
+
+
+.bienvenue h1 {
+taille de police : 35 px ;
+}
+
+
+.bienvenue .primaire {
+affichage : aucun ;
+}
+
+
+.carte-maison {
+marge intérieure : 18 px ;
+}
+
+
+.house-info {
+largeur minimale : 0 ;
+}
+
+
+.détails-maison {
+largeur : 100 % ;
+
+écart : 12 px ;
+}
+
+
+.house-details fort {
+taille de police : 14px ;
+}
+
+
+.systèmes {
+grid-template-columns: 1fr;
+}
+
+
+.documents {
+grid-template-columns: 1fr;
+}
+
+
+.carte {
+marge intérieure : 19 px ;
+}
+
+
+.utilisateur {
+marge intérieure : 8px 10px ;
+}
+
+}
