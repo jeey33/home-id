@@ -1,888 +1,741 @@
 /* ============================================
-IDENTIFICATION DE LA MAISON — PRINCIPE DE STYLE
-=========================================== */
+   HOME ID — INTERFACE
+   ============================================ */
 
 * {
-box-sizing: border-box;
+  box-sizing: border-box;
 }
 
 html {
-comportement de défilement : fluide ;
+  scroll-behavior: smooth;
 }
 
-corps {
-marge : 0 ;
-police-family:
-Entre,
--système-apple,
-Police système BlinkMac,
-"Segoe UI",
-sans empattement;
-
-arrière-plan : #f5f6f3 ;
-couleur : #18201c ;
+body {
+  margin: 0;
+  background: #f4f6f3;
+  color: #17211c;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  line-height: 1.5;
 }
-
 
 /* ============================================
-BARRE DU HAUT
-=========================================== */
+   BARRE DU HAUT
+   ============================================ */
 
 .topbar {
-hauteur : 72px ;
-
-arrière-plan : #ffffff ;
-
-bordure inférieure : 1px solide #e3e7e2 ;
-
-affichage : flexible ;
-aligner les éléments : centrer ;
-justificatif-contenu : espace-entre ;
-
-rembourrage : 0 6vw ;
-
-position : collante ;
-haut : 0 ;
-
-z-index : 100 ;
+  height: 72px;
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid #e3e8e4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(12px);
 }
 
-
-/* LOGO */
-
-.marque {
-affichage : flexible ;
-aligner les éléments : centrer ;
-écart : 11 px ;
-
-taille de police : 20px ;
-police-weight: 700;
-
-espacement des lettres : 0,08 em ;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 21px;
+  letter-spacing: 0.04em;
+  font-weight: 500;
 }
 
-.marque forte {
-police-weight: 900;
+.brand strong {
+  font-weight: 800;
 }
-
 
 .brand-icon {
-largeur : 36 px ;
-hauteur : 36px ;
-
-bordure-radius: 11px;
-
-arrière-plan : #18221c ;
-couleur : blanc ;
-
-affichage : grille ;
-place-items: centre;
-
-taille de police : 19 px ;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: #17211c;
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
 }
 
-
-/* UTILISATEUR */
-
-.utilisateur {
-affichage : flexible ;
-aligner les éléments : centrer ;
-écart : 8 px ;
-
-arrière-plan : #f0f2ee ;
-
-marge intérieure : 9px 14px ;
-
-bordure-radius: 999px;
-
-taille de police : 13 px ;
-police-weight: 600;
+.user {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  color: #59645d;
 }
 
-.icône-utilisateur {
-taille de police : 15 px ;
+.user-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #e8eee9;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
 }
-
 
 /* ============================================
-CONTENEUR
-=========================================== */
+   CONTENEUR
+   ============================================ */
 
-.conteneur {
-largeur : min(1132px, calc(100% - 36px));
-
-marge : 0 automatique ;
-
-marge inférieure : 70px ;
+.container {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 48px 0 80px;
 }
-
 
 /* ============================================
-INTRODUCTION
-=========================================== */
+   INTRODUCTION
+   ============================================ */
 
-.accueillir {
-marge supérieure : 48px ;
-marge inférieure : 28px ;
-
-affichage : flexible ;
-
-justificatif-contenu : espace-entre ;
-align-items: flex-end;
-
-écart : 25 px ;
+.welcome {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 30px;
+  margin-bottom: 30px;
 }
 
-
-.sourcil {
-marge inférieure : 8 px ;
-
-taille de police : 11 px ;
-
-espacement des lettres : 0,16 em ;
-
-police-weight: 800;
-
-couleur : #7a837d ;
+.eyebrow {
+  color: #77827a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
 }
 
-
-.bienvenue h1 {
-marge : 0 ;
-
-taille de police : 44 px ;
-
-hauteur de ligne : 1 ;
-
-espacement des lettres : -0,045em ;
+.welcome h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(44px, 6vw, 72px);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1;
 }
 
-
-.bienvenue p {
-marge supérieure : 12px ;
-
-couleur : #737c76 ;
-
-taille de police : 15 px ;
+.welcome p {
+  max-width: 650px;
+  margin: 18px 0 0;
+  color: #667169;
+  font-size: 17px;
 }
-
 
 /* ============================================
-BOUTONS
-=========================================== */
+   BOUTONS
+   ============================================ */
 
-.bouton {
-bordure : 0 ;
-
-bordure-radius: 11px;
-
-marge intérieure : 12px 17px ;
-
-taille de police : 13 px ;
-
-police-weight: 700;
-
-curseur : pointeur ;
-
-transition:
-transformation 0,15s,
-ombre portée 0,15 s ;
+.button,
+.link-button {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
 }
 
-
-.button:hover {
-transform: translateY(-1px);
+.button {
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-weight: 600;
 }
 
-
-.primaire {
-arrière-plan : #18221c ;
-
-couleur : blanc ;
-
-ombre portée :
-0 7px 18px rgba(24, 34, 28, 0.15);
+.button:hover,
+.link-button:hover {
+  transform: translateY(-1px);
 }
 
-
-.secondaire {
-arrière-plan : #eef1ed ;
-
-couleur : #27322b ;
+.button.primary {
+  background: #17211c;
+  color: white;
+  box-shadow: 0 8px 20px rgba(23, 33, 28, 0.15);
 }
 
+.button.primary:hover {
+  background: #26342d;
+}
+
+.button.secondary {
+  background: #edf1ee;
+  color: #26332c;
+}
+
+.button.secondary:hover {
+  background: #e2e8e3;
+}
 
 .link-button {
-bordure : 0 ;
-
-arrière-plan : transparent ;
-
-couleur : #526059 ;
-
-taille de police : 13 px ;
-
-police-weight: 700;
-
-curseur : pointeur ;
+  background: transparent;
+  color: #536159;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 0;
 }
-
 
 /* ============================================
-CARTE MAISON
-=========================================== */
+   CARTE MAISON
+   ============================================ */
 
-.carte-maison {
-fond : blanc ;
-
-bordure : 1px solide #e1e5e0 ;
-
-bordure-radius: 20px;
-
-marge intérieure : 24 px ;
-
-affichage : flexible ;
-
-aligner les éléments : centrer ;
-
-écart : 28px ;
-
-ombre portée :
-0 8px 30px rgba(24, 34, 28, 0.04);
-
-marge inférieure : 24px ;
+.house-card {
+  background: #17211c;
+  color: white;
+  border-radius: 26px;
+  padding: 32px;
+  margin-bottom: 22px;
+  box-shadow: 0 20px 50px rgba(23, 33, 28, 0.12);
 }
-
 
 .house-info {
-affichage : flexible ;
-
-aligner les éléments : centrer ;
-
-écart : 16 px ;
-
-largeur minimale : 300 px ;
-
-flex : 1 ;
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
 }
-
 
 .house-image {
-largeur : 66 px ;
-hauteur : 66px ;
-
-bordure-radius: 17px;
-
-arrière-plan : #edf1ec ;
-
-affichage : grille ;
-place-items: centre;
-
-taille de police : 32 px ;
+  width: 66px;
+  height: 66px;
+  flex: 0 0 66px;
+  border-radius: 18px;
+  background: #29372f;
+  display: grid;
+  place-items: center;
+  font-size: 32px;
 }
 
+.house-card .eyebrow {
+  color: #aab7af;
+}
 
 .house-card h2 {
-marge : 0 ;
-
-taille de police : 18 px ;
-
-espacement des lettres : -0,02em ;
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(27px, 4vw, 40px);
+  font-weight: 500;
+  letter-spacing: -0.025em;
 }
 
-
-.carte-maison p {
-marge : 5px 0 0 ;
-
-couleur : #7b847e ;
-
-taille de police : 12px ;
+.house-card p {
+  margin: 7px 0 0;
+  color: #aebbb2;
 }
 
-
-/* MAISON D'INFORMATION */
-
-.détails-maison {
-affichage : flexible ;
-
-écart : 38px ;
+.house-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 45px;
+  margin: 30px 0 24px;
+  padding-top: 25px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
-
 
 .house-details div {
-affichage : flexible ;
-
-direction flexible : colonne ;
-
-écart : 5 px ;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
-
 
 .house-details span {
-couleur : #858e88 ;
-
-taille de police : 11 px ;
+  color: #94a199;
+  font-size: 12px;
 }
 
-
-.house-details fort {
-taille de police : 16 px ;
+.house-details strong {
+  font-size: 19px;
+  font-weight: 650;
 }
-
 
 /* ============================================
-TABLEAU DE BORD
-=========================================== */
+   GRILLE
+   ============================================ */
 
 .dashboard-grid {
-affichage : grille ;
-
-grille-template-columns: 1fr 1fr;
-
-écart : 24 px ;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
 }
 
-
-/* ============================================
-CARTES
-=========================================== */
-
-.carte {
-fond : blanc ;
-
-bordure : 1px solide #e1e5e0 ;
-
-bordure-radius: 20px;
-
-marge intérieure : 24 px ;
-
-ombre portée :
-0 8px 30px rgba(24, 34, 28, 0.035);
+.card {
+  background: white;
+  border: 1px solid #e4e9e5;
+  border-radius: 22px;
+  padding: 25px;
+  box-shadow: 0 8px 25px rgba(31, 45, 37, 0.04);
 }
 
-
-.carte-système,
-.documents-card {
-colonne de grille : étendue 2 ;
+.card.documents-card {
+  grid-column: 1 / -1;
 }
-
 
 .card-header {
-affichage : flexible ;
-
-align-items: flex-start;
-
-justificatif-contenu : espace-entre ;
-
-marge inférieure : 20px ;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 22px;
 }
-
 
 .card h2 {
-marge : 0 ;
-
-taille de police : 20px ;
-
-espacement des lettres : -0,025em ;
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
 }
-
 
 /* ============================================
-SYSTÈMES
-=========================================== */
+   SYSTÈMES
+   ============================================ */
 
-.systèmes {
-affichage : grille ;
-
-colonnes du modèle de grille :
-répéter(3, 1fr);
-
-écart : 12 px ;
+.systems {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
-
-.système {
-bordure : 1px solide #e6e9e5 ;
-
-bordure-radius: 15px;
-
-marge intérieure : 17 px ;
-
-curseur : pointeur ;
-
-arrière-plan : #ffffff ;
-
-transition:
-transformation 0,18s,
-ombre portée 0,18 s,
-couleur de bordure 0,18s ;
+.system {
+  min-height: 145px;
+  padding: 17px;
+  border: 1px solid #e3e9e4;
+  border-radius: 17px;
+  background: #fafcfb;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
 }
-
 
 .system:hover {
-transform: translateY(-2px);
-
-couleur de bordure : #ccd3cd ;
-
-ombre portée :
-0 9px 25px rgba(24, 34, 28, 0.07);
+  transform: translateY(-3px);
+  border-color: #cbd5ce;
+  box-shadow: 0 10px 25px rgba(31, 45, 37, 0.08);
 }
-
 
 .system-icon {
-taille de police : 25 px ;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: #edf2ee;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  margin-bottom: 13px;
 }
 
-
-.nom-système {
-marge supérieure : 11px ;
-
-taille de police : 14px ;
-
-police-weight: 700;
+.system-name {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
 }
 
-
-.statut {
-marge supérieure : 8px ;
-
-affichage : flexible ;
-
-aligner les éléments : centrer ;
-
-écart : 6 px ;
-
-taille de police : 11 px ;
+.status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 650;
 }
-
 
 .dot {
-largeur : 7 px ;
-hauteur : 7px ;
-
-rayon de bordure : 50 % ;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
 }
 
+.status.green {
+  color: #36714d;
+}
 
 .status.green .dot {
-arrière-plan : #55a76e ;
+  background: #4b9b69;
 }
 
+.status.orange {
+  color: #a26b28;
+}
 
 .status.orange .dot {
-arrière-plan : #e2a03c ;
+  background: #d18a35;
 }
 
+.status.red {
+  color: #a24b4b;
+}
+
+.status.red .dot {
+  background: #c65b5b;
+}
 
 /* ============================================
-ENTRETIEN
-=========================================== */
+   ENTRETIEN
+   ============================================ */
 
-.alerte {
-marge intérieure : 14px 0 ;
-
-bordure inférieure : 1px solide #edf0ec ;
+.alert {
+  padding: 15px 0;
+  border-bottom: 1px solid #e8ece9;
 }
 
-
-.alerte:dernier-enfant {
-bordure inférieure : 0 ;
+.alert:last-child {
+  border-bottom: 0;
 }
 
-
-.alerte forte {
-taille de police : 13 px ;
+.alert .date {
+  display: inline-block;
+  font-size: 11px;
+  color: #7b867f;
+  margin-bottom: 3px;
 }
 
-
-.alerte p {
-marge : 4px 0 0 ;
-
-couleur : #7b847e ;
-
-taille de police : 12px ;
+.alert strong {
+  display: block;
+  font-size: 14px;
 }
 
-
-.date {
-flotter : droite ;
-
-couleur : #89918b ;
-
-taille de police : 11 px ;
+.alert p {
+  margin: 3px 0 0;
+  color: #6d7771;
+  font-size: 13px;
 }
-
 
 /* ============================================
-PROFESSIONNELS
-=========================================== */
+   PROFESSIONNELS
+   ============================================ */
 
 .pro {
-marge intérieure : 14px 0 ;
-
-bordure inférieure : 1px solide #edf0ec ;
+  position: relative;
+  padding: 15px 0;
+  border-bottom: 1px solid #e8ece9;
 }
 
-
-.pro:dernier-enfant {
-bordure inférieure : 0 ;
+.pro:last-child {
+  border-bottom: 0;
 }
 
-
-.pro fort {
-taille de police : 13 px ;
+.pro strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 14px;
 }
-
 
 .pro p {
-marge : 5px 0 0 ;
-
-couleur : #7b847e ;
-
-taille de police : 12px ;
+  margin: 3px 0 0;
+  color: #6d7771;
+  font-size: 12px;
 }
-
 
 .access-active {
-flotter : droite ;
-
-couleur : #4e9061 ;
-
-taille de police : 11 px ;
-
-police-weight: 700;
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: 20px;
+  background: #e7f2ea;
+  color: #39724e;
+  font-size: 10px;
+  font-weight: 700;
 }
 
-
 /* ============================================
-DOCUMENTS
-=========================================== */
+   DOCUMENTS
+   ============================================ */
 
 .documents {
-affichage : grille ;
-
-colonnes du modèle de grille :
-répéter(4, 1fr);
-
-écart : 12 px ;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
 }
-
 
 .document {
-marge intérieure : 18px ;
-
-bordure-radius: 15px;
-
-arrière-plan : #f7f8f6 ;
-
-curseur : pointeur ;
-
-transition:
-transformation 0,15s,
-arrière-plan 0,15 s ;
+  min-height: 130px;
+  padding: 18px;
+  border-radius: 16px;
+  background: #f7f9f7;
+  border: 1px solid #e5eae6;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
-
-
-.document:hover {
-transform: translateY(-2px);
-
-arrière-plan : #f1f3ef ;
-}
-
 
 .document-icon {
-taille de police : 24 px ;
-
-marge inférieure : 12px ;
+  font-size: 25px;
 }
 
-
-.document fort {
-affichage : bloc ;
-
-taille de police : 13 px ;
+.document strong {
+  font-size: 14px;
 }
-
 
 .document span {
-affichage : bloc ;
-
-marge supérieure : 5 px ;
-
-couleur : #858e88 ;
-
-taille de police : 11 px ;
+  font-size: 12px;
+  color: #78827b;
 }
 
+/* ============================================
+   ÉQUIPEMENTS
+   ============================================ */
+
+.equipment {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 13px 0;
+  border-bottom: 1px solid #e8ece9;
+}
+
+.equipment:last-child {
+  border-bottom: 0;
+}
+
+.equipment strong {
+  font-size: 14px;
+}
+
+.equipment span {
+  color: #707a74;
+  font-size: 12px;
+}
 
 /* ============================================
-MODALE
-=========================================== */
+   MODALE
+   ============================================ */
 
 .modal {
-position : fixe ;
-
-encart : 0 ;
-
-arrière-plan:
-rgba(10, 16, 12, 0,45);
-
-affichage : grille ;
-
-place-items: centre;
-
-marge intérieure : 20px ;
-
-z-index: 200;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(17, 24, 20, 0.52);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  backdrop-filter: blur(5px);
 }
-
 
 .modal.hidden {
-affichage : aucun ;
+  display: none;
 }
-
 
 .modal-content {
-largeur : min(720px, 100 %) ;
-
-hauteur maximale : 85vh ;
-
-débordement-y : automatique ;
-
-fond : blanc ;
-
-bordure-radius: 22px;
-
-marge intérieure : 30 px ;
-
-position : relative ;
-
-ombre portée :
-0 25px 70px rgba(0, 0, 0, 0.2);
+  width: min(620px, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+  background: white;
+  border-radius: 24px;
+  padding: 30px;
+  position: relative;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.2);
 }
-
-
-.fermer {
-position : absolue ;
-
-haut : 12px ;
-
-droite : 17px ;
-
-bordure : 0 ;
-
-arrière-plan : transparent ;
-
-taille de police : 28 px ;
-
-curseur : pointeur ;
-
-couleur : #68716b ;
-}
-
 
 .modal-content h2 {
-marge supérieure : 0 ;
+  margin: 0 0 15px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 34px;
+  font-weight: 500;
 }
-
 
 .modal-content h3 {
-marge supérieure : 25px ;
-
-taille de police : 15 px ;
+  margin: 25px 0 8px;
+  font-size: 16px;
 }
 
-
-.équipement {
-marge intérieure : 14px 0 ;
-
-bordure inférieure : 1px solide #edf0ec ;
+.close {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  width: 35px;
+  height: 35px;
+  border: 0;
+  border-radius: 50%;
+  background: #eef2ef;
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
 }
-
-
-.équipement solide {
-affichage : bloc ;
-
-taille de police : 13 px ;
-}
-
-
-.équipement span {
-affichage : bloc ;
-
-marge supérieure : 4 px ;
-
-couleur : #7c857f ;
-
-taille de police : 11 px ;
-}
-
 
 /* ============================================
-MESSAGE
-=========================================== */
+   MESSAGE
+   ============================================ */
 
-.griller {
-position : fixe ;
-
-gauche : 50 % ;
-bas : 22px ;
-
-transformer:
-translate(-50%, 20px);
-
-arrière-plan : #18221c ;
-
-couleur : blanc ;
-
-marge intérieure : 12px 18px ;
-
-bordure-radius: 10px;
-
-taille de police : 13 px ;
-
-opacité : 0 ;
-
-événements de pointeur : aucun ;
-
-transition:
-opacité 0,2s,
-transformer 0,2s ;
-
-z-index: 300;
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 25px;
+  transform: translate(-50%, 20px);
+  background: #17211c;
+  color: white;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+  z-index: 200;
 }
-
 
 .toast.show {
-opacité : 1 ;
-
-transformer:
-traduire(-50%, 0);
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
-
 /* ============================================
-MOBILE
-=========================================== */
+   RESPONSIVE — TABLETTE
+   ============================================ */
 
 @media (max-width: 850px) {
 
-.accueillir {
-align-items: flex-start;
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card.documents-card {
+    grid-column: auto;
+  }
+
+  .systems {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .documents {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
-
-
-.carte-maison {
-flex-wrap : envelopper ;
-}
-
-
-.house-info {
-largeur : 100 % ;
-}
-
-
-.détails-maison {
-flex : 1 ;
-
-justificatif-contenu : espace-entre ;
-}
-
-
-.dashboard-grid {
-grid-template-columns: 1fr;
-}
-
-
-.carte-système,
-.documents-card {
-colonne de grille : étendue 1 ;
-}
-
-
-.systèmes {
-colonnes du modèle de grille :
-répéter(2, 1fr);
-}
-
-
-.documents {
-colonnes du modèle de grille :
-répéter(2, 1fr);
-}
-
-}
-
 
 /* ============================================
-PETITS TÉLÉPHONES
-=========================================== */
+   RESPONSIVE — MOBILE
+   ============================================ */
 
-@media (max-width: 520px) {
+@media (max-width: 600px) {
 
-.topbar {
-marge intérieure : 0 18px ;
-}
+  .topbar {
+    height: 62px;
+    padding: 0 17px;
+  }
 
+  .brand {
+    font-size: 18px;
+  }
 
-.conteneur {
-largeur : calc(100% - 28px);
-}
+  .brand-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 19px;
+  }
 
+  .user {
+    font-size: 12px;
+  }
 
-.accueillir {
-marge supérieure : 32px ;
-}
+  .user-icon {
+    width: 30px;
+    height: 30px;
+  }
 
+  .container {
+    width: min(100% - 28px, 1180px);
+    padding: 30px 0 55px;
+  }
 
-.bienvenue h1 {
-taille de police : 35 px ;
-}
+  .welcome {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 20px;
+  }
 
+  .welcome h1 {
+    font-size: 48px;
+  }
 
-.bienvenue .primaire {
-affichage : aucun ;
-}
+  .welcome p {
+    font-size: 15px;
+    margin-top: 14px;
+  }
 
+  .house-card {
+    padding: 22px;
+    border-radius: 21px;
+  }
 
-.carte-maison {
-marge intérieure : 18 px ;
-}
+  .house-info {
+    gap: 14px;
+  }
 
+  .house-image {
+    width: 52px;
+    height: 52px;
+    flex-basis: 52px;
+    font-size: 25px;
+  }
 
-.house-info {
-largeur minimale : 0 ;
-}
+  .house-card h2 {
+    font-size: 27px;
+  }
 
+  .house-details {
+    gap: 20px 28px;
+  }
 
-.détails-maison {
-largeur : 100 % ;
+  .dashboard-grid {
+    gap: 16px;
+  }
 
-écart : 12 px ;
-}
+  .card {
+    padding: 20px;
+    border-radius: 19px;
+  }
 
+  .card h2 {
+    font-size: 27px;
+  }
 
-.house-details fort {
-taille de police : 14px ;
-}
+  .systems {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
 
+  .system {
+    min-height: 125px;
+    padding: 14px;
+  }
 
-.systèmes {
-grid-template-columns: 1fr;
-}
+  .system-icon {
+    width: 38px;
+    height: 38px;
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
 
+  .system-name {
+    font-size: 13px;
+  }
 
-.documents {
-grid-template-columns: 1fr;
-}
+  .documents {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 
+  .document {
+    min-height: 115px;
+    padding: 15px;
+  }
 
-.carte {
-marge intérieure : 19 px ;
-}
+  .modal {
+    padding: 12px;
+  }
 
-
-.utilisateur {
-marge intérieure : 8px 10px ;
-}
-
+  .modal-content {
+    padding: 24px;
+    border-radius: 20px;
+  }
 }
