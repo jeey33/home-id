@@ -350,8 +350,32 @@ function openQrSimulatorModal() {
     </div>`;
   openModal();
 }
+// 1. Profil Propriétaire
+function openProfileModal() {
+  const content = `
+    <h2>Mon Profil</h2>
+    <input type="text" id="owner-name" placeholder="Nom complet" />
+    <input type="email" id="owner-email" placeholder="Email" />
+    <button class="button primary" onclick="saveProfile()">Enregistrer</button>
+  `;
+  document.getElementById('modal-content').innerHTML = content;
+  document.getElementById('modal').classList.remove('hidden');
+}
 
-function openPlan() { showMessage("Plan interactif à venir."); }
+// 2. Upload de Plan
+function openPlan() {
+  // Déclenche l'explorateur de fichiers
+  document.getElementById('plan-upload').click();
+}
+
+function handlePlanUpload(event) {
+  const file = event.target.files[0];
+  if(file) {
+    showToast(`Plan ${file.name} ajouté avec succès !`);
+    // Ici, logique pour envoyer le fichier au serveur
+  }
+}
+
 function openModal() { document.getElementById("modal").classList.remove("hidden"); }
 function closeModal() { document.getElementById("modal").classList.add("hidden"); }
 document.addEventListener("click", function(event) { if (event.target === document.getElementById("modal")) closeModal(); });
