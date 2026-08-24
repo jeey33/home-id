@@ -13,10 +13,10 @@
       <div class="brand-icon">⌂</div>
       <div>HOME <strong>ID</strong></div>
     </div>
-    <div class="user">
-      <span class="user-icon">👤</span>
-      <span id="user-role-label">Propriétaire</span>
-    </div>
+   <div class="user" onclick="openProfileModal()" style="cursor: pointer;">
+  <span class="user-icon">👤</span>
+  <span id="user-role-label">Propriétaire</span>
+</div>
   </header>
 
   <main class="container">
@@ -87,6 +87,7 @@
       </section>
 
     </div>
+    <input type="file" id="plan-upload" accept="image/*,.pdf" style="display: none;" onchange="handlePlanUpload(event)">
   </main>
 
   <div id="modal" class="modal hidden">
