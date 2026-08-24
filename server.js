@@ -5,9 +5,11 @@ const { Pool } = require("pg");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ============================================================
-// BASE DE DONNÉES POSTGRESQL
-// ============================================================
+app.use(express.json());
+
+/* =====================================================
+   BASE DE DONNÉES POSTGRESQL
+===================================================== */
 
 if (!process.env.DATABASE_URL) {
   console.error("ERREUR : DATABASE_URL n'est pas configurée.");
@@ -16,27 +18,21 @@ if (!process.env.DATABASE_URL) {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production"
-    ? { rejectUnauthorized: false }
-    : false
+  ssl: {
+    rejectUnauthorized: false
+  },
+  max: 5
 });
 
 
-// ============================================================
-// EXPRESS
-// ============================================================
-
-app.use(express.json());
-
-
-// ============================================================
-// INITIALISATION DE LA BASE
-// ============================================================
+/* =====================================================
+   INITIALISATION DE LA BASE
+===================================================== */
 
 async function initDatabase() {
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS houses (
+    CREATE TABLE IF NOT EXISTS homes (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       year INTEGER,
@@ -44,180 +40,89 @@ async function initDatabase() {
       land INTEGER,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+  `);
 
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS systems (
-      id TEXT PRIMARY KEY,
-      house_id TEXT NOT NULL REFERENCES houses(id) ON DELETE CASCADE,
+      id SERIAL PRIMARY KEY,
+      home_id TEXT REFERENCES homes(id) ON DELETE CASCADE,
+      system_key TEXT NOT NULL,
       name TEXT NOT NULL,
       icon TEXT,
-      status TEXT DEFAULT 'À configurer',
-      color TEXT DEFAULT 'orange',
-      sort_order INTEGER DEFAULT 0
+      status TEXT,
+      color TEXT,
+      UNIQUE(home_id, system_key)
     );
+  `);
 
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS equipment (
       id SERIAL PRIMARY KEY,
-      system_id TEXT NOT NULL REFERENCES systems(id) ON DELETE CASCADE,
+      system_id INTEGER REFERENCES systems(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
-      model TEXT DEFAULT '',
-      installed TEXT DEFAULT '',
+      model TEXT,
+      installed TEXT,
       specs JSONB DEFAULT '{}'::jsonb,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+  `);
 
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS alerts (
       id SERIAL PRIMARY KEY,
-      house_id TEXT NOT NULL REFERENCES houses(id) ON DELETE CASCADE,
+      home_id TEXT REFERENCES homes(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
-      text TEXT NOT NULL,
-      date TEXT NOT NULL,
+      text TEXT,
+      date TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+  `);
 
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS professionals (
       id SERIAL PRIMARY KEY,
-      house_id TEXT NOT NULL REFERENCES houses(id) ON DELETE CASCADE,
+      home_id TEXT REFERENCES homes(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
-      domain TEXT NOT NULL,
-      access TEXT DEFAULT 'Actif',
+      domain TEXT,
+      access TEXT,
       expires TEXT
     );
-
-    CREATE TABLE IF NOT EXISTS documents (
-      id SERIAL PRIMARY KEY,
-      house_id TEXT NOT NULL REFERENCES houses(id) ON DELETE CASCADE,
-      system_id TEXT REFERENCES systems(id) ON DELETE SET NULL,
-      name TEXT NOT NULL,
-      file_url TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
   `);
 
-  console.log("Base PostgreSQL initialisée.");
+  console.log("Base de données HOME ID initialisée.");
 }
 
 
-// ============================================================
-// OUTIL : RÉCUPÉRER LA MAISON
-// ============================================================
+/* =====================================================
+   PAGE / API
+===================================================== */
 
-async function getHouse() {
-  const result = await pool.query(`
-    SELECT *
-    FROM houses
-    ORDER BY created_at ASC
-    LIMIT 1
-  `);
+app.use((req, res, next) => {
 
-  return result.rows[0] || null;
-}
-
-
-// ============================================================
-// PROTECTION SETUP / APPLICATION
-// ============================================================
-
-app.use(async (req, res, next) => {
-
-  try {
-
-    if (
-      req.path === "/" ||
-      req.path === "/index.html" ||
-      req.path === "/setup.html"
-    ) {
-
-      const house = await getHouse();
-
-      if (
-        (req.path === "/" || req.path === "/index.html") &&
-        !house
-      ) {
-        return res.redirect("/setup.html");
-      }
-
-      if (
-        req.path === "/setup.html" &&
-        house
-      ) {
-        return res.redirect("/");
-      }
-    }
-
+  if (
+    (req.path === "/" || req.path === "/index.html") &&
+    req.path !== "/setup.html"
+  ) {
     next();
-
-  } catch (error) {
-
-    console.error("Erreur middleware :", error);
-
-    res.status(500).send("Erreur serveur");
+    return;
   }
 
+  next();
 });
 
 
-// ============================================================
-// FICHIERS DU SITE
-// ============================================================
-
-app.use(
-  express.static(
-    path.join(__dirname, "public")
-  )
-);
+app.use(express.static(path.join(__dirname, "public")));
 
 
-// ============================================================
-// HEALTH CHECK
-// ============================================================
-
-app.get("/api/health", async (req, res) => {
-
-  try {
-
-    await pool.query("SELECT 1");
-
-    res.json({
-      ok: true,
-      app: "HOME ID",
-      database: "PostgreSQL",
-      version: "1.0.0"
-    });
-
-  } catch (error) {
-
-    res.status(500).json({
-      ok: false,
-      error: "Database unavailable"
-    });
-
-  }
-
-});
-
-
-// ============================================================
-// CONFIGURATION INITIALE DE LA MAISON
-// ============================================================
+/* =====================================================
+   SETUP MAISON
+===================================================== */
 
 app.post("/api/setup", async (req, res) => {
 
   try {
 
-    const existingHouse = await getHouse();
-
-    if (existingHouse) {
-      return res.status(403).json({
-        error: "Maison déjà configurée."
-      });
-    }
-
-    const {
-      name,
-      year,
-      surface,
-      land
-    } = req.body;
+    const { name, year, surface, land } = req.body;
 
     if (!name || !year) {
       return res.status(400).json({
@@ -225,7 +130,17 @@ app.post("/api/setup", async (req, res) => {
       });
     }
 
-    const houseId =
+    const existing = await pool.query(
+      "SELECT id FROM homes LIMIT 1"
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(403).json({
+        error: "Une maison existe déjà."
+      });
+    }
+
+    const homeId =
       "HID-" +
       Math.random()
         .toString(36)
@@ -233,18 +148,14 @@ app.post("/api/setup", async (req, res) => {
         .toUpperCase();
 
 
-    // --------------------------------------------------------
-    // MAISON
-    // --------------------------------------------------------
-
     await pool.query(
       `
-      INSERT INTO houses
+      INSERT INTO homes
       (id, name, year, surface, land)
-      VALUES ($1, $2, $3, $4, $5)
+      VALUES ($1,$2,$3,$4,$5)
       `,
       [
-        houseId,
+        homeId,
         name,
         parseInt(year),
         parseInt(surface) || 0,
@@ -253,74 +164,21 @@ app.post("/api/setup", async (req, res) => {
     );
 
 
-    // --------------------------------------------------------
-    // SYSTÈMES
-    // --------------------------------------------------------
-
     const systems = [
 
-      [
-        "electricite",
-        "Électricité",
-        "⚡",
-        "À configurer",
-        "orange",
-        1
-      ],
+      ["electricite", "Électricité", "⚡", "À configurer", "orange"],
 
-      [
-        "eau",
-        "Plomberie & Eau",
-        "💧",
-        "À configurer",
-        "orange",
-        2
-      ],
+      ["eau", "Plomberie & Eau", "💧", "À configurer", "orange"],
 
-      [
-        "chauffage",
-        "Chauffage",
-        "🔥",
-        "À configurer",
-        "orange",
-        3
-      ],
+      ["chauffage", "Chauffage", "🔥", "À configurer", "orange"],
 
-      [
-        "climatisation",
-        "Clim & VMC",
-        "❄️",
-        "À configurer",
-        "orange",
-        4
-      ],
+      ["climatisation", "Clim & VMC", "❄️", "À configurer", "orange"],
 
-      [
-        "piscine",
-        "Piscine & Spa",
-        "🏊",
-        "À configurer",
-        "orange",
-        5
-      ],
+      ["piscine", "Piscine & Spa", "🏊", "À configurer", "orange"],
 
-      [
-        "exterieur",
-        "Extérieur & Fermetures",
-        "🌳",
-        "À configurer",
-        "orange",
-        6
-      ],
+      ["exterieur", "Extérieur & Fermetures", "🌳", "À configurer", "orange"],
 
-      [
-        "domotique",
-        "Réseau & Sécurité",
-        "📡",
-        "À configurer",
-        "orange",
-        7
-      ]
+      ["domotique", "Réseau & Sécurité", "📡", "À configurer", "orange"]
 
     ];
 
@@ -330,25 +188,16 @@ app.post("/api/setup", async (req, res) => {
       await pool.query(
         `
         INSERT INTO systems
-        (
-          id,
-          house_id,
-          name,
-          icon,
-          status,
-          color,
-          sort_order
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        (home_id, system_key, name, icon, status, color)
+        VALUES ($1,$2,$3,$4,$5,$6)
         `,
         [
+          homeId,
           system[0],
-          houseId,
           system[1],
           system[2],
           system[3],
-          system[4],
-          system[5]
+          system[4]
         ]
       );
 
@@ -357,15 +206,15 @@ app.post("/api/setup", async (req, res) => {
 
     res.json({
       ok: true,
-      id: houseId
+      id: homeId
     });
 
   } catch (error) {
 
-    console.error("Erreur setup :", error);
+    console.error(error);
 
     res.status(500).json({
-      error: "Impossible de créer la maison."
+      error: "Erreur création maison."
     });
 
   }
@@ -373,130 +222,117 @@ app.post("/api/setup", async (req, res) => {
 });
 
 
-// ============================================================
-// INFOS MAISON
-// ============================================================
+/* =====================================================
+   GET HOME
+===================================================== */
 
 app.get("/api/home", async (req, res) => {
 
   try {
 
-    const house = await getHouse();
+    const homeResult = await pool.query(
+      `
+      SELECT *
+      FROM homes
+      ORDER BY created_at
+      LIMIT 1
+      `
+    );
 
-    if (!house) {
+    if (homeResult.rows.length === 0) {
+
       return res.status(403).json({
-        error: "Maison non configurée."
+        error: "Maison non configurée"
       });
+
     }
 
-    const role = req.query.role || "owner";
+    const home = homeResult.rows[0];
 
 
-    let systemQuery = `
+    const systemsResult = await pool.query(
+      `
       SELECT
-        s.id,
-        s.name,
-        s.icon,
-        s.status,
-        s.color,
-        COUNT(e.id)::INTEGER AS equipment
+        s.*,
+        COUNT(e.id)::integer AS equipment
       FROM systems s
       LEFT JOIN equipment e
         ON e.system_id = s.id
-      WHERE s.house_id = $1
-    `;
+      WHERE s.home_id = $1
+      GROUP BY s.id
+      ORDER BY s.id
+      `,
+      [home.id]
+    );
 
-    const params = [house.id];
+
+    const alertsResult = await pool.query(
+      `
+      SELECT *
+      FROM alerts
+      WHERE home_id = $1
+      ORDER BY created_at DESC
+      `,
+      [home.id]
+    );
+
+
+    const professionalsResult = await pool.query(
+      `
+      SELECT *
+      FROM professionals
+      WHERE home_id = $1
+      ORDER BY id DESC
+      `,
+      [home.id]
+    );
+
+
+    const role = req.query.role || "owner";
+
+    let systems = systemsResult.rows;
 
 
     if (role === "electricien") {
 
-      systemQuery += `
-        AND s.id IN ('electricite', 'domotique')
-      `;
+      systems = systems.filter(s =>
+        ["electricite", "domotique"].includes(s.system_key)
+      );
 
-    } else if (role === "pisciniste") {
+    }
 
-      systemQuery += `
-        AND s.id = 'piscine'
-      `;
+    else if (role === "pisciniste") {
 
-    } else if (role === "clim") {
+      systems = systems.filter(
+        s => s.system_key === "piscine"
+      );
 
-      systemQuery += `
-        AND s.id IN ('climatisation', 'chauffage')
-      `;
+    }
+
+    else if (role === "clim") {
+
+      systems = systems.filter(s =>
+        ["climatisation", "chauffage"].includes(s.system_key)
+      );
 
     }
 
 
-    systemQuery += `
-      GROUP BY
-        s.id,
-        s.name,
-        s.icon,
-        s.status,
-        s.color,
-        s.sort_order
-      ORDER BY s.sort_order
-    `;
-
-
-    const systemsResult =
-      await pool.query(
-        systemQuery,
-        params
-      );
-
-
-    const alertsResult =
-      await pool.query(
-        `
-        SELECT
-          id,
-          title,
-          text,
-          date
-        FROM alerts
-        WHERE house_id = $1
-        ORDER BY created_at DESC
-        `,
-        [house.id]
-      );
-
-
-    const professionalsResult =
-      await pool.query(
-        `
-        SELECT
-          id,
-          name,
-          domain,
-          access,
-          expires
-        FROM professionals
-        WHERE house_id = $1
-        ORDER BY id DESC
-        `,
-        [house.id]
-      );
-
-
     res.json({
 
-      id: house.id,
+      id: home.id,
 
-      name: house.name,
+      name: home.name,
 
-      year: house.year,
+      year: home.year,
 
-      surface: house.surface,
+      surface: home.surface,
 
-      land: house.land,
+      land: home.land,
 
       role,
 
-      systems: systemsResult.rows,
+      systems,
 
       alerts: alertsResult.rows,
 
@@ -504,12 +340,13 @@ app.get("/api/home", async (req, res) => {
 
     });
 
+
   } catch (error) {
 
-    console.error("Erreur /api/home :", error);
+    console.error(error);
 
     res.status(500).json({
-      error: "Erreur serveur"
+      error: "Erreur récupération maison."
     });
 
   }
@@ -517,41 +354,23 @@ app.get("/api/home", async (req, res) => {
 });
 
 
-// ============================================================
-// DÉTAIL D'UN SYSTÈME
-// ============================================================
+/* =====================================================
+   DETAIL D'UN SYSTEME
+===================================================== */
 
 app.get("/api/systems/:id", async (req, res) => {
 
   try {
 
-    const house = await getHouse();
-
-    if (!house) {
-      return res.status(404).json({
-        error: "Maison introuvable"
-      });
-    }
-
-
-    const systemResult =
-      await pool.query(
-        `
-        SELECT
-          id,
-          name,
-          icon,
-          status,
-          color
-        FROM systems
-        WHERE id = $1
-        AND house_id = $2
-        `,
-        [
-          req.params.id,
-          house.id
-        ]
-      );
+    const systemResult = await pool.query(
+      `
+      SELECT *
+      FROM systems
+      WHERE system_key = $1
+      LIMIT 1
+      `,
+      [req.params.id]
+    );
 
 
     if (systemResult.rows.length === 0) {
@@ -563,66 +382,40 @@ app.get("/api/systems/:id", async (req, res) => {
     }
 
 
-    const system =
-      systemResult.rows[0];
+    const system = systemResult.rows[0];
 
 
-    const equipmentResult =
-      await pool.query(
-        `
-        SELECT
-          id,
-          name,
-          model,
-          installed,
-          specs
-        FROM equipment
-        WHERE system_id = $1
-        ORDER BY created_at DESC
-        `,
-        [system.id]
-      );
-
-
-    const documentsResult =
-      await pool.query(
-        `
-        SELECT
-          id,
-          name,
-          file_url
-        FROM documents
-        WHERE system_id = $1
-        ORDER BY created_at DESC
-        `,
-        [system.id]
-      );
+    const equipmentResult = await pool.query(
+      `
+      SELECT *
+      FROM equipment
+      WHERE system_id = $1
+      ORDER BY id DESC
+      `,
+      [system.id]
+    );
 
 
     res.json({
 
-      id: system.id,
+      id: system.system_key,
 
       name: system.name,
 
       icon: system.icon,
 
-      status: system.status,
-
-      color: system.color,
-
       equipment: equipmentResult.rows,
 
-      documents: documentsResult.rows
+      documents: []
 
     });
 
   } catch (error) {
 
-    console.error("Erreur système :", error);
+    console.error(error);
 
     res.status(500).json({
-      error: "Erreur serveur"
+      error: "Erreur système."
     });
 
   }
@@ -630,9 +423,9 @@ app.get("/api/systems/:id", async (req, res) => {
 });
 
 
-// ============================================================
-// AJOUT ÉQUIPEMENT
-// ============================================================
+/* =====================================================
+   AJOUT EQUIPEMENT
+===================================================== */
 
 app.post("/api/equipment", async (req, res) => {
 
@@ -655,30 +448,15 @@ app.post("/api/equipment", async (req, res) => {
     }
 
 
-    const house = await getHouse();
-
-    if (!house) {
-
-      return res.status(403).json({
-        error: "Maison non configurée."
-      });
-
-    }
-
-
-    const systemResult =
-      await pool.query(
-        `
-        SELECT id
-        FROM systems
-        WHERE id = $1
-        AND house_id = $2
-        `,
-        [
-          systemId,
-          house.id
-        ]
-      );
+    const systemResult = await pool.query(
+      `
+      SELECT id
+      FROM systems
+      WHERE system_key = $1
+      LIMIT 1
+      `,
+      [systemId]
+    );
 
 
     if (systemResult.rows.length === 0) {
@@ -690,42 +468,38 @@ app.post("/api/equipment", async (req, res) => {
     }
 
 
-    const result =
-      await pool.query(
-        `
-        INSERT INTO equipment
-        (
-          system_id,
-          name,
-          model,
-          installed,
-          specs
-        )
-        VALUES
-        ($1, $2, $3, $4, $5)
-        RETURNING *
-        `,
-        [
-          systemId,
-          name,
-          model || "",
-          new Date().toLocaleDateString("fr-FR"),
-          specs || {}
-        ]
-      );
+    await pool.query(
+      `
+      INSERT INTO equipment
+      (
+        system_id,
+        name,
+        model,
+        installed,
+        specs
+      )
+      VALUES ($1,$2,$3,$4,$5)
+      `,
+      [
+        systemResult.rows[0].id,
+        name,
+        model || "",
+        new Date().toLocaleDateString("fr-FR"),
+        specs || {}
+      ]
+    );
 
 
     res.json({
-      ok: true,
-      equipment: result.rows[0]
+      ok: true
     });
 
   } catch (error) {
 
-    console.error("Erreur équipement :", error);
+    console.error(error);
 
     res.status(500).json({
-      error: "Impossible d'enregistrer l'équipement."
+      error: "Erreur ajout équipement."
     });
 
   }
@@ -733,9 +507,9 @@ app.post("/api/equipment", async (req, res) => {
 });
 
 
-// ============================================================
-// AJOUT RAPPEL
-// ============================================================
+/* =====================================================
+   AJOUT RAPPEL
+===================================================== */
 
 app.post("/api/alerts", async (req, res) => {
 
@@ -748,122 +522,46 @@ app.post("/api/alerts", async (req, res) => {
     } = req.body;
 
 
-    if (!title || !text || !date) {
+    const homeResult = await pool.query(
+      `
+      SELECT id
+      FROM homes
+      LIMIT 1
+      `
+    );
 
-      return res.status(400).json({
-        error: "Informations incomplètes."
+
+    if (homeResult.rows.length === 0) {
+
+      return res.status(404).json({
+        error: "Maison introuvable."
       });
 
     }
 
 
-    const house = await getHouse();
-
-    if (!house) {
-
-      return res.status(403).json({
-        error: "Maison non configurée."
-      });
-
-    }
-
-
-    const result =
-      await pool.query(
-        `
-        INSERT INTO alerts
-        (
-          house_id,
-          title,
-          text,
-          date
-        )
-        VALUES
-        ($1, $2, $3, $4)
-        RETURNING *
-        `,
-        [
-          house.id,
-          title,
-          text,
-          date
-        ]
-      );
+    await pool.query(
+      `
+      INSERT INTO alerts
+      (
+        home_id,
+        title,
+        text,
+        date
+      )
+      VALUES ($1,$2,$3,$4)
+      `,
+      [
+        homeResult.rows[0].id,
+        title,
+        text,
+        date
+      ]
+    );
 
 
     res.json({
-      ok: true,
-      alert: result.rows[0]
-    });
-
-  } catch (error) {
-
-    console.error("Erreur alerte :", error);
-
-    res.status(500).json({
-      error: "Impossible d'enregistrer le rappel."
-    });
-
-  }
-
-});
-
-
-// ============================================================
-// AJOUT PROFESSIONNEL
-// ============================================================
-
-app.post("/api/professionals", async (req, res) => {
-
-  try {
-
-    const {
-      name,
-      domain,
-      access,
-      expires
-    } = req.body;
-
-
-    const house = await getHouse();
-
-    if (!house) {
-
-      return res.status(403).json({
-        error: "Maison non configurée."
-      });
-
-    }
-
-
-    const result =
-      await pool.query(
-        `
-        INSERT INTO professionals
-        (
-          house_id,
-          name,
-          domain,
-          access,
-          expires
-        )
-        VALUES
-        ($1, $2, $3, $4, $5)
-        RETURNING *
-        `,
-        [
-          house.id,
-          name,
-          domain,
-          access || "Actif",
-          expires || ""
-        ]
-      );
-
-
-    res.json({
-      ok: true,
-      professional: result.rows[0]
+      ok: true
     });
 
   } catch (error) {
@@ -871,7 +569,7 @@ app.post("/api/professionals", async (req, res) => {
     console.error(error);
 
     res.status(500).json({
-      error: "Impossible d'ajouter le professionnel."
+      error: "Erreur ajout rappel."
     });
 
   }
@@ -879,9 +577,48 @@ app.post("/api/professionals", async (req, res) => {
 });
 
 
-// ============================================================
-// DÉMARRAGE
-// ============================================================
+/* =====================================================
+   TEST BASE
+===================================================== */
+
+app.get("/api/health", async (req, res) => {
+
+  try {
+
+    const result = await pool.query(
+      "SELECT NOW()"
+    );
+
+    res.json({
+
+      ok: true,
+
+      database: "connected",
+
+      time: result.rows[0].now
+
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+
+      ok: false,
+
+      database: "error",
+
+      error: error.message
+
+    });
+
+  }
+
+});
+
+
+/* =====================================================
+   DEMARRAGE
+===================================================== */
 
 async function startServer() {
 
