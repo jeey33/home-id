@@ -1,913 +1,2264 @@
-const express = require("express");
-const path = require("path");
-const { Pool } = require("pg");
+/* ============================================================
+   HOME ID — APPLICATION JAVASCRIPT
+   ============================================================ */
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// ============================================================
-// BASE DE DONNÉES POSTGRESQL
-// ============================================================
-
-if (!process.env.DATABASE_URL) {
-  console.error("ERREUR : DATABASE_URL n'est pas configurée.");
-  process.exit(1);
-}
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production"
-    ? { rejectUnauthorized: false }
-    : false
-});
+let homeData = null;
 
 
-// ============================================================
-// EXPRESS
-// ============================================================
+/* ============================================================
+   INITIALISATION
+   ============================================================ */
 
-app.use(express.json());
-
-
-// ============================================================
-// INITIALISATION DE LA BASE
-// ============================================================
-
-async function initDatabase() {
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS houses (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      year INTEGER,
-      surface INTEGER,
-      land INTEGER,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS systems (
-      id TEXT PRIMARY KEY,
-      house_id TEXT NOT NULL REFERENCES houses(id) ON DELETE CASCADE,
-      name TEXT NOT NULL,
-      icon TEXT,
-      status TEXT DEFAULT 'À configurer',
-      color TEXT DEFAULT 'orange',
-      sort_order INTEGER DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS equipment (
-      id SERIAL PRIMARY KEY,
-      system_id TEXT NOT NULL REFERENCES systems(id) ON DELETE CASCADE,
-      name TEXT NOT NULL,
-      model TEXT DEFAULT '',
-      installed TEXT DEFAULT '',
-      specs JSONB DEFAULT '{}'::jsonb,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS alerts (
-      id SERIAL PRIMARY KEY,
-      house_id TEXT NOT NULL REFERENCES houses(id) ON DELETE CASCADE,
-      title TEXT NOT NULL,
-      text TEXT NOT NULL,
-      date TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS professionals (
-      id SERIAL PRIMARY KEY,
-      house_id TEXT NOT NULL REFERENCES houses(id) ON DELETE CASCADE,
-      name TEXT NOT NULL,
-      domain TEXT NOT NULL,
-      access TEXT DEFAULT 'Actif',
-      expires TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS documents (
-      id SERIAL PRIMARY KEY,
-      house_id TEXT NOT NULL REFERENCES houses(id) ON DELETE CASCADE,
-      system_id TEXT REFERENCES systems(id) ON DELETE SET NULL,
-      name TEXT NOT NULL,
-      file_url TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-
-  console.log("Base PostgreSQL initialisée.");
-}
-
-
-// ============================================================
-// OUTIL : RÉCUPÉRER LA MAISON
-// ============================================================
-
-async function getHouse() {
-  const result = await pool.query(`
-    SELECT *
-    FROM houses
-    ORDER BY created_at ASC
-    LIMIT 1
-  `);
-
-  return result.rows[0] || null;
-}
-
-
-// ============================================================
-// PROTECTION SETUP / APPLICATION
-// ============================================================
-
-app.use(async (req, res, next) => {
+async function init() {
 
   try {
 
-    if (
-      req.path === "/" ||
-      req.path === "/index.html" ||
-      req.path === "/setup.html"
-    ) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roleParam = urlParams.get("role") || "owner";
 
-      const house = await getHouse();
+    const response = await fetch(
+      `/api/home?role=${encodeURIComponent(roleParam)}`
+    );
 
-      if (
-        (req.path === "/" || req.path === "/index.html") &&
-        !house
-      ) {
-        return res.redirect("/setup.html");
+    if (!response.ok) {
+
+      console.error("Impossible de récupérer la maison.");
+
+      if (response.status === 403) {
+        window.location.href = "/setup.html";
       }
 
-      if (
-        req.path === "/setup.html" &&
-        house
-      ) {
-        return res.redirect("/");
-      }
+      return;
     }
 
-    next();
+    homeData = await response.json();
+
+    updateUserBadge(homeData.role);
+
+    populateHouseInfo();
+
+    displaySystems();
+
+    displayAlerts();
+
+    displayProfessionals();
 
   } catch (error) {
 
-    console.error("Erreur middleware :", error);
+    console.error("Erreur HOME ID :", error);
 
-    res.status(500).send("Erreur serveur");
-  }
-
-});
-
-
-// ============================================================
-// FICHIERS DU SITE
-// ============================================================
-
-app.use(
-  express.static(
-    path.join(__dirname, "public")
-  )
-);
-
-
-// ============================================================
-// HEALTH CHECK
-// ============================================================
-
-app.get("/api/health", async (req, res) => {
-
-  try {
-
-    await pool.query("SELECT 1");
-
-    res.json({
-      ok: true,
-      app: "HOME ID",
-      database: "PostgreSQL",
-      version: "1.0.0"
-    });
-
-  } catch (error) {
-
-    res.status(500).json({
-      ok: false,
-      error: "Database unavailable"
-    });
-
-  }
-
-});
-
-
-// ============================================================
-// CONFIGURATION INITIALE DE LA MAISON
-// ============================================================
-
-app.post("/api/setup", async (req, res) => {
-
-  try {
-
-    const existingHouse = await getHouse();
-
-    if (existingHouse) {
-      return res.status(403).json({
-        error: "Maison déjà configurée."
-      });
-    }
-
-    const {
-      name,
-      year,
-      surface,
-      land
-    } = req.body;
-
-    if (!name || !year) {
-      return res.status(400).json({
-        error: "Nom et année requis."
-      });
-    }
-
-    const houseId =
-      "HID-" +
-      Math.random()
-        .toString(36)
-        .substring(2, 8)
-        .toUpperCase();
-
-
-    // --------------------------------------------------------
-    // MAISON
-    // --------------------------------------------------------
-
-    await pool.query(
-      `
-      INSERT INTO houses
-      (id, name, year, surface, land)
-      VALUES ($1, $2, $3, $4, $5)
-      `,
-      [
-        houseId,
-        name,
-        parseInt(year),
-        parseInt(surface) || 0,
-        parseInt(land) || 0
-      ]
+    showMessage(
+      "Impossible de charger HOME ID."
     );
 
+  }
 
-    // --------------------------------------------------------
-    // SYSTÈMES
-    // --------------------------------------------------------
-
-    const systems = [
-
-      [
-        "electricite",
-        "Électricité",
-        "⚡",
-        "À configurer",
-        "orange",
-        1
-      ],
-
-      [
-        "eau",
-        "Plomberie & Eau",
-        "💧",
-        "À configurer",
-        "orange",
-        2
-      ],
-
-      [
-        "chauffage",
-        "Chauffage",
-        "🔥",
-        "À configurer",
-        "orange",
-        3
-      ],
-
-      [
-        "climatisation",
-        "Clim & VMC",
-        "❄️",
-        "À configurer",
-        "orange",
-        4
-      ],
-
-      [
-        "piscine",
-        "Piscine & Spa",
-        "🏊",
-        "À configurer",
-        "orange",
-        5
-      ],
-
-      [
-        "exterieur",
-        "Extérieur & Fermetures",
-        "🌳",
-        "À configurer",
-        "orange",
-        6
-      ],
-
-      [
-        "domotique",
-        "Réseau & Sécurité",
-        "📡",
-        "À configurer",
-        "orange",
-        7
-      ]
-
-    ];
+}
 
 
-    for (const system of systems) {
+/* ============================================================
+   INFORMATIONS DE LA MAISON
+   ============================================================ */
 
-      await pool.query(
-        `
-        INSERT INTO systems
-        (
-          id,
-          house_id,
-          name,
-          icon,
-          status,
-          color,
-          sort_order
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        `,
-        [
-          system[0],
-          houseId,
-          system[1],
-          system[2],
-          system[3],
-          system[4],
-          system[5]
-        ]
-      );
+function populateHouseInfo() {
 
-    }
+  const name = document.getElementById("display-house-name");
+  const id = document.getElementById("display-house-id");
+  const year = document.getElementById("display-house-year");
+  const surface = document.getElementById("display-house-surface");
+  const land = document.getElementById("display-house-land");
+
+  if (name) {
+    name.textContent = homeData.name || "Ma Maison";
+  }
+
+  if (id) {
+    id.textContent = `Maison #${homeData.id}`;
+  }
+
+  if (year) {
+    year.textContent = homeData.year || "—";
+  }
+
+  if (surface) {
+    surface.textContent =
+      homeData.surface
+        ? `${homeData.surface} m²`
+        : "—";
+  }
+
+  if (land) {
+    land.textContent =
+      homeData.land
+        ? `${homeData.land} m²`
+        : "—";
+  }
+
+}
 
 
-    res.json({
-      ok: true,
-      id: houseId
-    });
+/* ============================================================
+   BADGE UTILISATEUR
+   ============================================================ */
 
-  } catch (error) {
+function updateUserBadge(role) {
 
-    console.error("Erreur setup :", error);
+  const label =
+    document.getElementById("user-role-label");
 
-    res.status(500).json({
-      error: "Impossible de créer la maison."
-    });
+  if (!label) return;
+
+  if (role === "electricien") {
+
+    label.textContent =
+      "Accès Électricien";
+
+  } else if (role === "pisciniste") {
+
+    label.textContent =
+      "Accès Pisciniste";
+
+  } else if (role === "clim") {
+
+    label.textContent =
+      "Accès Clim / Chauffage";
+
+  } else {
+
+    label.textContent =
+      "Propriétaire";
 
   }
 
-});
+}
 
 
-// ============================================================
-// INFOS MAISON
-// ============================================================
+/* ============================================================
+   AFFICHER LES SYSTÈMES
+   ============================================================ */
 
-app.get("/api/home", async (req, res) => {
+function displaySystems() {
 
-  try {
+  const container =
+    document.getElementById("systems");
 
-    const house = await getHouse();
+  if (!container) return;
 
-    if (!house) {
-      return res.status(403).json({
-        error: "Maison non configurée."
-      });
-    }
-
-    const role = req.query.role || "owner";
+  const systems =
+    homeData.systems || [];
 
 
-    let systemQuery = `
-      SELECT
-        s.id,
-        s.name,
-        s.icon,
-        s.status,
-        s.color,
-        COUNT(e.id)::INTEGER AS equipment
-      FROM systems s
-      LEFT JOIN equipment e
-        ON e.system_id = s.id
-      WHERE s.house_id = $1
+  if (systems.length === 0) {
+
+    container.innerHTML = `
+      <p style="
+        grid-column:1/-1;
+        color:#77827a;
+      ">
+        Aucun système accessible.
+      </p>
     `;
 
-    const params = [house.id];
-
-
-    if (role === "electricien") {
-
-      systemQuery += `
-        AND s.id IN ('electricite', 'domotique')
-      `;
-
-    } else if (role === "pisciniste") {
-
-      systemQuery += `
-        AND s.id = 'piscine'
-      `;
-
-    } else if (role === "clim") {
-
-      systemQuery += `
-        AND s.id IN ('climatisation', 'chauffage')
-      `;
-
-    }
-
-
-    systemQuery += `
-      GROUP BY
-        s.id,
-        s.name,
-        s.icon,
-        s.status,
-        s.color,
-        s.sort_order
-      ORDER BY s.sort_order
-    `;
-
-
-    const systemsResult =
-      await pool.query(
-        systemQuery,
-        params
-      );
-
-
-    const alertsResult =
-      await pool.query(
-        `
-        SELECT
-          id,
-          title,
-          text,
-          date
-        FROM alerts
-        WHERE house_id = $1
-        ORDER BY created_at DESC
-        `,
-        [house.id]
-      );
-
-
-    const professionalsResult =
-      await pool.query(
-        `
-        SELECT
-          id,
-          name,
-          domain,
-          access,
-          expires
-        FROM professionals
-        WHERE house_id = $1
-        ORDER BY id DESC
-        `,
-        [house.id]
-      );
-
-
-    res.json({
-
-      id: house.id,
-
-      name: house.name,
-
-      year: house.year,
-
-      surface: house.surface,
-
-      land: house.land,
-
-      role,
-
-      systems: systemsResult.rows,
-
-      alerts: alertsResult.rows,
-
-      professionals: professionalsResult.rows
-
-    });
-
-  } catch (error) {
-
-    console.error("Erreur /api/home :", error);
-
-    res.status(500).json({
-      error: "Erreur serveur"
-    });
-
+    return;
   }
 
-});
+
+  container.innerHTML =
+    systems.map(system => {
+
+      const equipmentCount =
+        Number(system.equipment || 0);
 
 
-// ============================================================
-// DÉTAIL D'UN SYSTÈME
-// ============================================================
+      const equipmentHTML =
+        equipmentCount > 0
 
-app.get("/api/systems/:id", async (req, res) => {
+          ? `
+            <div style="
+              font-size:11px;
+              color:#77827a;
+              margin-top:4px;
+            ">
+              ${equipmentCount}
+              équipement${equipmentCount > 1 ? "s" : ""}
+            </div>
+          `
+
+          : `
+            <div style="
+              font-size:11px;
+              color:#a26b28;
+              margin-top:4px;
+            ">
+              À configurer
+            </div>
+          `;
+
+
+      return `
+        <div
+          class="system"
+          onclick="openSystem('${system.id}')"
+        >
+
+          <div class="system-icon">
+            ${system.icon || "🏠"}
+          </div>
+
+          <div class="system-name">
+            ${escapeHTML(system.name)}
+          </div>
+
+          <div class="status ${system.color || "orange"}">
+
+            <span class="dot"></span>
+
+            ${escapeHTML(system.status || "À configurer")}
+
+          </div>
+
+          ${equipmentHTML}
+
+        </div>
+      `;
+
+    }).join("");
+
+}
+
+
+/* ============================================================
+   ALERTES / ENTRETIENS
+   ============================================================ */
+
+function displayAlerts() {
+
+  const container =
+    document.getElementById("alerts");
+
+  if (!container) return;
+
+
+  const alerts =
+    homeData.alerts || [];
+
+
+  if (alerts.length === 0) {
+
+    container.innerHTML = `
+      <p style="
+        color:#77827a;
+        font-size:13px;
+      ">
+        Aucun rappel de prévu.
+      </p>
+    `;
+
+    return;
+  }
+
+
+  container.innerHTML =
+    alerts.map(alert => `
+
+      <div class="alert">
+
+        <span class="date">
+          ${escapeHTML(alert.date || "")}
+        </span>
+
+        <strong>
+          ${escapeHTML(alert.title || "")}
+        </strong>
+
+        <p>
+          ${escapeHTML(alert.text || "")}
+        </p>
+
+      </div>
+
+    `).join("");
+
+}
+
+
+/* ============================================================
+   PROFESSIONNELS
+   ============================================================ */
+
+function displayProfessionals() {
+
+  const container =
+    document.getElementById("professionals");
+
+  if (!container) return;
+
+
+  const professionals =
+    homeData.professionals || [];
+
+
+  if (professionals.length === 0) {
+
+    container.innerHTML = `
+      <p style="
+        color:#77827a;
+        font-size:13px;
+      ">
+        Aucun accès professionnel actif.
+      </p>
+    `;
+
+    return;
+  }
+
+
+  container.innerHTML =
+    professionals.map(pro => `
+
+      <div class="pro">
+
+        <span class="access-active">
+          ${escapeHTML(pro.access || "Actif")}
+        </span>
+
+        <strong>
+          ${escapeHTML(pro.name || "")}
+        </strong>
+
+        <p>
+          ${escapeHTML(pro.domain || "")}
+          ${pro.expires
+            ? ` · accès jusqu'au ${escapeHTML(pro.expires)}`
+            : ""
+          }
+        </p>
+
+      </div>
+
+    `).join("");
+
+}
+
+
+/* ============================================================
+   OUVRIR UN SYSTÈME
+   ============================================================ */
+
+async function openSystem(systemId) {
 
   try {
 
-    const house = await getHouse();
-
-    if (!house) {
-      return res.status(404).json({
-        error: "Maison introuvable"
-      });
-    }
-
-
-    const systemResult =
-      await pool.query(
-        `
-        SELECT
-          id,
-          name,
-          icon,
-          status,
-          color
-        FROM systems
-        WHERE id = $1
-        AND house_id = $2
-        `,
-        [
-          req.params.id,
-          house.id
-        ]
+    const response =
+      await fetch(
+        `/api/systems/${encodeURIComponent(systemId)}`
       );
 
 
-    if (systemResult.rows.length === 0) {
+    if (!response.ok) {
 
-      return res.status(404).json({
-        error: "Système introuvable"
-      });
+      throw new Error(
+        "Système introuvable"
+      );
 
     }
 
 
     const system =
-      systemResult.rows[0];
+      await response.json();
 
 
-    const equipmentResult =
-      await pool.query(
-        `
-        SELECT
-          id,
-          name,
-          model,
-          installed,
-          specs
-        FROM equipment
-        WHERE system_id = $1
-        ORDER BY created_at DESC
-        `,
-        [system.id]
-      );
+    let equipmentHTML = "";
 
 
-    const documentsResult =
-      await pool.query(
-        `
-        SELECT
-          id,
-          name,
-          file_url
-        FROM documents
-        WHERE system_id = $1
-        ORDER BY created_at DESC
-        `,
-        [system.id]
-      );
+    /* --------------------------------------------------------
+       ÉQUIPEMENTS
+       -------------------------------------------------------- */
+
+    if (
+      system.equipment &&
+      system.equipment.length > 0
+    ) {
+
+      equipmentHTML =
+        system.equipment.map(item => {
+
+          let specsHTML = "";
 
 
-    res.json({
+          if (
+            item.specs &&
+            typeof item.specs === "object" &&
+            Object.keys(item.specs).length > 0
+          ) {
 
-      id: system.id,
+            specsHTML = `
 
-      name: system.name,
+              <div class="specs-grid">
 
-      icon: system.icon,
+                ${
+                  Object.entries(item.specs)
+                    .filter(([key, value]) => value)
+                    .map(([key, value]) => `
 
-      status: system.status,
+                      <div class="spec-tag">
 
-      color: system.color,
+                        <strong>
+                          ${escapeHTML(key)}
+                        </strong>
 
-      equipment: equipmentResult.rows,
+                        :
+                        ${escapeHTML(String(value))}
 
-      documents: documentsResult.rows
+                      </div>
 
-    });
+                    `)
+                    .join("")
+                }
 
-  } catch (error) {
+              </div>
 
-    console.error("Erreur système :", error);
+            `;
 
-    res.status(500).json({
-      error: "Erreur serveur"
-    });
-
-  }
-
-});
-
-
-// ============================================================
-// AJOUT ÉQUIPEMENT
-// ============================================================
-
-app.post("/api/equipment", async (req, res) => {
-
-  try {
-
-    const {
-      systemId,
-      name,
-      model,
-      specs
-    } = req.body;
+          }
 
 
-    if (!systemId || !name) {
+          return `
 
-      return res.status(400).json({
-        error: "Nom et système requis."
-      });
+            <div class="equipment-deep">
 
-    }
+              <div class="equip-header">
 
+                <strong>
+                  ${escapeHTML(item.name)}
+                </strong>
 
-    const house = await getHouse();
+                <span class="equip-model">
 
-    if (!house) {
+                  ${
+                    item.model
+                      ? escapeHTML(item.model)
+                      : "Modèle non précisé"
+                  }
 
-      return res.status(403).json({
-        error: "Maison non configurée."
-      });
+                </span>
 
-    }
-
-
-    const systemResult =
-      await pool.query(
-        `
-        SELECT id
-        FROM systems
-        WHERE id = $1
-        AND house_id = $2
-        `,
-        [
-          systemId,
-          house.id
-        ]
-      );
+              </div>
 
 
-    if (systemResult.rows.length === 0) {
+              ${specsHTML}
 
-      return res.status(404).json({
-        error: "Système introuvable."
-      });
+
+              <div class="equip-footer">
+
+                Enregistré le :
+                ${escapeHTML(item.installed || "—")}
+
+              </div>
+
+            </div>
+
+          `;
+
+        }).join("");
+
+    } else {
+
+      equipmentHTML = `
+
+        <div style="
+          background:#f8f9f7;
+          padding:20px;
+          text-align:center;
+          border-radius:12px;
+          margin-top:10px;
+        ">
+
+          <p style="
+            color:#707a74;
+            font-size:13px;
+            margin:0 0 10px 0;
+          ">
+            Aucun équipement enregistré.
+          </p>
+
+        </div>
+
+      `;
 
     }
 
 
-    const result =
-      await pool.query(
-        `
-        INSERT INTO equipment
-        (
-          system_id,
-          name,
-          model,
-          installed,
-          specs
-        )
-        VALUES
-        ($1, $2, $3, $4, $5)
-        RETURNING *
-        `,
-        [
-          systemId,
-          name,
-          model || "",
-          new Date().toLocaleDateString("fr-FR"),
-          specs || {}
-        ]
-      );
+    /* --------------------------------------------------------
+       DOCUMENTS
+       -------------------------------------------------------- */
+
+    let documentsHTML = "";
 
 
-    res.json({
-      ok: true,
-      equipment: result.rows[0]
-    });
+    if (
+      system.documents &&
+      system.documents.length > 0
+    ) {
 
-  } catch (error) {
+      documentsHTML = `
 
-    console.error("Erreur équipement :", error);
+        <h3 style="
+          margin-top:25px;
+        ">
+          Documents
+        </h3>
 
-    res.status(500).json({
-      error: "Impossible d'enregistrer l'équipement."
-    });
+        <div>
 
-  }
+          ${
+            system.documents.map(document => `
 
-});
+              <div class="equipment-deep">
 
+                📄
+                ${escapeHTML(document.name || document)}
 
-// ============================================================
-// AJOUT RAPPEL
-// ============================================================
+              </div>
 
-app.post("/api/alerts", async (req, res) => {
+            `).join("")
+          }
 
-  try {
+        </div>
 
-    const {
-      title,
-      text,
-      date
-    } = req.body;
-
-
-    if (!title || !text || !date) {
-
-      return res.status(400).json({
-        error: "Informations incomplètes."
-      });
+      `;
 
     }
 
 
-    const house = await getHouse();
+    /* --------------------------------------------------------
+       MODALE
+       -------------------------------------------------------- */
 
-    if (!house) {
-
-      return res.status(403).json({
-        error: "Maison non configurée."
-      });
-
-    }
+    const modalContent =
+      document.getElementById("modal-content");
 
 
-    const result =
-      await pool.query(
-        `
-        INSERT INTO alerts
-        (
-          house_id,
-          title,
-          text,
-          date
-        )
-        VALUES
-        ($1, $2, $3, $4)
-        RETURNING *
-        `,
-        [
-          house.id,
-          title,
-          text,
-          date
-        ]
-      );
+    if (!modalContent) return;
 
 
-    res.json({
-      ok: true,
-      alert: result.rows[0]
-    });
+    modalContent.innerHTML = `
 
-  } catch (error) {
+      <div class="eyebrow">
 
-    console.error("Erreur alerte :", error);
+        ${system.icon || "🏠"}
+        SYSTÈME
 
-    res.status(500).json({
-      error: "Impossible d'enregistrer le rappel."
-    });
-
-  }
-
-});
+      </div>
 
 
-// ============================================================
-// AJOUT PROFESSIONNEL
-// ============================================================
-
-app.post("/api/professionals", async (req, res) => {
-
-  try {
-
-    const {
-      name,
-      domain,
-      access,
-      expires
-    } = req.body;
+      <h2>
+        ${escapeHTML(system.name)}
+      </h2>
 
 
-    const house = await getHouse();
+      <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        margin-top:20px;
+        border-bottom:1px solid #e3e8e4;
+        padding-bottom:10px;
+        gap:10px;
+      ">
 
-    if (!house) {
-
-      return res.status(403).json({
-        error: "Maison non configurée."
-      });
-
-    }
-
-
-    const result =
-      await pool.query(
-        `
-        INSERT INTO professionals
-        (
-          house_id,
-          name,
-          domain,
-          access,
-          expires
-        )
-        VALUES
-        ($1, $2, $3, $4, $5)
-        RETURNING *
-        `,
-        [
-          house.id,
-          name,
-          domain,
-          access || "Actif",
-          expires || ""
-        ]
-      );
+        <h3 style="
+          margin:0;
+        ">
+          Équipements
+        </h3>
 
 
-    res.json({
-      ok: true,
-      professional: result.rows[0]
-    });
+        <button
+          class="button secondary"
+          style="
+            padding:4px 10px;
+            font-size:12px;
+          "
+          onclick="openAddEquipmentModal('${system.id}')"
+        >
+          + Ajouter
+        </button>
+
+      </div>
+
+
+      <div style="
+        margin-top:15px;
+      ">
+
+        ${equipmentHTML}
+
+      </div>
+
+
+      ${documentsHTML}
+
+    `;
+
+
+    openModal();
 
   } catch (error) {
 
     console.error(error);
 
-    res.status(500).json({
-      error: "Impossible d'ajouter le professionnel."
-    });
-
-  }
-
-});
-
-
-// ============================================================
-// DÉMARRAGE
-// ============================================================
-
-async function startServer() {
-
-  try {
-
-    await initDatabase();
-
-    app.listen(PORT, () => {
-
-      console.log(
-        `HOME ID fonctionne sur le port ${PORT}`
-      );
-
-    });
-
-  } catch (error) {
-
-    console.error(
-      "Impossible de démarrer HOME ID :",
-      error
+    showMessage(
+      "Impossible d'ouvrir ce système."
     );
-
-    process.exit(1);
 
   }
 
 }
 
-startServer();
+
+/* ============================================================
+   MENU AJOUT
+   ============================================================ */
+
+function openAddMenu() {
+
+  document.getElementById(
+    "modal-content"
+  ).innerHTML = `
+
+    <div class="eyebrow">
+      ACTION RAPIDE
+    </div>
+
+    <h2>
+      Que voulez-vous ajouter ?
+    </h2>
+
+
+    <div style="
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      margin-top:20px;
+    ">
+
+
+      <button
+        class="button secondary"
+        style="
+          text-align:left;
+          padding:16px;
+        "
+        onclick="openAddEquipmentModal()"
+      >
+
+        ➕
+        <strong>
+          Un équipement / appareil
+        </strong>
+
+        <br>
+
+        <small style="
+          color:#6d7771;
+        ">
+          Pompe, portail, climatisation,
+          compteur...
+        </small>
+
+      </button>
+
+
+      <button
+        class="button secondary"
+        style="
+          text-align:left;
+          padding:16px;
+        "
+        onclick="openAddAlertModal()"
+      >
+
+        📅
+        <strong>
+          Un entretien ou rappel
+        </strong>
+
+        <br>
+
+        <small style="
+          color:#6d7771;
+        ">
+          Ramonage, vidange,
+          remplacement filtre...
+        </small>
+
+      </button>
+
+
+      <button
+        class="button secondary"
+        style="
+          text-align:left;
+          padding:16px;
+        "
+        onclick="openImportModal()"
+      >
+
+        📄
+        <strong>
+          Un document
+        </strong>
+
+        <br>
+
+        <small style="
+          color:#6d7771;
+        ">
+          Facture, notice, garantie PDF...
+        </small>
+
+      </button>
+
+    </div>
+
+  `;
+
+
+  openModal();
+
+}
+
+
+/* ============================================================
+   AJOUT ÉQUIPEMENT
+   ============================================================ */
+
+function openAddEquipmentModal(
+  preselectedSystem = ""
+) {
+
+  const systems =
+    homeData.systems || [];
+
+
+  const systemOptions =
+    systems.map(sys => `
+
+      <option
+        value="${escapeHTML(sys.id)}"
+        ${
+          sys.id === preselectedSystem
+            ? "selected"
+            : ""
+        }
+      >
+        ${escapeHTML(sys.name)}
+      </option>
+
+    `).join("");
+
+
+  document.getElementById(
+    "modal-content"
+  ).innerHTML = `
+
+    <div class="eyebrow">
+      NOUVEL ÉQUIPEMENT
+    </div>
+
+    <h2>
+      Ajouter un équipement
+    </h2>
+
+
+    <form
+      onsubmit="submitEquipment(event)"
+      style="
+        display:flex;
+        flex-direction:column;
+        gap:15px;
+        margin-top:15px;
+      "
+    >
+
+
+      <div style="
+        background:#f8f9f7;
+        padding:15px;
+        border-radius:12px;
+        border:1px solid #e3e8e4;
+      ">
+
+        <label style="
+          font-size:12px;
+          font-weight:700;
+          color:#59645d;
+          display:block;
+          margin-bottom:5px;
+        ">
+          Catégorie
+        </label>
+
+
+        <select
+          id="form-sys-id"
+          required
+          style="
+            width:100%;
+            padding:10px;
+            border-radius:8px;
+            border:1px solid #cdd4ce;
+          "
+          onchange="renderDynamicFields()"
+        >
+
+          <option
+            value=""
+            disabled
+            ${
+              preselectedSystem
+                ? ""
+                : "selected"
+            }
+          >
+            -- Choisissez une catégorie --
+          </option>
+
+          ${systemOptions}
+
+        </select>
+
+      </div>
+
+
+      <div>
+
+        <label style="
+          font-size:12px;
+          font-weight:700;
+          color:#59645d;
+          display:block;
+          margin-bottom:5px;
+        ">
+          Nom de l'appareil *
+        </label>
+
+        <input
+          type="text"
+          id="form-name"
+          placeholder="Ex : Pompe piscine"
+          required
+          style="
+            width:100%;
+            padding:10px;
+            border-radius:8px;
+            border:1px solid #cdd4ce;
+          "
+        >
+
+      </div>
+
+
+      <div>
+
+        <label style="
+          font-size:12px;
+          font-weight:700;
+          color:#59645d;
+          display:block;
+          margin-bottom:5px;
+        ">
+          Marque / Modèle
+        </label>
+
+        <input
+          type="text"
+          id="form-model"
+          placeholder="Ex : Hayward"
+          style="
+            width:100%;
+            padding:10px;
+            border-radius:8px;
+            border:1px solid #cdd4ce;
+          "
+        >
+
+      </div>
+
+
+      <div
+        id="dynamic-fields-container"
+        style="
+          display:flex;
+          flex-direction:column;
+          gap:10px;
+        "
+      ></div>
+
+
+      <button
+        type="submit"
+        class="button primary"
+        style="
+          margin-top:10px;
+        "
+      >
+        Sauvegarder l'appareil
+      </button>
+
+    </form>
+
+  `;
+
+
+  openModal();
+
+
+  if (preselectedSystem) {
+    renderDynamicFields();
+  }
+
+}
+
+
+/* ============================================================
+   CHAMPS TECHNIQUES DYNAMIQUES
+   ============================================================ */
+
+function renderDynamicFields() {
+
+  const select =
+    document.getElementById("form-sys-id");
+
+  const container =
+    document.getElementById(
+      "dynamic-fields-container"
+    );
+
+
+  if (!select || !container) return;
+
+
+  const sysId =
+    select.value;
+
+
+  let html = "";
+
+
+  /* ----------------------------------------------------------
+     PISCINE
+     ---------------------------------------------------------- */
+
+  if (sysId === "piscine") {
+
+    html = `
+
+      <div style="
+        border-left:3px solid #d18a35;
+        padding-left:10px;
+      ">
+
+        <h4 style="
+          margin:0 0 10px;
+          font-size:13px;
+          color:#d18a35;
+        ">
+          Fiche technique piscine
+        </h4>
+
+
+        <div style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:10px;
+        ">
+
+          <input
+            type="text"
+            data-key="Volume"
+            placeholder="Volume (ex : 45 m³)"
+            class="spec-input"
+          >
+
+
+          <select
+            data-key="Traitement"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Traitement --
+            </option>
+
+            <option value="Électrolyse au sel">
+              Au sel
+            </option>
+
+            <option value="Chlore">
+              Chlore
+            </option>
+
+            <option value="Brome / UV">
+              Brome / UV
+            </option>
+
+          </select>
+
+
+          <select
+            data-key="Filtre"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Filtre --
+            </option>
+
+            <option value="Sable / Verre">
+              Sable / Verre
+            </option>
+
+            <option value="Cartouche">
+              Cartouche
+            </option>
+
+          </select>
+
+
+          <input
+            type="text"
+            data-key="Charge filtrante"
+            placeholder="Ex : Verre 150 kg"
+            class="spec-input"
+          >
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* ----------------------------------------------------------
+     CHAUFFAGE
+     ---------------------------------------------------------- */
+
+  else if (sysId === "chauffage") {
+
+    html = `
+
+      <div style="
+        border-left:3px solid #d18a35;
+        padding-left:10px;
+      ">
+
+        <h4 style="
+          margin:0 0 10px;
+          font-size:13px;
+          color:#d18a35;
+        ">
+          Caractéristiques thermiques
+        </h4>
+
+
+        <div style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:10px;
+        ">
+
+          <select
+            data-key="Énergie"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Énergie --
+            </option>
+
+            <option value="Gaz de ville">
+              Gaz de ville
+            </option>
+
+            <option value="PAC / Électrique">
+              PAC / Électrique
+            </option>
+
+            <option value="Bois / Granulés">
+              Bois / Granulés
+            </option>
+
+            <option value="Fioul">
+              Fioul
+            </option>
+
+          </select>
+
+
+          <input
+            type="text"
+            data-key="Puissance"
+            placeholder="Puissance (ex : 12 kW)"
+            class="spec-input"
+          >
+
+
+          <select
+            data-key="Diffusion"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Diffusion --
+            </option>
+
+            <option value="Plancher chauffant">
+              Plancher chauffant
+            </option>
+
+            <option value="Radiateurs">
+              Radiateurs
+            </option>
+
+            <option value="Air pulsé">
+              Air pulsé
+            </option>
+
+          </select>
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* ----------------------------------------------------------
+     ÉLECTRICITÉ
+     ---------------------------------------------------------- */
+
+  else if (sysId === "electricite") {
+
+    html = `
+
+      <div style="
+        border-left:3px solid #4b9b69;
+        padding-left:10px;
+      ">
+
+        <h4 style="
+          margin:0 0 10px;
+          font-size:13px;
+          color:#4b9b69;
+        ">
+          Tableau électrique & réseau
+        </h4>
+
+
+        <div style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:10px;
+        ">
+
+          <select
+            data-key="Phase"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Phase --
+            </option>
+
+            <option value="Monophasé">
+              Monophasé
+            </option>
+
+            <option value="Triphasé">
+              Triphasé
+            </option>
+
+          </select>
+
+
+          <select
+            data-key="Puissance souscrite"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Puissance --
+            </option>
+
+            <option value="6 kVA">
+              6 kVA
+            </option>
+
+            <option value="9 kVA">
+              9 kVA
+            </option>
+
+            <option value="12 kVA">
+              12 kVA
+            </option>
+
+            <option value="36 kVA">
+              36 kVA
+            </option>
+
+          </select>
+
+
+          <select
+            data-key="Type compteur"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Compteur --
+            </option>
+
+            <option value="Linky">
+              Linky
+            </option>
+
+            <option value="Ancien électronique">
+              Ancien électronique
+            </option>
+
+          </select>
+
+
+          <input
+            type="text"
+            data-key="PDL / PRM"
+            placeholder="N° PDL / PRM"
+            class="spec-input"
+          >
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* ----------------------------------------------------------
+     EAU
+     ---------------------------------------------------------- */
+
+  else if (sysId === "eau") {
+
+    html = `
+
+      <div style="
+        border-left:3px solid #4b9b69;
+        padding-left:10px;
+      ">
+
+        <h4 style="
+          margin:0 0 10px;
+          font-size:13px;
+          color:#4b9b69;
+        ">
+          Plomberie & traitement
+        </h4>
+
+
+        <div style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:10px;
+        ">
+
+          <select
+            data-key="Type équipement"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Type --
+            </option>
+
+            <option value="Cumulus">
+              Cumulus
+            </option>
+
+            <option value="Chauffe-eau thermodynamique">
+              Chauffe-eau thermodynamique
+            </option>
+
+            <option value="Adoucisseur">
+              Adoucisseur
+            </option>
+
+            <option value="Surpresseur">
+              Surpresseur
+            </option>
+
+          </select>
+
+
+          <input
+            type="text"
+            data-key="Capacité"
+            placeholder="Ex : 200 L"
+            class="spec-input"
+          >
+
+
+          <input
+            type="text"
+            data-key="Consommable"
+            placeholder="Ex : Sel en pastilles"
+            class="spec-input"
+            style="grid-column:1/-1;"
+          >
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* ----------------------------------------------------------
+     CLIMATISATION
+     ---------------------------------------------------------- */
+
+  else if (sysId === "climatisation") {
+
+    html = `
+
+      <div style="
+        border-left:3px solid #4b9b69;
+        padding-left:10px;
+      ">
+
+        <h4 style="
+          margin:0 0 10px;
+          font-size:13px;
+          color:#4b9b69;
+        ">
+          Génie climatique
+        </h4>
+
+
+        <div style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:10px;
+        ">
+
+          <select
+            data-key="Type installation"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Type --
+            </option>
+
+            <option value="Split mural">
+              Split mural
+            </option>
+
+            <option value="Gainable">
+              Gainable
+            </option>
+
+            <option value="VMC double flux">
+              VMC double flux
+            </option>
+
+          </select>
+
+
+          <select
+            data-key="Gaz réfrigérant"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Gaz --
+            </option>
+
+            <option value="R32">
+              R32
+            </option>
+
+            <option value="R410A">
+              R410A
+            </option>
+
+            <option value="R290">
+              R290
+            </option>
+
+          </select>
+
+
+          <select
+            data-key="Réversible"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Réversible --
+            </option>
+
+            <option value="Oui">
+              Oui (chaud / froid)
+            </option>
+
+            <option value="Non">
+              Non
+            </option>
+
+          </select>
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* ----------------------------------------------------------
+     EXTÉRIEUR
+     ---------------------------------------------------------- */
+
+  else if (sysId === "exterieur") {
+
+    html = `
+
+      <div style="
+        border-left:3px solid #4b9b69;
+        padding-left:10px;
+      ">
+
+        <h4 style="
+          margin:0 0 10px;
+          font-size:13px;
+          color:#4b9b69;
+        ">
+          Aménagement & motorisation
+        </h4>
+
+
+        <div style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:10px;
+        ">
+
+          <select
+            data-key="Installation"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Type --
+            </option>
+
+            <option value="Portail motorisé">
+              Portail motorisé
+            </option>
+
+            <option value="Porte de garage">
+              Porte de garage
+            </option>
+
+            <option value="Arrosage automatique">
+              Arrosage automatique
+            </option>
+
+            <option value="Store banne">
+              Store banne
+            </option>
+
+          </select>
+
+
+          <select
+            data-key="Alimentation"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Alimentation --
+            </option>
+
+            <option value="Secteur 230V">
+              Secteur 230V
+            </option>
+
+            <option value="Solaire / Batterie">
+              Solaire / Batterie
+            </option>
+
+          </select>
+
+
+          <input
+            type="text"
+            data-key="Mécanisme"
+            placeholder="Ex : Vérin, bras..."
+            class="spec-input"
+            style="grid-column:1/-1;"
+          >
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* ----------------------------------------------------------
+     RÉSEAU / DOMOTIQUE
+     ---------------------------------------------------------- */
+
+  else if (sysId === "domotique") {
+
+    html = `
+
+      <div style="
+        border-left:3px solid #4b9b69;
+        padding-left:10px;
+      ">
+
+        <h4 style="
+          margin:0 0 10px;
+          font-size:13px;
+          color:#4b9b69;
+        ">
+          Réseau, domotique & sécurité
+        </h4>
+
+
+        <div style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:10px;
+        ">
+
+          <select
+            data-key="Catégorie"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Catégorie --
+            </option>
+
+            <option value="Box Internet">
+              Box Internet
+            </option>
+
+            <option value="Alarme">
+              Alarme
+            </option>
+
+            <option value="Caméra">
+              Caméra
+            </option>
+
+            <option value="Box domotique">
+              Box domotique
+            </option>
+
+          </select>
+
+
+          <select
+            data-key="Protocole"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Protocole --
+            </option>
+
+            <option value="Wi-Fi">
+              Wi-Fi
+            </option>
+
+            <option value="Zigbee">
+              Zigbee
+            </option>
+
+            <option value="Z-Wave">
+              Z-Wave
+            </option>
+
+            <option value="Filaire RJ45">
+              Filaire RJ45
+            </option>
+
+          </select>
+
+
+          <select
+            data-key="Batterie secours"
+            class="spec-input"
+          >
+
+            <option value="">
+              -- Secours --
+            </option>
+
+            <option value="Oui">
+              Oui
+            </option>
+
+            <option value="Non">
+              Non
+            </option>
+
+          </select>
+
+
+          <input
+            type="text"
+            data-key="Connectivité"
+            placeholder="Ex : Fibre, 4G..."
+            class="spec-input"
+          >
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  container.innerHTML = html;
+
+}
+
+
+/* ============================================================
+   SAUVEGARDE ÉQUIPEMENT
+   ============================================================ */
+
+async function submitEquipment(event) {
+
+  event.preventDefault();
+
+
+  const systemId =
+    document.getElementById(
+      "form-sys-id"
+    ).value;
+
+
+  const name =
+    document.getElementById(
+      "form-name"
+    ).value.trim();
+
+
+  const model =
+    document.getElementById(
+      "form-model"
+    ).value.trim();
+
+
+  const specs = {};
+
+
+  document
+    .querySelectorAll(".spec-input")
+    .forEach(input => {
+
+      if (input.value) {
+
+        specs[
+          input.getAttribute("data-key")
+        ] = input.value;
+
+      }
+
+    });
+
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/equipment",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            systemId,
+            name,
+            model,
+            specs
+          })
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        result.error ||
+        "Impossible de sauvegarder."
+      );
+
+    }
+
+
+    closeModal();
+
+    showMessage(
+      "Équipement enregistré avec succès."
+    );
+
+
+    await init();
+
+
+  } catch (error) {
+
+    console.error(error);
+
+    showMessage(
+      error.message ||
+      "Erreur réseau."
+    );
+
+  }
+
+}
+
+
+/* ============================================================
+   AJOUT D'UN RAPPEL
+   ============================================================ */
+
+function openAddAlertModal() {
+
+  document.getElementById(
+    "modal-content"
+  ).innerHTML = `
+
+    <div class="eyebrow">
+      NOUVEAU RAPPEL
+    </div>
+
+    <h2>
+      Programmer un entretien
+    </h2>
+
+
+    <form
+      onsubmit="submitAlert(event)"
+      style="
+        display:flex;
+        flex-direction:column;
+        gap:12px;
+        margin-top:15px;
+      "
+    >
+
+      <input
+        type="text"
+        id="alert-title"
+        placeholder="Titre : Ramonage, piscine..."
+        required
+        style="
+          padding:10px;
+          border-radius:8px;
+          border:1px solid #cdd4ce;
+        "
+      >
+
+
+      <input
+        type="text"
+        id="alert-text"
+        placeholder="Action à effectuer"
+        required
+        style="
+          padding:10px;
+          border-radius:8px;
+          border:1px solid #cdd4ce;
+        "
+      >
+
+
+      <input
+        type="text"
+        id="alert-date"
+        placeholder="Date : 15/10/2026"
+        required
+        style="
+          padding:10px;
+          border-radius:8px;
+          border:1px solid #cdd4ce;
+        "
+      >
+
+
+      <button
+        type="submit"
+        class="button primary"
+      >
+        Programmer
+      </button>
+
+    </form>
+
+  `;
+
+
+  openModal();
+
+}
+
+
+/* ============================================================
+   SAUVEGARDE RAPPEL
+   ============================================================ */
+
+async function submitAlert(event) {
+
+  event.preventDefault();
+
+
+  const payload = {
+
+    title:
+      document.getElementById(
+        "alert-title"
+      ).value.trim(),
+
+    text:
+      document.getElementById(
+        "alert-text"
+      ).value.trim(),
+
+    date:
+      document.getElementById(
+        "alert-date"
+      ).value.trim()
+
+  };
+
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/alerts",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify(payload)
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        result.error ||
+        "Impossible d'ajouter le rappel."
+      );
+
+    }
+
+
+    closeModal();
+
+    showMessage(
+      "Entretien programmé."
+    );
+
+
+    await init();
+
+
+  } catch (error) {
+
+    console.error(error);
+
+    showMessage(
+      error.message ||
+      "Erreur réseau."
+    );
+
+  }
+
+}
+
+
+/* ============================================================
+   IMPORT DOCUMENT
+   ============================================================ */
+
+function openImportModal() {
+
+  document.getElementById(
+    "modal-content"
+  ).innerHTML = `
+
+    <div class="eyebrow">
+      BIBLIOTHÈQUE
+    </div>
+
+    <h2>
+      Importer un document
+    </h2>
+
+
+    <div style="
+      border:2px dashed #cdd4ce;
+      border-radius:16px;
+      padding:30px;
+      text-align:center;
+      background:#f8f9f7;
+      margin-top:15px;
+    ">
+
+      <div style="
+        font-size:36px;
+        margin-bottom:10px;
+      ">
+        📄
+      </div>
+
+
+      <strong>
+        Documents HOME ID
+      </strong>
+
+
+      <br>
+
+
+      <small style="
+        color:#7c867f;
+      ">
+        Factures, notices, garanties,
+        plans...
+      </small>
+
+
+      <br><br>
+
+
+      <button
+        class="button primary"
+        onclick="
+          showMessage(
+            'Import de documents : prochaine étape.'
+          );
+        "
+      >
+        Parcourir les fichiers
+      </button>
+
+    </div>
+
+  `;
+
+
+  openModal();
+
+}
+
+
+/* ============================================================
+   PLAN
+   ============================================================ */
+
+function openPlan() {
+
+  document.getElementById(
+    "modal-content"
+  ).innerHTML = `
+
+    <div class="eyebrow">
+      CARTOGRAPHIE
+    </div>
+
+    <h2>
+      Plan de la maison
+    </h2>
+
+
+    <p style="
+      color:#737c76;
+      font-size:13px;
+    ">
+      Le plan deviendra la carte interactive
+      de votre HOME ID.
+    </p>
+
+
+    <div style="
+      height:300px;
+      border:1px dashed #cdd4ce;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:#f8f9f7;
+      margin-top:20px;
+      text-align:center;
+    ">
+
+      <div>
+
+        <div style="
+          font-size:42px;
+          margin-bottom:12px;
+        ">
+          🗺️
+        </div>
+
+        <strong>
+          Plan interactif
+        </strong>
+
+        <br>
+
+        <small style="
+          color:#7c867f;
+        ">
+          PDF / JPG / PNG
+        </small>
+
+      </div>
+
+    </div>
+
+  `;
+
+
+  openModal();
+
+}
+
+
+/* ============================================================
+   SIMULATEUR QR / ACCÈS ARTISANS
+   ============================================================ */
+
+function openQrSimulatorModal() {
+
+  document.getElementById(
+    "modal-content"
+  ).innerHTML = `
+
+    <div class="eyebrow">
+      ACCÈS PROFESSIONNEL
+    </div>
+
+    <h2>
+      Scanner en tant que...
+    </h2>
+
+
+    <div style="
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-top:20px;
+    ">
+
+
+      <a
+        href="/"
+        class="button secondary"
+        style="
+          text-decoration:none;
+          text-align:center;
+        "
+      >
+        👤 Propriétaire
+      </a>
+
+
+      <a
+        href="/?role=electricien"
+        class="button secondary"
+        style="
+          text-decoration:none;
+          text-align:center;
+        "
+      >
+        ⚡ Électricien
+      </a>
+
+
+      <a
+        href="/?role=pisciniste"
+        class="button secondary"
+        style="
+          text-decoration:none;
+          text-align:center;
+        "
+      >
+        🏊 Pisciniste
+      </a>
+
+
+      <a
+        href="/?role=clim"
+        class="button secondary"
+        style="
+          text-decoration:none;
+          text-align:center;
+        "
+      >
+        ❄️ Clim / Chauffage
+      </a>
+
+    </div>
+
+  `;
+
+
+  openModal();
+
+}
+
+
+/* ============================================================
+   MODALE
+   ============================================================ */
+
+function openModal() {
+
+  const modal =
+    document.getElementById("modal");
+
+  if (modal) {
+    modal.classList.remove("hidden");
+  }
+
+}
+
+
+function closeModal() {
+
+  const modal =
+    document.getElementById("modal");
+
+  if (modal) {
+    modal.classList.add("hidden");
+  }
+
+}
+
+
+document.addEventListener(
+  "click",
+  function(event) {
+
+    const modal =
+      document.getElementById("modal");
+
+    if (
+      modal &&
+      event.target === modal
+    ) {
+
+      closeModal();
+
+    }
+
+  }
+);
+
+
+/* ============================================================
+   MESSAGE TEMPORAIRE
+   ============================================================ */
+
+function showMessage(message) {
+
+  const toast =
+    document.getElementById("toast");
+
+  if (!toast) return;
+
+
+  toast.textContent =
+    message;
+
+
+  toast.classList.add("show");
+
+
+  setTimeout(
+    () => {
+
+      toast.classList.remove("show");
+
+    },
+    2500
+  );
+
+}
+
+
+/* ============================================================
+   SÉCURITÉ AFFICHAGE
+   ============================================================ */
+
+function escapeHTML(value) {
+
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+}
+
+
+/* ============================================================
+   DÉMARRAGE
+   ============================================================ */
+
+init();
