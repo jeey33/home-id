@@ -374,7 +374,7 @@ function handlePlanUpload(event) {
     showToast(`Plan ${file.name} ajouté avec succès !`);
     // Ici, logique pour envoyer le fichier au serveur
   }
-}
+
 
 function openModal() { document.getElementById("modal").classList.remove("hidden"); }
 function closeModal() { document.getElementById("modal").classList.add("hidden"); }
