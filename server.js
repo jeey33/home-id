@@ -1,5 +1,6 @@
 const express = require("express");
 const path = require("path");
+const { Pool } = require("pg"); // Ajout du module PostgreSQL
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -7,616 +8,331 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 
 // ======================================================
-// BASE DE DONNÉES TEMPORAIRE
+// CONFIGURATION DE LA BASE DE DONNÉES (PostgreSQL)
 // ======================================================
 
-let homeDatabase = {
-  isSetup: false,
+// Sur Render, la variable d'environnement DATABASE_URL est automatiquement fournie
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || "postgres://localhost:5432/homeid", // Fallback local si besoin
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false // Requis par Render
+});
 
-  id: "HID-" + Math.random().toString(36).substring(2, 8).toUpperCase(),
+// Variable globale pour éviter d'interroger la BDD à chaque chargement de page statique
+let isSetupCached = false;
 
-  name: "",
-  year: null,
-  surface: null,
-  land: null,
+// ======================================================
+// INITIALISATION AUTOMATIQUE DES TABLES
+// ======================================================
+async function initDB() {
+  try {
+    // 1. Création des tables si elles n'existent pas
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS home (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(100),
+        year INT,
+        surface INT,
+        land INT,
+        is_setup BOOLEAN DEFAULT FALSE
+      );
 
-  systems: [],
-  alerts: [],
-  professionals: [],
+      CREATE TABLE IF NOT EXISTS systems (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(100),
+        icon VARCHAR(10),
+        status VARCHAR(50),
+        color VARCHAR(20)
+      );
 
-  details: {}
-};
+      CREATE TABLE IF NOT EXISTS equipment (
+        id VARCHAR(50) PRIMARY KEY,
+        system_id VARCHAR(50) REFERENCES systems(id),
+        name VARCHAR(100),
+        model VARCHAR(100),
+        installed VARCHAR(50),
+        notice VARCHAR(255),
+        artisan VARCHAR(100),
+        specs JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
 
+      CREATE TABLE IF NOT EXISTS alerts (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255),
+        text TEXT,
+        date VARCHAR(50)
+      );
+
+      CREATE TABLE IF NOT EXISTS professionals (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100),
+        domain VARCHAR(100),
+        access VARCHAR(50),
+        expires VARCHAR(50)
+      );
+
+      CREATE TABLE IF NOT EXISTS documents (
+        id VARCHAR(50) PRIMARY KEY,
+        system_id VARCHAR(50) REFERENCES systems(id),
+        name VARCHAR(255),
+        added VARCHAR(50)
+      );
+    `);
+
+    // 2. Vérifier si la maison est déjà configurée
+    const checkSetup = await pool.query(`SELECT is_setup FROM home LIMIT 1`);
+    if (checkSetup.rows.length > 0 && checkSetup.rows[0].is_setup) {
+      isSetupCached = true;
+    }
+
+    console.log("Base de données connectée et vérifiée ! (Setup:", isSetupCached, ")");
+  } catch (error) {
+    console.error("Erreur d'initialisation de la base de données :", error);
+  }
+}
+
+// Lancer l'initialisation au démarrage
+initDB();
 
 // ======================================================
 // REDIRECTION SETUP
 // ======================================================
-
 app.use((req, res, next) => {
-
-  if (
-    (req.path === "/" || req.path === "/index.html") &&
-    !homeDatabase.isSetup
-  ) {
+  if ((req.path === "/" || req.path === "/index.html") && !isSetupCached) {
     return res.redirect("/setup.html");
   }
-
-  if (
-    req.path === "/setup.html" &&
-    homeDatabase.isSetup
-  ) {
+  if (req.path === "/setup.html" && isSetupCached) {
     return res.redirect("/");
   }
-
   next();
 });
-
 
 // ======================================================
 // FICHIERS PUBLICS
 // ======================================================
-
 app.use(express.static(path.join(__dirname, "public")));
-
 
 // ======================================================
 // SETUP DE LA MAISON
 // ======================================================
-
-app.post("/api/setup", (req, res) => {
-
-  if (homeDatabase.isSetup) {
-    return res.status(403).json({
-      error: "Maison déjà configurée."
-    });
+app.post("/api/setup", async (req, res) => {
+  if (isSetupCached) {
+    return res.status(403).json({ error: "Maison déjà configurée." });
   }
 
-  const {
-    name,
-    year,
-    surface,
-    land
-  } = req.body;
-
+  const { name, year, surface, land } = req.body;
   if (!name || !year) {
-    return res.status(400).json({
-      error: "Le nom et l'année sont obligatoires."
-    });
+    return res.status(400).json({ error: "Le nom et l'année sont obligatoires." });
   }
 
-  homeDatabase.isSetup = true;
+  const homeId = "HID-" + Math.random().toString(36).substring(2, 8).toUpperCase();
 
-  homeDatabase.name = name;
-  homeDatabase.year = parseInt(year);
-  homeDatabase.surface = parseInt(surface) || 0;
-  homeDatabase.land = parseInt(land) || 0;
+  try {
+    // 1. Enregistrer la maison
+    await pool.query(
+      `INSERT INTO home (id, name, year, surface, land, is_setup) VALUES ($1, $2, $3, $4, $5, TRUE)`,
+      [homeId, name, parseInt(year), parseInt(surface) || 0, parseInt(land) || 0]
+    );
 
+    // 2. Créer les systèmes par défaut
+    const defaultSystems = [
+      { id: "electricite", name: "Électricité", icon: "⚡", status: "À configurer", color: "orange" },
+      { id: "eau", name: "Plomberie & Eau", icon: "💧", status: "À configurer", color: "orange" },
+      { id: "chauffage", name: "Chauffage", icon: "🔥", status: "À configurer", color: "orange" },
+      { id: "climatisation", name: "Clim & VMC", icon: "❄️", status: "À configurer", color: "orange" },
+      { id: "piscine", name: "Piscine & Spa", icon: "🏊", status: "À configurer", color: "orange" },
+      { id: "exterieur", name: "Extérieur & Fermetures", icon: "🌳", status: "À configurer", color: "orange" },
+      { id: "domotique", name: "Réseau & Sécurité", icon: "📡", status: "À configurer", color: "orange" }
+    ];
 
-  // ====================================================
-  // SYSTÈMES DE LA MAISON
-  // ====================================================
-
-  homeDatabase.systems = [
-
-    {
-      id: "electricite",
-      name: "Électricité",
-      icon: "⚡",
-      status: "À configurer",
-      color: "orange",
-      equipment: 0
-    },
-
-    {
-      id: "eau",
-      name: "Plomberie & Eau",
-      icon: "💧",
-      status: "À configurer",
-      color: "orange",
-      equipment: 0
-    },
-
-    {
-      id: "chauffage",
-      name: "Chauffage",
-      icon: "🔥",
-      status: "À configurer",
-      color: "orange",
-      equipment: 0
-    },
-
-    {
-      id: "climatisation",
-      name: "Clim & VMC",
-      icon: "❄️",
-      status: "À configurer",
-      color: "orange",
-      equipment: 0
-    },
-
-    {
-      id: "piscine",
-      name: "Piscine & Spa",
-      icon: "🏊",
-      status: "À configurer",
-      color: "orange",
-      equipment: 0
-    },
-
-    {
-      id: "exterieur",
-      name: "Extérieur & Fermetures",
-      icon: "🌳",
-      status: "À configurer",
-      color: "orange",
-      equipment: 0
-    },
-
-    {
-      id: "domotique",
-      name: "Réseau & Sécurité",
-      icon: "📡",
-      status: "À configurer",
-      color: "orange",
-      equipment: 0
+    for (let sys of defaultSystems) {
+      await pool.query(
+        `INSERT INTO systems (id, name, icon, status, color) VALUES ($1, $2, $3, $4, $5)`,
+        [sys.id, sys.name, sys.icon, sys.status, sys.color]
+      );
     }
 
-  ];
+    isSetupCached = true;
+    res.json({ ok: true, id: homeId });
 
-
-  // ====================================================
-  // CRÉATION DES FICHES DÉTAILLÉES
-  // ====================================================
-
-  homeDatabase.systems.forEach(system => {
-
-    homeDatabase.details[system.id] = {
-
-      id: system.id,
-
-      name: system.name,
-
-      icon: system.icon,
-
-      equipment: [],
-
-      documents: [],
-
-      lastMaintenance: null,
-
-      nextMaintenance: null
-
-    };
-
-  });
-
-
-  res.json({
-    ok: true,
-    id: homeDatabase.id
-  });
-
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur serveur lors du setup." });
+  }
 });
-
 
 // ======================================================
 // INFOS MAISON
 // ======================================================
-
-app.get("/api/home", (req, res) => {
-
-  if (!homeDatabase.isSetup) {
-
-    return res.status(403).json({
-      error: "Maison non configurée."
-    });
-
+app.get("/api/home", async (req, res) => {
+  if (!isSetupCached) {
+    return res.status(403).json({ error: "Maison non configurée." });
   }
 
   const role = req.query.role || "owner";
 
-  let filteredSystems = homeDatabase.systems;
+  try {
+    const homeResult = await pool.query(`SELECT * FROM home LIMIT 1`);
+    const home = homeResult.rows[0];
 
+    const systemsResult = await pool.query(`SELECT * FROM systems`);
+    let systems = systemsResult.rows;
 
-  // Vue électricien
-  if (role === "electricien") {
+    // Récupérer le nombre d'équipements pour chaque système
+    const equipCount = await pool.query(`SELECT system_id, COUNT(*) as count FROM equipment GROUP BY system_id`);
+    
+    systems = systems.map(sys => {
+      const match = equipCount.rows.find(e => e.system_id === sys.id);
+      return { ...sys, equipment: match ? parseInt(match.count) : 0 };
+    });
 
-    filteredSystems =
-      homeDatabase.systems.filter(system =>
-        ["electricite", "domotique"].includes(system.id)
-      );
+    // Filtrage selon le rôle (Artisan)
+    if (role === "electricien") {
+      systems = systems.filter(s => ["electricite", "domotique"].includes(s.id));
+    } else if (role === "pisciniste") {
+      systems = systems.filter(s => s.id === "piscine");
+    } else if (role === "clim") {
+      systems = systems.filter(s => ["climatisation", "chauffage"].includes(s.id));
+    }
 
+    const alertsResult = await pool.query(`SELECT * FROM alerts ORDER BY id DESC`);
+    const prosResult = await pool.query(`SELECT * FROM professionals ORDER BY id DESC`);
+
+    res.json({
+      id: home.id,
+      name: home.name,
+      year: home.year,
+      surface: home.surface,
+      land: home.land,
+      role: role,
+      systems: systems,
+      alerts: alertsResult.rows,
+      professionals: prosResult.rows
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur lors de la récupération des données." });
   }
-
-
-  // Vue pisciniste
-  else if (role === "pisciniste") {
-
-    filteredSystems =
-      homeDatabase.systems.filter(system =>
-        system.id === "piscine"
-      );
-
-  }
-
-
-  // Vue climatisation
-  else if (role === "clim") {
-
-    filteredSystems =
-      homeDatabase.systems.filter(system =>
-        ["climatisation", "chauffage"].includes(system.id)
-      );
-
-  }
-
-
-  res.json({
-
-    id: homeDatabase.id,
-
-    name: homeDatabase.name,
-
-    year: homeDatabase.year,
-
-    surface: homeDatabase.surface,
-
-    land: homeDatabase.land,
-
-    role: role,
-
-    systems: filteredSystems,
-
-    alerts: homeDatabase.alerts,
-
-    professionals: homeDatabase.professionals
-
-  });
-
 });
-
 
 // ======================================================
 // OUVRIR UN SYSTÈME
 // ======================================================
-
-app.get("/api/systems/:id", (req, res) => {
-
+app.get("/api/systems/:id", async (req, res) => {
   const systemId = req.params.id;
 
-  console.log("Ouverture système :", systemId);
+  try {
+    const sysResult = await pool.query(`SELECT * FROM systems WHERE id = $1`, [systemId]);
+    if (sysResult.rows.length === 0) {
+      return res.status(404).json({ error: "Système introuvable", systemId });
+    }
+    const system = sysResult.rows[0];
 
+    const equipResult = await pool.query(`SELECT * FROM equipment WHERE system_id = $1 ORDER BY created_at ASC`, [systemId]);
+    const docsResult = await pool.query(`SELECT * FROM documents WHERE system_id = $1`, [systemId]);
 
-  // Vérifie d'abord que le système existe
-  const system = homeDatabase.systems.find(
-    s => s.id === systemId
-  );
-
-
-  if (!system) {
-
-    console.log("Système introuvable :", systemId);
-
-    return res.status(404).json({
-
-      error: "Système introuvable",
-
-      systemId: systemId
-
+    res.json({
+      id: system.id,
+      name: system.name,
+      icon: system.icon,
+      equipment: equipResult.rows || [],
+      documents: docsResult.rows || [],
+      lastMaintenance: null,
+      nextMaintenance: null
     });
 
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur serveur" });
   }
-
-
-  // Si jamais la fiche detail n'existe pas,
-  // on la recrée automatiquement.
-  if (!homeDatabase.details[systemId]) {
-
-    homeDatabase.details[systemId] = {
-
-      id: system.id,
-
-      name: system.name,
-
-      icon: system.icon,
-
-      equipment: [],
-
-      documents: [],
-
-      lastMaintenance: null,
-
-      nextMaintenance: null
-
-    };
-
-  }
-
-
-  const details = homeDatabase.details[systemId];
-
-
-  res.json({
-
-    id: system.id,
-
-    name: system.name,
-
-    icon: system.icon,
-
-    equipment: details.equipment || [],
-
-    documents: details.documents || [],
-
-    lastMaintenance: details.lastMaintenance || null,
-
-    nextMaintenance: details.nextMaintenance || null
-
-  });
-
 });
-
 
 // ======================================================
 // AJOUT D'UN ÉQUIPEMENT
 // ======================================================
-
-app.post("/api/equipment", (req, res) => {
-
-  const {
-    systemId,
-    name,
-    model,
-    specs
-  } = req.body;
-
-
-  console.log("Ajout équipement :", req.body);
-
+app.post("/api/equipment", async (req, res) => {
+  const { systemId, name, model, artisan, notice, specs } = req.body;
 
   if (!systemId || !name) {
-
-    return res.status(400).json({
-
-      error: "Le système et le nom sont obligatoires."
-
-    });
-
+    return res.status(400).json({ error: "Le système et le nom sont obligatoires." });
   }
 
+  const eqId = "EQ-" + Date.now().toString(36).toUpperCase();
+  const installedDate = new Date().toLocaleDateString("fr-FR");
 
-  // Vérifie que le système existe
-  const system = homeDatabase.systems.find(
-    s => s.id === systemId
-  );
+  try {
+    // 1. Ajouter l'équipement
+    await pool.query(
+      `INSERT INTO equipment (id, system_id, name, model, installed, notice, artisan, specs) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [eqId, systemId, name, model || "", installedDate, notice || null, artisan || null, specs || {}]
+    );
 
+    // 2. Mettre à jour le statut du système
+    await pool.query(
+      `UPDATE systems SET status = 'À jour', color = 'green' WHERE id = $1`,
+      [systemId]
+    );
 
-  if (!system) {
+    res.json({ ok: true, equipment: { id: eqId, name, model } });
 
-    return res.status(404).json({
-
-      error: "Système introuvable."
-
-    });
-
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur lors de l'enregistrement." });
   }
-
-
-  // Sécurité : création automatique de details
-  if (!homeDatabase.details[systemId]) {
-
-    homeDatabase.details[systemId] = {
-
-      id: system.id,
-
-      name: system.name,
-
-      icon: system.icon,
-
-      equipment: [],
-
-      documents: [],
-
-      lastMaintenance: null,
-
-      nextMaintenance: null
-
-    };
-
-  }
-
-
-  const newEquipment = {
-
-    id: "EQ-" +
-      Date.now().toString(36).toUpperCase(),
-
-    name: name,
-
-    model: model || "",
-
-    installed: new Date().toLocaleDateString("fr-FR"),
-
-    specs: specs || {}
-
-  };
-
-
-  homeDatabase.details[systemId].equipment.push(
-    newEquipment
-  );
-
-
-  // Mise à jour du compteur
-  system.equipment =
-    homeDatabase.details[systemId].equipment.length;
-
-
-  // Le système passe automatiquement
-  // de "À configurer" à "À jour"
-  system.status = "À jour";
-  system.color = "green";
-
-
-  res.json({
-
-    ok: true,
-
-    equipment: newEquipment,
-
-    system: system
-
-  });
-
 });
 
-
 // ======================================================
-// AJOUT D'UN RAPPEL
+// AJOUT D'UN RAPPEL (ALERT)
 // ======================================================
-
-app.post("/api/alerts", (req, res) => {
-
-  const {
-    title,
-    text,
-    date
-  } = req.body;
-
+app.post("/api/alerts", async (req, res) => {
+  const { title, text, date } = req.body;
 
   if (!title || !text || !date) {
-
-    return res.status(400).json({
-
-      error: "Titre, action et date obligatoires."
-
-    });
-
+    return res.status(400).json({ error: "Titre, action et date obligatoires." });
   }
 
-
-  const alert = {
-
-    id: Date.now(),
-
-    title: title,
-
-    text: text,
-
-    date: date
-
-  };
-
-
-  homeDatabase.alerts.unshift(alert);
-
-
-  res.json({
-
-    ok: true,
-
-    alert: alert
-
-  });
-
+  try {
+    await pool.query(
+      `INSERT INTO alerts (title, text, date) VALUES ($1, $2, $3)`,
+      [title, text, date]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur lors de la programmation." });
+  }
 });
-
 
 // ======================================================
 // AJOUT DOCUMENT
 // ======================================================
-
-app.post("/api/documents", (req, res) => {
-
-  const {
-    systemId,
-    name
-  } = req.body;
-
+app.post("/api/documents", async (req, res) => {
+  const { systemId, name } = req.body;
 
   if (!systemId || !name) {
-
-    return res.status(400).json({
-
-      error: "Système et nom du document obligatoires."
-
-    });
-
+    return res.status(400).json({ error: "Système et nom du document obligatoires." });
   }
 
+  const docId = "DOC-" + Date.now().toString(36).toUpperCase();
+  const addedDate = new Date().toLocaleDateString("fr-FR");
 
-  if (!homeDatabase.details[systemId]) {
-
-    return res.status(404).json({
-
-      error: "Système introuvable."
-
-    });
-
+  try {
+    await pool.query(
+      `INSERT INTO documents (id, system_id, name, added) VALUES ($1, $2, $3, $4)`,
+      [docId, systemId, name, addedDate]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur lors de l'ajout du document." });
   }
-
-
-  const document = {
-
-    id: "DOC-" +
-      Date.now().toString(36).toUpperCase(),
-
-    name: name,
-
-    added: new Date().toLocaleDateString("fr-FR")
-
-  };
-
-
-  homeDatabase.details[systemId].documents.push(
-    document
-  );
-
-
-  res.json({
-
-    ok: true,
-
-    document: document
-
-  });
-
 });
 
-
 // ======================================================
-// HEALTH CHECK
+// DÉMARRAGE DU SERVEUR
 // ======================================================
-
-app.get("/api/health", (req, res) => {
-
-  res.json({
-
-    ok: true,
-
-    app: "HOME ID",
-
-    version: "0.2.0",
-
-    database: "memory",
-
-    setup: homeDatabase.isSetup,
-
-    systems: homeDatabase.systems.length
-
-  });
-
-});
-
-
-// ======================================================
-// DÉMARRAGE
-// ======================================================
-
 app.listen(PORT, () => {
-
-  console.log(
-    `HOME ID fonctionne sur le port ${PORT}`
-  );
-
+  console.log(`HOME ID fonctionne sur le port ${PORT}`);
 });
