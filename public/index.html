@@ -6,22 +6,13 @@
   <title>HOME ID — Tableau de bord</title>
   <link rel="stylesheet" href="/style.css">
   <style>
-    /* Styles d'appoint pour les nouveautés si vous ne les avez pas dans style.css */
-    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-    .modal.hidden { display: none; }
-    .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; position: relative; }
-    .close { position: absolute; top: 10px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; }
-    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 20px; display: none; z-index: 1001; }
-    .toast.show { display: block; animation: fadein 0.5s; }
-    .form-group { margin-bottom: 15px; display: flex; flex-direction: column; }
-    .form-group input, .form-group select { padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; }
-    .pro-list { margin-bottom: 15px; }
-    .pro-item { background: #f9f9f9; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #007bff; }
-    .pro-item.google { border-left-color: #28a745; }
-    .pro-name { font-weight: bold; }
-    .pro-rating { color: #f39c12; font-size: 0.9em; }
-    .document-link { color: #007bff; text-decoration: underline; font-size: 0.85em; cursor: pointer; }
-    .pointer { cursor: pointer; }
+    /* Styles pour s'assurer que les nouveautés s'affichent bien */
+    .pointer { cursor: pointer; transition: opacity 0.2s; }
+    .pointer:hover { opacity: 0.7; }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2c362f; color: white; padding: 12px 24px; border-radius: 30px; display: none; z-index: 1001; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .toast.show { display: block; animation: fadein 0.3s; }
+    @keyframes fadein { from { bottom: 0; opacity: 0; } to { bottom: 20px; opacity: 1; } }
+    .pro-section-title { font-size: 13px; color: #77827a; text-transform: uppercase; margin-bottom: 10px; margin-top: 15px; font-weight: 700; border-bottom: 1px solid #e3e8e4; padding-bottom: 5px; }
   </style>
 </head>
 <body>
@@ -31,7 +22,6 @@
       <div class="brand-icon">⌂</div>
       <div>HOME <strong>ID</strong></div>
     </div>
-    <!-- Profil cliquable -->
     <div class="user pointer" onclick="openProfileModal()" title="Modifier mon profil">
       <span class="user-icon">👤</span>
       <span id="user-role-label">Propriétaire</span>
@@ -62,8 +52,8 @@
         <div><span>Surface</span><strong id="display-house-surface">-</strong></div>
         <div><span>Terrain</span><strong id="display-house-land">-</strong></div>
       </div>
+      <!-- Bouton Plan modifié avec un ID -->
       <button id="btn-plan" class="button secondary" onclick="openPlan()">🗺️ Insérer le plan</button>
-      <!-- Input caché pour le plan -->
       <input type="file" id="plan-upload" accept="image/*,.pdf" style="display: none;" onchange="handlePlanUpload(event)">
     </section>
 
@@ -74,25 +64,25 @@
         <div class="card-header">
           <div><div class="eyebrow">INSTALLATIONS</div><h2>Mes systèmes</h2></div>
         </div>
-        <div id="systems" class="systems">
-          <!-- Injecté par JS -->
+        <div id="systems" class="systems"></div>
+      </section>
+
+      <!-- ENTRETIEN -->
+      <section class="card">
+        <div class="card-header">
+          <div><div class="eyebrow">À VENIR</div><h2>Entretien</h2></div>
         </div>
+        <div id="alerts"></div>
       </section>
 
       <!-- PROFESSIONNELS -->
       <section class="card">
         <div class="card-header">
-          <div><div class="eyebrow">RÉSEAU</div><h2>Artisans</h2></div>
+          <div><div class="eyebrow">ACCÈS & RÉSEAU</div><h2>Artisans</h2></div>
+          <button class="link-button" onclick="openQrSimulatorModal()">Simuler QR Pro</button>
         </div>
         <div id="professionals">
-          <div class="pro-list">
-            <h3>🏠 Intervenus chez moi</h3>
-            <div id="house-pros"></div>
-          </div>
-          <div class="pro-list">
-            <h3>⭐ Recommandés (Google)</h3>
-            <div id="google-pros"></div>
-          </div>
+          <!-- Injecté par JS : Artisans Maison + Artisans Google -->
         </div>
       </section>
 
@@ -102,15 +92,16 @@
           <div><div class="eyebrow">DOCUMENTS</div><h2>Ma bibliothèque</h2></div>
         </div>
         <div class="documents">
-          <div class="document"><div class="document-icon">📐</div><strong>Plans</strong><span id="count-plans">0 fichiers</span></div>
-          <div class="document"><div class="document-icon">📖</div><strong>Notices auto.</strong><span id="count-notices">0 fichiers</span></div>
+          <div class="document"><div class="document-icon">📐</div><strong>Plans</strong><span id="doc-plans">0 fichiers</span></div>
+          <div class="document"><div class="document-icon">🧾</div><strong>Factures</strong><span>0 fichiers</span></div>
+          <div class="document"><div class="document-icon">🛡️</div><strong>Garanties</strong><span>0 fichiers</span></div>
+          <div class="document"><div class="document-icon">📖</div><strong>Notices auto.</strong><span id="doc-notices">0 fichiers</span></div>
         </div>
       </section>
 
     </div>
   </main>
 
-  <!-- MODAL UNIQUE -->
   <div id="modal" class="modal hidden">
     <div class="modal-content">
       <button class="close" onclick="closeModal()">×</button>
@@ -118,7 +109,7 @@
     </div>
   </div>
 
-  <div id="toast" class="toast">Action effectuée</div>
+  <div id="toast" class="toast"></div>
 
   <script src="/app.js"></script>
 </body>
