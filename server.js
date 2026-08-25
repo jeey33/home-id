@@ -128,13 +128,16 @@ app.post("/api/setup", async (req, res) => {
   const homeId = "HID-" + Math.random().toString(36).substring(2, 8).toUpperCase();
 
   try {
-    // 1. Enregistrer la maison
+    // 1. Nettoyer au cas où il y aurait eu un plantage précédent
+    await pool.query(`DELETE FROM home`);
+
+    // 2. Enregistrer la maison
     await pool.query(
       `INSERT INTO home (id, name, year, surface, land, is_setup) VALUES ($1, $2, $3, $4, $5, TRUE)`,
       [homeId, name, parseInt(year), parseInt(surface) || 0, parseInt(land) || 0]
     );
 
-    // 2. Créer les systèmes par défaut
+    // 3. Créer les systèmes par défaut (en ignorant s'ils existent déjà)
     const defaultSystems = [
       { id: "electricite", name: "Électricité", icon: "⚡", status: "À configurer", color: "orange" },
       { id: "eau", name: "Plomberie & Eau", icon: "💧", status: "À configurer", color: "orange" },
@@ -147,7 +150,9 @@ app.post("/api/setup", async (req, res) => {
 
     for (let sys of defaultSystems) {
       await pool.query(
-        `INSERT INTO systems (id, name, icon, status, color) VALUES ($1, $2, $3, $4, $5)`,
+        `INSERT INTO systems (id, name, icon, status, color) 
+         VALUES ($1, $2, $3, $4, $5) 
+         ON CONFLICT (id) DO NOTHING`,
         [sys.id, sys.name, sys.icon, sys.status, sys.color]
       );
     }
@@ -156,7 +161,7 @@ app.post("/api/setup", async (req, res) => {
     res.json({ ok: true, id: homeId });
 
   } catch (err) {
-    console.error(err);
+    console.error("ERREUR SQL LORS DU SETUP :", err);
     res.status(500).json({ error: "Erreur serveur lors du setup." });
   }
 });
