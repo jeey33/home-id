@@ -70,16 +70,27 @@ async function loadHomeData() {
     if (!response.ok) throw new Error("Erreur");
     
     homeData = await response.json();
-    document.getElementById("display-house-name").textContent = homeData.name || "Ma Maison";
-    document.getElementById("display-house-id").textContent = `Maison #${homeData.id}`;
-    document.getElementById("display-house-year").textContent = homeData.year || "—";
-    document.getElementById("display-house-surface").textContent = homeData.surface ? `${homeData.surface} m²` : "—";
-    document.getElementById("display-house-land").textContent = homeData.land ? `${homeData.land} m²` : "—";
-
+    populateHouseInfo();
     displaySystems();
     displayAlerts();
     displayProfessionals();
   } catch (error) { showMessage("Impossible de charger les données."); }
+}
+
+function populateHouseInfo() {
+  document.getElementById("display-house-name").textContent = homeData.name || "Ma Maison";
+  document.getElementById("display-house-id").textContent = `Maison #${homeData.id}`;
+  document.getElementById("display-house-year").textContent = homeData.year || "—";
+  document.getElementById("display-house-surface").textContent = homeData.surface ? `${homeData.surface} m²` : "—";
+  document.getElementById("display-house-land").textContent = homeData.land ? `${homeData.land} m²` : "—";
+
+  // Mise à jour du bouton Plan
+  const btnPlan = document.getElementById("btn-plan");
+  const docPlans = document.getElementById("doc-plans");
+  const nbPlans = (homeData.plans && homeData.plans.length) ? homeData.plans.length : 0;
+  
+  if (btnPlan) btnPlan.innerText = nbPlans > 0 ? `🗺️ Voir les plans (${nbPlans})` : "🗺️ Insérer un plan";
+  if (docPlans) docPlans.innerText = `${nbPlans} fichier(s)`;
 }
 
 function displaySystems() {
@@ -101,7 +112,6 @@ function displaySystems() {
   }).join("");
 }
 
-// ... Les fonctions displayAlerts et displayProfessionals restent identiques
 function displayAlerts() { document.getElementById("alerts").innerHTML = (homeData.alerts || []).map(a => `<div class="alert"><span class="date">${escapeHTML(a.date)}</span><strong>${escapeHTML(a.title)}</strong><p>${escapeHTML(a.text)}</p></div>`).join("") || "<p style='font-size:13px; color:#77827a;'>Aucun rappel.</p>"; }
 function displayProfessionals() { document.getElementById("professionals").innerHTML = (homeData.professionals || []).map(p => `<div class="pro"><span class="access-active">Intervenu</span><strong>${escapeHTML(p.name)}</strong><p>${escapeHTML(p.domain)}</p></div>`).join("") || "<p style='font-size:13px; color:#77827a;'>Aucun artisan.</p>"; }
 
@@ -114,7 +124,6 @@ async function openSystem(systemId) {
     if (!response.ok) throw new Error("Système introuvable");
     const system = await response.json();
 
-    // 1. BLOC INFOS GÉNÉRALES
     let generalSpecsHTML = "";
     if (system.specs && Object.keys(system.specs).length > 0) {
       generalSpecsHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:#f4f6f5; padding:15px; border-radius:8px; margin-top:15px;">` + 
@@ -125,7 +134,6 @@ async function openSystem(systemId) {
       generalSpecsHTML = `<div style="background:#fff3cd; color:#856404; padding:10px; border-radius:8px; font-size:12px; margin-top:15px;">Les caractéristiques générales ne sont pas encore renseignées.</div>`;
     }
 
-    // 2. BLOC ÉQUIPEMENTS
     let equipmentHTML = "";
     if (system.equipment && system.equipment.length > 0) {
       equipmentHTML = system.equipment.map(item => {
@@ -147,16 +155,13 @@ async function openSystem(systemId) {
       equipmentHTML = `<div style="background:#f8f9f7; padding:20px; text-align:center; border-radius:12px; margin-top:10px;"><p style="color:#707a74; font-size:13px; margin:0;">Aucun équipement enregistré.</p></div>`;
     }
 
-    // MODALE COMPLÈTE
     document.getElementById("modal-content").innerHTML = `
       <div class="eyebrow">${system.icon || "🏠"} SYSTÈME</div>
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h2 style="margin:0;">${escapeHTML(system.name)}</h2>
         <button class="button secondary" style="padding:6px 12px; font-size:12px;" onclick="openConfigSystemModal('${system.id}', '${escapeHTML(system.name)}')">⚙️ Configurer</button>
       </div>
-      
       ${generalSpecsHTML}
-
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:30px; border-bottom:1px solid #e3e8e4; padding-bottom:10px;">
         <h3 style="margin:0;">Équipements</h3>
         <button class="button secondary" style="padding:4px 10px; font-size:12px;" onclick="openAddEquipmentModal('${system.id}')">+ Ajouter</button>
@@ -172,7 +177,6 @@ async function openSystem(systemId) {
    ============================================================ */
 function openConfigSystemModal(systemId, systemName) {
   let fieldsHTML = "";
-  
   if (systemId.includes("piscine")) {
     fieldsHTML = `
       <input type="text" data-key="Volume" placeholder="Volume (ex: 45m³)" class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px;">
@@ -238,7 +242,6 @@ function openAddEquipmentModal(preselectedSystem = "") {
   if (preselectedSystem) renderDynamicFields();
 }
 
-// Le formulaire pour l'équipement est désormais allégé des infos globales !
 function renderDynamicFields() {
   const sysId = document.getElementById("form-sys-id").value;
   const container = document.getElementById("dynamic-fields-container");
@@ -271,17 +274,85 @@ async function submitEquipment(event) {
 }
 
 /* ============================================================
+   GESTION DES PLANS MULTIPLES (NOUVEAU)
+   ============================================================ */
+function openPlan() {
+  const plans = homeData.plans || [];
+  let plansHTML = "";
+  
+  if (plans.length > 0) {
+    plansHTML = plans.map(p => `
+      <div style="margin-bottom: 25px;">
+        <h4 style="margin: 0 0 10px 0; font-size:14px; color:#1e362d;">${escapeHTML(p.name)}</h4>
+        <img src="${p.image}" style="max-width:100%; border-radius:8px; border:1px solid #cdd4ce;">
+      </div>
+    `).join("");
+  } else {
+    plansHTML = `<p style="color:#77827a; font-size:13px; text-align:center; margin: 20px 0;">Aucun plan enregistré.</p>`;
+  }
+
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">CARTOGRAPHIE</div>
+    <h2>Plans de la maison</h2>
+    
+    <div style="max-height: 50vh; overflow-y: auto; padding-right: 5px; margin-top:15px;">
+      ${plansHTML}
+    </div>
+    
+    <div style="margin-top:20px; border-top: 1px solid #e3e8e4; padding-top: 15px;">
+      <input type="text" id="new-plan-name" placeholder="Nom du nouveau plan (ex: RDC, Étage 1...)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing: border-box;">
+      <button class="button secondary" style="width:100%;" onclick="triggerPlanUpload()">+ Ajouter un plan</button>
+      <input type="file" id="plan-upload-input" accept="image/*" style="display: none;" onchange="handlePlanUpload(event)">
+    </div>
+  `;
+  openModal();
+}
+
+function triggerPlanUpload() {
+  const nameInput = document.getElementById("new-plan-name").value.trim();
+  if (!nameInput) {
+    showMessage("Veuillez d'abord donner un nom à ce plan.");
+    return;
+  }
+  document.getElementById("plan-upload-input").click();
+}
+
+function handlePlanUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const planName = document.getElementById("new-plan-name").value.trim();
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const base64Image = e.target.result;
+    try {
+      showMessage("Envoi du plan en cours...");
+      const response = await fetch("/api/home/plan", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: currentHomeId, name: planName, image: base64Image })
+      });
+      if (response.ok) {
+        showMessage("Plan ajouté avec succès !");
+        await loadHomeData(); 
+        openPlan(); // On recharge la modale pour voir le nouveau plan
+      } else { showMessage("Erreur lors de la sauvegarde."); }
+    } catch (err) { showMessage("Erreur réseau."); }
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ============================================================
    PROFIL PROPRIÉTAIRE
    ============================================================ */
 function openProfileModal() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">PROFIL</div><h2>Modifier ma maison</h2>
     <form onsubmit="submitProfileEdit(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="edit-name" value="${homeData.name}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="number" id="edit-year" value="${homeData.year}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="edit-name" value="${escapeHTML(homeData.name)}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="number" id="edit-year" value="${escapeHTML(String(homeData.year))}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
       <div style="display:flex; gap:10px;">
-        <input type="number" id="edit-surface" value="${homeData.surface}" placeholder="Surface" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
-        <input type="number" id="edit-land" value="${homeData.land}" placeholder="Terrain" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="number" id="edit-surface" value="${escapeHTML(String(homeData.surface))}" placeholder="Surface" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="number" id="edit-land" value="${escapeHTML(String(homeData.land))}" placeholder="Terrain" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
       </div>
       <input type="password" id="edit-password" required placeholder="Mot de passe actuel *" style="padding:10px; border-radius:8px; border:1px solid #ccc; border-left:4px solid #d93025;">
       <button type="submit" class="button primary">Enregistrer</button>
@@ -309,7 +380,6 @@ function closeModal() { document.getElementById("modal").classList.add("hidden")
 document.addEventListener("click", e => { const m = document.getElementById("modal"); if (m && e.target === m) closeModal(); });
 function showMessage(msg) { const t = document.getElementById("toast"); if(!t) return; t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2500); }
 function escapeHTML(str) { return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
-function openPlan() { document.getElementById('plan-upload') ? document.getElementById('plan-upload').click() : showMessage("Plan bientôt dispo"); }
 function openQrSimulatorModal() { window.open(`/scan/${currentHomeId}`, "_blank"); }
 
 init();
