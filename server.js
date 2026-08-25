@@ -5,7 +5,8 @@ const { Pool } = require("pg");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+// IMPORTANT : On augmente la limite à 50mb pour autoriser l'envoi de grosses images (plans)
+app.use(express.json({ limit: '50mb' }));
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || "postgres://localhost:5432/homeid",
@@ -24,8 +25,9 @@ async function initDB() {
       CREATE TABLE IF NOT EXISTS documents (id VARCHAR(50) PRIMARY KEY, system_id VARCHAR(50) REFERENCES systems(id) ON DELETE CASCADE, name VARCHAR(255), added VARCHAR(50));
     `);
 
-    // MISE À JOUR SILENCIEUSE : Ajoute la colonne specs aux systèmes si elle n'existe pas
+    // MISE À JOUR SILENCIEUSE : Ajoute la colonne specs aux systèmes et plans à la maison
     await pool.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS specs JSONB;`);
+    await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS plans JSONB DEFAULT '[]'::jsonb;`);
 
     console.log("Base de données connectée, mise à jour et prête !");
   } catch (error) {
@@ -68,7 +70,7 @@ app.post("/api/setup", async (req, res) => {
 
   try {
     await pool.query(
-      `INSERT INTO home (id, name, year, surface, land, owner_password, is_setup) VALUES ($1, $2, $3, $4, $5, $6, TRUE)`,
+      `INSERT INTO home (id, name, year, surface, land, owner_password, is_setup, plans) VALUES ($1, $2, $3, $4, $5, $6, TRUE, '[]'::jsonb)`,
       [id, name, parseInt(year), parseInt(surface)||0, parseInt(land)||0, password]
     );
 
@@ -112,7 +114,7 @@ app.get("/api/home", async (req, res) => {
     const pros = (await pool.query(`SELECT * FROM professionals WHERE home_id = $1 ORDER BY id DESC`, [homeId])).rows;
 
     res.json({
-      id: homeResult.rows[0].id, name: homeResult.rows[0].name, year: homeResult.rows[0].year, surface: homeResult.rows[0].surface, land: homeResult.rows[0].land, role: "owner",
+      id: homeResult.rows[0].id, name: homeResult.rows[0].name, year: homeResult.rows[0].year, surface: homeResult.rows[0].surface, land: homeResult.rows[0].land, plans: homeResult.rows[0].plans || [], role: "owner",
       systems, alerts, professionals: pros
     });
   } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
@@ -129,8 +131,22 @@ app.post("/api/home/update", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur MAJ." }); }
 });
 
+// NOUVELLE ROUTE : SAUVEGARDER UN PLAN (RDC, Étage...)
+app.post("/api/home/plan", async (req, res) => {
+  const { id, name, image } = req.body;
+  try {
+    const homeRes = await pool.query(`SELECT plans FROM home WHERE id = $1`, [id]);
+    let plans = homeRes.rows[0].plans || [];
+    
+    plans.push({ id: "PLN-" + Date.now(), name: name, image: image });
+    
+    await pool.query(`UPDATE home SET plans = $1 WHERE id = $2`, [JSON.stringify(plans), id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
+});
+
 // ======================================================
-// ⚙️ SYSTÈMES & ÉQUIPEMENTS (Le cœur du changement)
+// ⚙️ SYSTÈMES & ÉQUIPEMENTS 
 // ======================================================
 app.get("/api/systems/:id", async (req, res) => {
   try {
