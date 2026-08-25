@@ -6,7 +6,6 @@
   <title>HOME ID — Tableau de bord</title>
   <link rel="stylesheet" href="/style.css">
   <style>
-    /* Utilitaires existants (Animations et curseur) */
     .pointer { cursor: pointer; transition: opacity 0.2s; }
     .pointer:hover { opacity: 0.7; }
     .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2c362f; color: white; padding: 12px 24px; border-radius: 30px; display: none; z-index: 1001; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
@@ -14,28 +13,17 @@
     @keyframes fadein { from { bottom: 0; opacity: 0; } to { bottom: 20px; opacity: 1; } }
     .pro-section-title { font-size: 13px; color: #77827a; text-transform: uppercase; margin-bottom: 10px; margin-top: 15px; font-weight: 700; border-bottom: 1px solid #e3e8e4; padding-bottom: 5px; }
 
-    /* ========================================================
-       MODIFICATIONS DE MISE EN PAGE (Full Width Systèmes) 
-       ======================================================== */
-    
-    /* 1. Le widget "Mes systèmes" prend toute la largeur */
-    .systems-card {
-      grid-column: 1 / -1 !important;
-    }
+    /* Pleine largeur pour les systèmes */
+    .systems-card { grid-column: 1 / -1 !important; }
+    .systems { display: flex !important; flex-wrap: wrap; gap: 15px; }
+    .system { flex: 1 1 140px !important; min-width: 140px; margin: 0 !important; }
 
-    /* 2. Les boutons à l'intérieur s'alignent sur la même ligne */
-    .systems {
-      display: flex !important;
-      flex-wrap: wrap; /* S'il n'y a pas la place (ex: téléphone), ça passe à la ligne auto */
-      gap: 15px;
-    }
-
-    /* 3. Chaque bouton prend une part égale de la ligne */
-    .system {
-      flex: 1 1 140px !important; /* Base de 140px minimum, s'étire si besoin */
-      min-width: 140px;
-      margin: 0 !important;
-    }
+    /* Galerie de plans (Scroll horizontal) */
+    .plans-container { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: thin; }
+    .plan-thumbnail { flex: 0 0 80px; cursor: pointer; text-align: center; transition: transform 0.2s; }
+    .plan-thumbnail:hover { transform: scale(1.05); }
+    .plan-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid #cdd4ce; }
+    .plan-name { font-size: 10px; color: #59645d; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -75,13 +63,20 @@
         <div><span>Surface</span><strong id="display-house-surface">-</strong></div>
         <div><span>Terrain</span><strong id="display-house-land">-</strong></div>
       </div>
-      <!-- Le bouton qui déclenche la gestion des plans (Géré par app.js) -->
-      <button id="btn-plan" class="button secondary" onclick="openPlan()">🗺️ Insérer un plan</button>
+      
+      <!-- NOUVEAU : La section Galerie de plans -->
+      <div style="margin-top: 20px; border-top: 1px solid #e3e8e4; padding-top: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <span style="font-size: 11px; font-weight: 700; color: #77827a; text-transform: uppercase;">Plans de la maison</span>
+          <button class="button secondary" style="padding: 4px 10px; font-size: 11px;" onclick="triggerNewPlan()">+ Ajouter</button>
+        </div>
+        <div id="plans-gallery" class="plans-container">
+          <!-- Les miniatures seront injectées ici par JS -->
+        </div>
+      </div>
     </section>
 
     <div class="dashboard-grid">
-      
-      <!-- 1. SYSTÈMES (En pleine largeur en haut) -->
       <section class="card systems-card">
         <div class="card-header">
           <div><div class="eyebrow">INSTALLATIONS</div><h2>Mes systèmes</h2></div>
@@ -89,7 +84,6 @@
         <div id="systems" class="systems"></div>
       </section>
 
-      <!-- 2. ENTRETIEN (Descendu au niveau des artisans) -->
       <section class="card">
         <div class="card-header">
           <div><div class="eyebrow">À VENIR</div><h2>Entretien</h2></div>
@@ -97,7 +91,6 @@
         <div id="alerts"></div>
       </section>
 
-      <!-- 3. ARTISANS -->
       <section class="card">
         <div class="card-header">
           <div><div class="eyebrow">ACCÈS & RÉSEAU</div><h2>Artisans</h2></div>
@@ -106,7 +99,6 @@
         <div id="professionals"></div>
       </section>
 
-      <!-- 4. DOCUMENTS -->
       <section class="card documents-card">
         <div class="card-header">
           <div><div class="eyebrow">DOCUMENTS</div><h2>Ma bibliothèque</h2></div>
@@ -117,22 +109,18 @@
           <div class="document"><div class="document-icon">📖</div><strong>Notices auto.</strong><span id="doc-notices">0 fichiers</span></div>
         </div>
       </section>
-
     </div>
   </main>
 
-  <!-- La modale (Fenêtre popup) -->
   <div id="modal" class="modal hidden">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 600px; width: 90%;">
       <button class="close" onclick="closeModal()">×</button>
       <div id="modal-content"></div>
     </div>
   </div>
 
-  <!-- Le message d'alerte temporaire -->
   <div id="toast" class="toast"></div>
 
-  <!-- Rafraîchissement du cache -->
-  <script src="/app.js?v=13"></script> 
+  <script src="/app.js?v=15"></script> 
 </body>
 </html>
