@@ -6,7 +6,7 @@
   <title>HOME ID — Tableau de bord</title>
   <link rel="stylesheet" href="/style.css">
   <style>
-    /* Utilitaires existants */
+    /* Utilitaires existants (Animations et curseur) */
     .pointer { cursor: pointer; transition: opacity 0.2s; }
     .pointer:hover { opacity: 0.7; }
     .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2c362f; color: white; padding: 12px 24px; border-radius: 30px; display: none; z-index: 1001; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
@@ -34,7 +34,7 @@
     .system {
       flex: 1 1 140px !important; /* Base de 140px minimum, s'étire si besoin */
       min-width: 140px;
-      margin: 0 !important; /* Retire les marges inutiles si votre CSS en avait */
+      margin: 0 !important;
     }
   </style>
 </head>
@@ -75,12 +75,13 @@
         <div><span>Surface</span><strong id="display-house-surface">-</strong></div>
         <div><span>Terrain</span><strong id="display-house-land">-</strong></div>
       </div>
-      <button id="btn-plan" class="button secondary" onclick="openPlan()">🗺️ Insérer le plan</button>
+      <!-- Le bouton qui déclenche la gestion des plans (Géré par app.js) -->
+      <button id="btn-plan" class="button secondary" onclick="openPlan()">🗺️ Insérer un plan</button>
     </section>
 
     <div class="dashboard-grid">
       
-      <!-- 1. SYSTÈMES (Maintenant en pleine largeur en haut) -->
+      <!-- 1. SYSTÈMES (En pleine largeur en haut) -->
       <section class="card systems-card">
         <div class="card-header">
           <div><div class="eyebrow">INSTALLATIONS</div><h2>Mes systèmes</h2></div>
@@ -88,7 +89,7 @@
         <div id="systems" class="systems"></div>
       </section>
 
-      <!-- 2. ENTRETIEN (Descend au niveau des artisans) -->
+      <!-- 2. ENTRETIEN (Descendu au niveau des artisans) -->
       <section class="card">
         <div class="card-header">
           <div><div class="eyebrow">À VENIR</div><h2>Entretien</h2></div>
@@ -96,7 +97,7 @@
         <div id="alerts"></div>
       </section>
 
-      <!-- 3. ARTISANS (À côté de l'entretien) -->
+      <!-- 3. ARTISANS -->
       <section class="card">
         <div class="card-header">
           <div><div class="eyebrow">ACCÈS & RÉSEAU</div><h2>Artisans</h2></div>
@@ -105,7 +106,7 @@
         <div id="professionals"></div>
       </section>
 
-      <!-- 4. DOCUMENTS (En bas) -->
+      <!-- 4. DOCUMENTS -->
       <section class="card documents-card">
         <div class="card-header">
           <div><div class="eyebrow">DOCUMENTS</div><h2>Ma bibliothèque</h2></div>
@@ -120,6 +121,7 @@
     </div>
   </main>
 
+  <!-- La modale (Fenêtre popup) -->
   <div id="modal" class="modal hidden">
     <div class="modal-content">
       <button class="close" onclick="closeModal()">×</button>
@@ -127,9 +129,10 @@
     </div>
   </div>
 
+  <!-- Le message d'alerte temporaire -->
   <div id="toast" class="toast"></div>
 
-  <!-- Rafraîchissement du cache avec ?v=10 -->
-  <script src="/app.js?v=10"></script> 
+  <!-- Rafraîchissement du cache -->
+  <script src="/app.js?v=13"></script> 
 </body>
 </html>
