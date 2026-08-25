@@ -20,28 +20,16 @@ const pool = new Pool({
 // ======================================================
 async function initDB() {
   try {
-    // 1. ON FORCE LE NETTOYAGE DES ANCIENNES TABLES
     await pool.query(`
-      DROP TABLE IF EXISTS documents CASCADE;
-      DROP TABLE IF EXISTS equipment CASCADE;
-      DROP TABLE IF EXISTS alerts CASCADE;
-      DROP TABLE IF EXISTS professionals CASCADE;
-      DROP TABLE IF EXISTS systems CASCADE;
-      DROP TABLE IF EXISTS home CASCADE;
+      CREATE TABLE IF NOT EXISTS home (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100), year INT, surface INT, land INT, owner_password VARCHAR(255), is_setup BOOLEAN DEFAULT FALSE);
+      CREATE TABLE IF NOT EXISTS systems (id VARCHAR(50) PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id), name VARCHAR(100), icon VARCHAR(10), status VARCHAR(50), color VARCHAR(20));
+      CREATE TABLE IF NOT EXISTS equipment (id VARCHAR(50) PRIMARY KEY, system_id VARCHAR(50) REFERENCES systems(id), name VARCHAR(100), model VARCHAR(100), installed VARCHAR(50), notice VARCHAR(255), artisan VARCHAR(100), specs JSONB, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+      CREATE TABLE IF NOT EXISTS alerts (id SERIAL PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id), title VARCHAR(255), text TEXT, date VARCHAR(50));
+      CREATE TABLE IF NOT EXISTS professionals (id SERIAL PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id), name VARCHAR(100), domain VARCHAR(100), access VARCHAR(50), expires VARCHAR(50));
+      CREATE TABLE IF NOT EXISTS documents (id VARCHAR(50) PRIMARY KEY, system_id VARCHAR(50) REFERENCES systems(id), name VARCHAR(255), added VARCHAR(50));
     `);
-
-    // 2. ON RECRÉE AVEC LA NOUVELLE STRUCTURE (Mot de passe & QR Code)
-    await pool.query(`
-      CREATE TABLE home (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100), year INT, surface INT, land INT, owner_password VARCHAR(255), is_setup BOOLEAN DEFAULT FALSE);
-      CREATE TABLE systems (id VARCHAR(50) PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id), name VARCHAR(100), icon VARCHAR(10), status VARCHAR(50), color VARCHAR(20));
-      CREATE TABLE equipment (id VARCHAR(50) PRIMARY KEY, system_id VARCHAR(50) REFERENCES systems(id), name VARCHAR(100), model VARCHAR(100), installed VARCHAR(50), notice VARCHAR(255), artisan VARCHAR(100), specs JSONB, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-      CREATE TABLE alerts (id SERIAL PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id), title VARCHAR(255), text TEXT, date VARCHAR(50));
-      CREATE TABLE professionals (id SERIAL PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id), name VARCHAR(100), domain VARCHAR(100), access VARCHAR(50), expires VARCHAR(50));
-      CREATE TABLE documents (id VARCHAR(50) PRIMARY KEY, system_id VARCHAR(50) REFERENCES systems(id), name VARCHAR(255), added VARCHAR(50));
-    `);
-
-    isSetupCached = false;
-    console.log("Base de données formatée et recréée avec succès !");
+    
+    console.log("Base de données connectée, vérifiée et prête !");
   } catch (error) {
     console.error("Erreur d'initialisation de la base de données :", error);
   }
