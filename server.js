@@ -26,73 +26,24 @@ let isSetupCached = false;
 // ======================================================
 async function initDB() {
   try {
-    // 1. NETTOYAGE (À garder le temps de corriger l'erreur)
-    // Cela efface les anciennes tables qui ont les mauvais types (integer vs varchar)
+    // Les tables sont créées uniquement si elles n'existent pas déjà
     await pool.query(`
-      DROP TABLE IF EXISTS documents CASCADE;
-      DROP TABLE IF EXISTS equipment CASCADE;
-      DROP TABLE IF EXISTS alerts CASCADE;
-      DROP TABLE IF EXISTS professionals CASCADE;
-      DROP TABLE IF EXISTS systems CASCADE;
-      DROP TABLE IF EXISTS home CASCADE;
+      CREATE TABLE IF NOT EXISTS home (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100), year INT, surface INT, land INT, is_setup BOOLEAN DEFAULT FALSE);
+      CREATE TABLE IF NOT EXISTS systems (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100), icon VARCHAR(10), status VARCHAR(50), color VARCHAR(20));
+      CREATE TABLE IF NOT EXISTS equipment (id VARCHAR(50) PRIMARY KEY, system_id VARCHAR(50) REFERENCES systems(id), name VARCHAR(100), model VARCHAR(100), installed VARCHAR(50), notice VARCHAR(255), artisan VARCHAR(100), specs JSONB, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+      CREATE TABLE IF NOT EXISTS alerts (id SERIAL PRIMARY KEY, title VARCHAR(255), text TEXT, date VARCHAR(50));
+      CREATE TABLE IF NOT EXISTS professionals (id SERIAL PRIMARY KEY, name VARCHAR(100), domain VARCHAR(100), access VARCHAR(50), expires VARCHAR(50));
+      CREATE TABLE IF NOT EXISTS documents (id VARCHAR(50) PRIMARY KEY, system_id VARCHAR(50) REFERENCES systems(id), name VARCHAR(255), added VARCHAR(50));
     `);
 
-    // 2. Création des tables propres
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS home (
-        id VARCHAR(50) PRIMARY KEY,
-        name VARCHAR(100),
-        year INT,
-        surface INT,
-        land INT,
-        is_setup BOOLEAN DEFAULT FALSE
-      );
-
-      CREATE TABLE IF NOT EXISTS systems (
-        id VARCHAR(50) PRIMARY KEY,
-        name VARCHAR(100),
-        icon VARCHAR(10),
-        status VARCHAR(50),
-        color VARCHAR(20)
-      );
-
-      CREATE TABLE IF NOT EXISTS equipment (
-        id VARCHAR(50) PRIMARY KEY,
-        system_id VARCHAR(50) REFERENCES systems(id),
-        name VARCHAR(100),
-        model VARCHAR(100),
-        installed VARCHAR(50),
-        notice VARCHAR(255),
-        artisan VARCHAR(100),
-        specs JSONB,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE TABLE IF NOT EXISTS alerts (
-        id SERIAL PRIMARY KEY,
-        title VARCHAR(255),
-        text TEXT,
-        date VARCHAR(50)
-      );
-
-      CREATE TABLE IF NOT EXISTS professionals (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100),
-        domain VARCHAR(100),
-        access VARCHAR(50),
-        expires VARCHAR(50)
-      );
-
-      CREATE TABLE IF NOT EXISTS documents (
-        id VARCHAR(50) PRIMARY KEY,
-        system_id VARCHAR(50) REFERENCES systems(id),
-        name VARCHAR(255),
-        added VARCHAR(50)
-      );
-    `);
-
-    isSetupCached = false;
-    console.log("Base de données réinitialisée, connectée et prête !");
+    // Vérifie si la maison est déjà configurée pour ne pas bloquer l'utilisateur
+    const checkSetup = await pool.query(`SELECT is_setup FROM home LIMIT 1`);
+    if (checkSetup.rows.length > 0 && checkSetup.rows[0].is_setup) {
+      isSetupCached = true;
+    } else {
+      isSetupCached = false;
+    }
+    console.log("Base de données connectée et vérifiée ! (Setup:", isSetupCached, ")");
   } catch (error) {
     console.error("Erreur d'initialisation de la base de données :", error);
   }
