@@ -26,8 +26,6 @@ async function initDB() {
     await pool.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS specs JSONB;`);
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS plans JSONB DEFAULT '[]'::jsonb;`);
     await pool.query(`ALTER TABLE equipment ALTER COLUMN notice TYPE TEXT;`);
-    
-    // NOUVEAU : On ajoute une colonne pour les commentaires et positions
     await pool.query(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS notes TEXT;`);
 
     console.log("Base de données connectée, mise à jour et prête !");
@@ -127,6 +125,37 @@ app.get("/api/systems/:id", async (req, res) => {
   } catch(e) { res.status(500).json({ error: "Erreur" }); }
 });
 
+// NOUVEAU : AJOUTER UN SYSTÈME
+app.post("/api/systems/add", async (req, res) => {
+  const { homeId, name, icon } = req.body;
+  const sysId = "SYS-" + Date.now().toString(36).toUpperCase();
+  try {
+    await pool.query(
+      `INSERT INTO systems (id, home_id, name, icon, status, color) VALUES ($1, $2, $3, $4, 'À configurer', 'orange')`,
+      [sysId, homeId, name, icon || "⚙️"]
+    );
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
+});
+
+// NOUVEAU : MODIFIER UN SYSTÈME
+app.post("/api/systems/update", async (req, res) => {
+  const { id, name, icon } = req.body;
+  try {
+    await pool.query(`UPDATE systems SET name = $1, icon = $2 WHERE id = $3`, [name, icon, id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur" }); }
+});
+
+// NOUVEAU : SUPPRIMER UN SYSTÈME
+app.post("/api/systems/delete", async (req, res) => {
+  const { id } = req.body;
+  try {
+    await pool.query(`DELETE FROM systems WHERE id = $1`, [id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur" }); }
+});
+
 app.post("/api/systems/config", async (req, res) => {
   const { systemId, specs } = req.body;
   try {
@@ -140,7 +169,6 @@ app.post("/api/equipment", async (req, res) => {
   const eqId = "EQ-" + Date.now().toString(36).toUpperCase();
   const installedDate = new Date().toLocaleDateString("fr-FR");
   try {
-    // On insère avec les notes
     await pool.query(
       `INSERT INTO equipment (id, system_id, name, model, installed, notice, artisan, specs, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [eqId, systemId, name, model || "", installedDate, notice || null, artisan || null, specs || {}, notes || ""]
@@ -153,11 +181,7 @@ app.post("/api/equipment", async (req, res) => {
 app.post("/api/equipment/update", async (req, res) => {
   const { id, name, model, installed, specs, notes } = req.body;
   try {
-    // On met à jour toutes les informations, y compris les notes
-    await pool.query(
-      `UPDATE equipment SET name = $1, model = $2, installed = $3, specs = $4, notes = $5 WHERE id = $6`,
-      [name, model || "", installed, specs || {}, notes || "", id]
-    );
+    await pool.query(`UPDATE equipment SET name = $1, model = $2, installed = $3, specs = $4, notes = $5 WHERE id = $6`, [name, model || "", installed, specs || {}, notes || "", id]);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: "Erreur de modification." }); }
 });
@@ -168,6 +192,25 @@ app.post("/api/equipment/delete", async (req, res) => {
     await pool.query(`DELETE FROM equipment WHERE id = $1`, [id]);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: "Erreur de suppression." }); }
+});
+
+// NOUVEAU : AJOUTER UN ENTRETIEN (ALERTE)
+app.post("/api/alerts/add", async (req, res) => {
+  const { homeId, title, date, text } = req.body;
+  try {
+    await pool.query(`INSERT INTO alerts (home_id, title, date, text) VALUES ($1, $2, $3, $4)`, [homeId, title, date, text || ""]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur." }); }
+});
+
+// NOUVEAU : AJOUTER UN ARTISAN
+app.post("/api/professionals/add", async (req, res) => {
+  const { homeId, name, domain } = req.body;
+  try {
+    // Par défaut, l'artisan est marqué "Intervenu"
+    await pool.query(`INSERT INTO professionals (home_id, name, domain, access) VALUES ($1, $2, $3, 'Intervenu')`, [homeId, name, domain]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur." }); }
 });
 
 app.listen(PORT, () => console.log(`Serveur prêt sur port ${PORT}`));
