@@ -26,6 +26,9 @@ async function initDB() {
     await pool.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS specs JSONB;`);
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS plans JSONB DEFAULT '[]'::jsonb;`);
     await pool.query(`ALTER TABLE equipment ALTER COLUMN notice TYPE TEXT;`);
+    
+    // NOUVEAU : On ajoute une colonne pour les commentaires et positions
+    await pool.query(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS notes TEXT;`);
 
     console.log("Base de données connectée, mise à jour et prête !");
   } catch (error) {
@@ -133,32 +136,32 @@ app.post("/api/systems/config", async (req, res) => {
 });
 
 app.post("/api/equipment", async (req, res) => {
-  const { systemId, name, model, artisan, notice, specs } = req.body;
+  const { systemId, name, model, artisan, notice, specs, notes } = req.body;
   const eqId = "EQ-" + Date.now().toString(36).toUpperCase();
   const installedDate = new Date().toLocaleDateString("fr-FR");
   try {
+    // On insère avec les notes
     await pool.query(
-      `INSERT INTO equipment (id, system_id, name, model, installed, notice, artisan, specs) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [eqId, systemId, name, model || "", installedDate, notice || null, artisan || null, specs || {}]
+      `INSERT INTO equipment (id, system_id, name, model, installed, notice, artisan, specs, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [eqId, systemId, name, model || "", installedDate, notice || null, artisan || null, specs || {}, notes || ""]
     );
     await pool.query(`UPDATE systems SET status = 'À jour', color = 'green' WHERE id = $1`, [systemId]);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: "Erreur." }); }
 });
 
-// NOUVEAU : MODIFIER UN ÉQUIPEMENT
 app.post("/api/equipment/update", async (req, res) => {
-  const { id, name, model, installed, specs } = req.body;
+  const { id, name, model, installed, specs, notes } = req.body;
   try {
+    // On met à jour toutes les informations, y compris les notes
     await pool.query(
-      `UPDATE equipment SET name = $1, model = $2, installed = $3, specs = $4 WHERE id = $5`,
-      [name, model || "", installed, specs || {}, id]
+      `UPDATE equipment SET name = $1, model = $2, installed = $3, specs = $4, notes = $5 WHERE id = $6`,
+      [name, model || "", installed, specs || {}, notes || "", id]
     );
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: "Erreur de modification." }); }
 });
 
-// NOUVEAU : SUPPRIMER UN ÉQUIPEMENT
 app.post("/api/equipment/delete", async (req, res) => {
   const { id } = req.body;
   try {
