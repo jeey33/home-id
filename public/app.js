@@ -1,65 +1,51 @@
-/* ============================================================
-   HOME ID — APPLICATION JAVASCRIPT
-   ============================================================ */
-
 let homeData = null;
-let currentHomeId = null; // Mémorise l'ID de la maison en cours
-
-/* ============================================================
-   INITIALISATION & SÉCURITÉ
-   ============================================================ */
+let currentHomeId = null; 
 
 async function init() {
-  // On analyse l'URL pour voir si on a scanné un QR Code
   const urlParams = new URLSearchParams(window.location.search);
   currentHomeId = urlParams.get("id");
-  const needsLogin = urlParams.get("login");
 
-  // Sécurité anti-curieux : si pas d'ID, on bloque l'accès
   if (!currentHomeId) {
     document.body.innerHTML = `
       <div style="display:flex; justify-content:center; align-items:center; height:100vh; flex-direction:column; background:#f4f6f5;">
-        <div style="font-size:40px; margin-bottom:15px;">📱</div>
-        <h2 style="font-family:sans-serif; color:#1e362d; margin:0;">Veuillez scanner un QR Code</h2>
-        <p style="color:#77827a; font-family:sans-serif;">Pour accéder à un HOME ID.</p>
+        <h2 style="font-family:sans-serif; color:#1e362d;">Veuillez scanner un QR Code HOME ID.</h2>
       </div>`;
     return;
   }
 
-  // Le serveur a détecté que la maison existe déjà -> Afficher le Popup Login
-  if (needsLogin === "true") {
-    openLoginModal();
-  } else {
-    // Si pas de mot de passe requis (ex: on vient juste de créer la maison)
+  // Vérification de la sécurité
+  const activeSession = sessionStorage.getItem("homeid_session");
+  
+  if (activeSession === currentHomeId) {
+    // Si l'utilisateur a rentré son mot de passe (ou vient de créer la maison), on charge !
     loadHomeData();
+  } else {
+    // Sinon, on bloque et on demande le mot de passe
+    openLoginModal();
   }
 }
 
-/* ============================================================
-   POPUP DE CONNEXION
-   ============================================================ */
-
+// LE POPUP DE CONNEXION
 function openLoginModal() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">SÉCURITÉ</div>
     <h2>Déverrouiller la maison</h2>
-    <p style="font-size:13px; color:#77827a;">Entrez le mot de passe propriétaire pour accéder au carnet de la maison.</p>
+    <p style="font-size:13px; color:#77827a;">Entrez le mot de passe propriétaire pour accéder au carnet.</p>
     
     <form onsubmit="submitLogin(event)" style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
-      <input type="password" id="login-password" required placeholder="Votre mot de passe" style="width:100%; padding:12px; border-radius:8px; border:1px solid #cdd4ce; font-size:14px;">
-      <button type="submit" class="button primary" style="padding:12px; font-size:14px;">Accéder au tableau de bord</button>
+      <input type="password" id="login-password" required placeholder="Votre mot de passe" style="width:100%; padding:12px; border-radius:8px; border:1px solid #cdd4ce;">
+      <button type="submit" class="button primary" style="padding:12px;">Accéder</button>
     </form>
-    
     <div id="login-error" style="color:#d93025; font-size:13px; margin-top:15px; display:none; font-weight:bold;"></div>
   `;
   
-  // On force l'ouverture de la modale
   const modal = document.getElementById("modal");
   modal.classList.remove("hidden");
   
-  // Astuce : Empêcher de fermer la modale de login en cliquant à côté
+  // Désactiver la croix et le clic extérieur pour forcer la connexion
   modal.onclick = null; 
-  document.querySelector('.close').style.display = 'none'; // On cache la croix
+  const closeBtn = document.querySelector('.close');
+  if (closeBtn) closeBtn.style.display = 'none'; 
 }
 
 async function submitLogin(event) {
@@ -69,65 +55,44 @@ async function submitLogin(event) {
 
   try {
     const response = await fetch("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: currentHomeId, password: password })
     });
 
-    const result = await response.json();
-
     if (response.ok) {
-      // 1. Cacher la modale et réactiver la croix pour plus tard
+      // Mot de passe correct : on enregistre la session et on ouvre
+      sessionStorage.setItem("homeid_session", currentHomeId);
       document.getElementById("modal").classList.add("hidden");
-      document.querySelector('.close').style.display = 'block';
       
-      // 2. Nettoyer l'URL visuellement (enlever le ?login=true)
-      window.history.replaceState({}, document.title, `/?id=${currentHomeId}`);
+      const closeBtn = document.querySelector('.close');
+      if (closeBtn) closeBtn.style.display = 'block'; 
       
-      // 3. Charger les données !
       loadHomeData();
     } else {
-      errDiv.textContent = result.error || "Mot de passe incorrect.";
+      errDiv.textContent = "Mot de passe incorrect.";
       errDiv.style.display = "block";
     }
   } catch (error) {
-    errDiv.textContent = "Erreur de communication avec le serveur.";
+    errDiv.textContent = "Erreur serveur.";
     errDiv.style.display = "block";
   }
 }
 
-/* ============================================================
-   CHARGEMENT DES DONNÉES (Remplaçant l'ancien appel fetch)
-   ============================================================ */
-
+// CHARGEMENT RÉEL DES DONNÉES (l'ancien contenu de init)
 async function loadHomeData() {
   try {
     const response = await fetch(`/api/home?id=${currentHomeId}`);
-    
-    if (!response.ok) {
-      throw new Error("Impossible de récupérer la maison.");
-    }
+    if (!response.ok) throw new Error();
     
     homeData = await response.json();
-    
-    updateUserBadge(homeData.role);
     populateHouseInfo();
     displaySystems();
     displayAlerts();
     displayProfessionals();
-    
   } catch (error) {
-    console.error("Erreur HOME ID :", error);
     showMessage("Impossible de charger HOME ID.");
   }
 }
-
-/* ============================================================
-   INFORMATIONS DE LA MAISON (Suite de votre code...)
-   ============================================================ */
-function populateHouseInfo() {
-// ... GARDER TOUT LE RESTE DE VOTRE CODE INTACT À PARTIR D'ICI ...
-
 /* ============================================================
    INFORMATIONS DE LA MAISON
    ============================================================ */
