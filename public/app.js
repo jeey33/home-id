@@ -14,7 +14,6 @@ async function init() {
         <div style="font-size:40px; margin-bottom:15px;">📱</div><h2 style="font-family:sans-serif; color:#1e362d; margin:0;">Veuillez scanner un QR Code</h2></div>`;
     return;
   }
-
   const activeSession = sessionStorage.getItem("homeid_session");
   if (activeSession === currentHomeId) loadHomeData();
   else openLoginModal();
@@ -40,22 +39,15 @@ async function submitLogin(event) {
   event.preventDefault();
   const password = document.getElementById("login-password").value;
   const errDiv = document.getElementById("login-error");
-
   try {
-    const response = await fetch("/api/login", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: currentHomeId, password: password })
-    });
+    const response = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, password: password }) });
     if (response.ok) {
       sessionStorage.setItem("homeid_session", currentHomeId);
       document.getElementById("modal").classList.add("hidden");
       const closeBtn = document.querySelector('.close');
       if (closeBtn) closeBtn.style.display = 'block'; 
       loadHomeData();
-    } else {
-      errDiv.textContent = "Mot de passe incorrect.";
-      errDiv.style.display = "block";
-    }
+    } else { errDiv.textContent = "Mot de passe incorrect."; errDiv.style.display = "block"; }
   } catch (error) { errDiv.textContent = "Erreur serveur."; errDiv.style.display = "block"; }
 }
 
@@ -68,7 +60,6 @@ async function loadHomeData() {
       return;
     }
     if (!response.ok) throw new Error("Erreur");
-    
     homeData = await response.json();
     populateHouseInfo();
     displaySystems();
@@ -84,7 +75,6 @@ function populateHouseInfo() {
   document.getElementById("display-house-surface").textContent = homeData.surface ? `${homeData.surface} m²` : "—";
   document.getElementById("display-house-land").textContent = homeData.land ? `${homeData.land} m²` : "—";
 
-  // GÉNÉRATION DES MINIATURES DE PLANS
   const gallery = document.getElementById("plans-gallery");
   const docPlans = document.getElementById("doc-plans");
   const plans = homeData.plans || [];
@@ -101,7 +91,6 @@ function populateHouseInfo() {
       `).join("");
     }
   }
-  
   if (docPlans) docPlans.innerText = `${plans.length} fichier(s)`;
 }
 
@@ -128,7 +117,7 @@ function displayAlerts() { document.getElementById("alerts").innerHTML = (homeDa
 function displayProfessionals() { document.getElementById("professionals").innerHTML = (homeData.professionals || []).map(p => `<div class="pro"><span class="access-active">Intervenu</span><strong>${escapeHTML(p.name)}</strong><p>${escapeHTML(p.domain)}</p></div>`).join("") || "<p style='font-size:13px; color:#77827a;'>Aucun artisan.</p>"; }
 
 /* ============================================================
-   L'AFFICHAGE DU SYSTÈME SÉPARÉ
+   L'AFFICHAGE DU SYSTÈME (AVEC LOGIQUE NOTICES SANS PDF)
    ============================================================ */
 async function openSystem(systemId) {
   try {
@@ -153,13 +142,22 @@ async function openSystem(systemId) {
         if (item.specs && Object.keys(item.specs).length > 0) {
           specsHTML = `<div class="specs-grid">` + Object.entries(item.specs).filter(([k, v]) => v).map(([key, value]) => `<div class="spec-tag"><strong>${escapeHTML(key)}</strong>: ${escapeHTML(String(value))}</div>`).join("") + `</div>`;
         }
+        
+        // --- LOGIQUE MAGIQUE DES NOTICES SANS STOCKAGE PDF ---
+        let noticeBtn = '';
+        if (item.model) {
+          // On génère une recherche ciblée sur Google pour trouver la notice PDF
+          const query = encodeURIComponent(`notice utilisation pdf ${item.name} ${item.model}`);
+          noticeBtn = `<a href="https://www.google.com/search?q=${query}" target="_blank" style="color:#d18a35; text-decoration:none; font-size:12px; font-weight:bold;">🔍 Chercher la notice</a>`;
+        }
+
         return `
           <div class="equipment-deep">
             <div class="equip-header"><strong>${escapeHTML(item.name)}</strong><span class="equip-model">${item.model ? escapeHTML(item.model) : "Modèle non précisé"}</span></div>
             ${specsHTML}
-            <div class="equip-footer" style="display:flex; justify-content:space-between;">
-              <span>Enregistré le : ${escapeHTML(item.installed || "—")}</span>
-              ${item.notice ? `<span style="color:#2a7049; cursor:pointer;" onclick="showMessage('Notice : ${item.notice}')">📄 Voir Notice</span>` : ''}
+            <div class="equip-footer" style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:11px; color:#77827a;">Installé le : ${escapeHTML(item.installed || "—")}</span>
+              ${noticeBtn}
             </div>
           </div>`;
       }).join("");
@@ -224,7 +222,6 @@ async function submitSystemConfig(event, systemId) {
   event.preventDefault();
   const specs = {};
   document.querySelectorAll(".sys-spec-input").forEach(input => { if (input.value) specs[input.getAttribute("data-key")] = input.value; });
-
   try {
     const response = await fetch("/api/systems/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ systemId, specs }) });
     if (response.ok) { showMessage("Configuration enregistrée !"); openSystem(systemId); loadHomeData(); }
@@ -232,7 +229,7 @@ async function submitSystemConfig(event, systemId) {
 }
 
 /* ============================================================
-   AJOUT D'ÉQUIPEMENT
+   AJOUT D'ÉQUIPEMENT (SIMPLE ET ALLÉGÉ)
    ============================================================ */
 function openAddMenu() { openAddEquipmentModal(); }
 
@@ -246,8 +243,13 @@ function openAddEquipmentModal(preselectedSystem = "") {
         <option value="" disabled ${preselectedSystem ? "" : "selected"}>-- Choisissez la catégorie --</option>
         ${systemOptions}
       </select>
-      <input type="text" id="form-name" placeholder="Nom (Ex : Pompe, Disjoncteur...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="text" id="form-model" placeholder="Marque / Modèle" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="form-name" placeholder="Nom (Ex : Pompe, Climatiseur...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      
+      <div>
+        <input type="text" id="form-model" placeholder="Marque & Modèle (Crucial pour la notice)" style="width:100%; box-sizing:border-box; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <p style="font-size:10px; color:#77827a; margin-top:5px; margin-bottom:0;">Remplissez ce champ pour que HOME ID génère le lien de la notice.</p>
+      </div>
+
       <div id="dynamic-fields-container" style="display:flex; flex-direction:column; gap:10px;"></div>
       <button type="submit" class="button primary" style="margin-top:10px;">Sauvegarder l'appareil</button>
     </form>`;
@@ -258,13 +260,9 @@ function renderDynamicFields() {
   const sysId = document.getElementById("form-sys-id").value;
   const container = document.getElementById("dynamic-fields-container");
   if (!container) return;
-  
   let html = "";
-  if (sysId.includes("piscine")) {
-    html = `<input type="text" data-key="Puissance/Débit" placeholder="Ex: 1.5 CV / 14m3/h" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc;">`;
-  } else if (sysId.includes("elec")) {
-    html = `<input type="text" data-key="Protection" placeholder="Ampérage (ex: 16A)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc;">`;
-  }
+  if (sysId.includes("piscine")) html = `<input type="text" data-key="Puissance/Débit" placeholder="Ex: 1.5 CV / 14m3/h" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc;">`;
+  else if (sysId.includes("elec")) html = `<input type="text" data-key="Protection" placeholder="Ampérage (ex: 16A)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc;">`;
   container.innerHTML = html;
 }
 
@@ -275,18 +273,18 @@ async function submitEquipment(event) {
     name: document.getElementById("form-name").value,
     model: document.getElementById("form-model").value,
     specs: {},
-    notice: document.getElementById("form-model").value ? `Notice_${document.getElementById("form-model").value.replace(/\s+/g, '_')}.pdf` : null
+    notice: null // Désormais géré dynamiquement à l'affichage
   };
   document.querySelectorAll(".eq-spec-input").forEach(input => { if (input.value) payload.specs[input.getAttribute("data-key")] = input.value; });
 
   try {
     const response = await fetch("/api/equipment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (response.ok) { showMessage("Équipement ajouté !"); openSystem(payload.systemId); loadHomeData(); }
-  } catch (e) { showMessage("Erreur"); }
+  } catch (e) { showMessage("Erreur réseau"); }
 }
 
 /* ============================================================
-   NOUVEAU : GESTION DES PLANS (MINIATURES ET PLEIN ÉCRAN)
+   GESTION DES PLANS (MINIATURES ET PLEIN ÉCRAN)
    ============================================================ */
 function triggerNewPlan() {
   document.getElementById("modal-content").innerHTML = `
@@ -303,10 +301,7 @@ function triggerNewPlan() {
 
 function openFileSelector() {
   const nameInput = document.getElementById("new-plan-name").value.trim();
-  if (!nameInput) {
-    showMessage("Veuillez d'abord donner un nom à ce plan.");
-    return;
-  }
+  if (!nameInput) { showMessage("Veuillez d'abord donner un nom à ce plan."); return; }
   document.getElementById("plan-upload-input").click();
 }
 
@@ -314,7 +309,6 @@ function handlePlanUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
   const planName = document.getElementById("new-plan-name").value.trim();
-
   const reader = new FileReader();
   reader.onload = async function(e) {
     const base64Image = e.target.result;
@@ -325,21 +319,18 @@ function handlePlanUpload(event) {
         body: JSON.stringify({ id: currentHomeId, name: planName, image: base64Image })
       });
       if (response.ok) {
-        showMessage("Plan ajouté avec succès !");
-        closeModal();
-        loadHomeData(); // Met à jour les miniatures instantanément
+        showMessage("Plan ajouté avec succès !"); closeModal(); loadHomeData();
       } else { showMessage("Erreur lors de la sauvegarde."); }
     } catch (err) { showMessage("Erreur réseau."); }
   };
   reader.readAsDataURL(file);
 }
 
-// L'afficheur "Plein Écran" Zoomable
 function viewPlanFullscreen(imageSrc, planName) {
   document.getElementById("modal-content").innerHTML = `
     <div style="display:flex; flex-direction:column; height: 75vh;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-        <h2 style="margin:0; font-size:18px;">Plan : ${planName}</h2>
+        <h2 style="margin:0; font-size:18px;">Plan : ${escapeHTML(planName)}</h2>
         <button class="button secondary" style="padding:4px 10px; font-size:11px;" onclick="togglePlanZoom()">🔍 Zoomer</button>
       </div>
       <div style="flex:1; overflow:auto; background:#f4f6f5; border-radius:8px; border:1px solid #e3e8e4; text-align:center;">
