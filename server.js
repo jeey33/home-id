@@ -155,5 +155,24 @@ app.get("/api/systems/:id", async (req, res) => {
     res.json({ id: sysResult.rows[0].id, name: sysResult.rows[0].name, icon: sysResult.rows[0].icon, equipment: equipResult.rows || [] });
   } catch(e) { res.status(500).json({ error: "Erreur" }); }
 });
+// ======================================================
+// ✏️ MODIFIER LES INFOS DE LA MAISON
+// ======================================================
+app.post("/api/home/update", async (req, res) => {
+  const { id, name, year, surface, land, currentPassword } = req.body;
+  try {
+    // 1. Vérification de sécurité
+    const check = await pool.query(`SELECT id FROM home WHERE id = $1 AND owner_password = $2`, [id, currentPassword]);
+    if (check.rows.length === 0) return res.status(401).json({ error: "Mot de passe incorrect." });
 
+    // 2. Mise à jour
+    await pool.query(
+      `UPDATE home SET name = $1, year = $2, surface = $3, land = $4 WHERE id = $5`,
+      [name, parseInt(year), parseInt(surface) || 0, parseInt(land) || 0, id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur lors de la mise à jour." });
+  }
+});
 app.listen(PORT, () => console.log(`Serveur prêt sur port ${PORT}`));
