@@ -5,7 +5,6 @@ const { Pool } = require("pg");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// IMPORTANT : On augmente la limite à 50mb pour autoriser l'envoi de grosses images (plans)
 app.use(express.json({ limit: '50mb' }));
 
 const pool = new Pool({
@@ -13,7 +12,6 @@ const pool = new Pool({
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// INITIALISATION SÉCURISÉE 
 async function initDB() {
   try {
     await pool.query(`
@@ -25,9 +23,9 @@ async function initDB() {
       CREATE TABLE IF NOT EXISTS documents (id VARCHAR(50) PRIMARY KEY, system_id VARCHAR(50) REFERENCES systems(id) ON DELETE CASCADE, name VARCHAR(255), added VARCHAR(50));
     `);
 
-    // MISE À JOUR SILENCIEUSE : Ajoute la colonne specs aux systèmes et plans à la maison
     await pool.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS specs JSONB;`);
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS plans JSONB DEFAULT '[]'::jsonb;`);
+    await pool.query(`ALTER TABLE equipment ALTER COLUMN notice TYPE TEXT;`);
 
     console.log("Base de données connectée, mise à jour et prête !");
   } catch (error) {
@@ -38,23 +36,16 @@ initDB();
 
 app.use(express.static(path.join(__dirname, "public")));
 
-// ======================================================
-// 📱 LE SCANNEUR DE QR CODE
-// ======================================================
+// --- ROUTES MAISON ET CONNEXION ---
 app.get("/scan/:id", async (req, res) => {
   const scannedId = req.params.id;
   try {
     const checkHome = await pool.query(`SELECT is_setup FROM home WHERE id = $1`, [scannedId]);
     if (checkHome.rows.length === 0) return res.redirect(`/setup.html?id=${scannedId}`);
     return res.redirect(`/?id=${scannedId}`);
-  } catch (err) {
-    res.status(500).send("Erreur de lecture.");
-  }
+  } catch (err) { res.status(500).send("Erreur de lecture."); }
 });
 
-// ======================================================
-// 🔒 LOGIN & SETUP
-// ======================================================
 app.post("/api/login", async (req, res) => {
   const { id, password } = req.body;
   try {
@@ -66,14 +57,8 @@ app.post("/api/login", async (req, res) => {
 
 app.post("/api/setup", async (req, res) => {
   const { id, name, year, surface, land, password } = req.body;
-  if (!id || !name || !password) return res.status(400).json({ error: "Champs obligatoires." });
-
   try {
-    await pool.query(
-      `INSERT INTO home (id, name, year, surface, land, owner_password, is_setup, plans) VALUES ($1, $2, $3, $4, $5, $6, TRUE, '[]'::jsonb)`,
-      [id, name, parseInt(year), parseInt(surface)||0, parseInt(land)||0, password]
-    );
-
+    await pool.query(`INSERT INTO home (id, name, year, surface, land, owner_password, is_setup, plans) VALUES ($1, $2, $3, $4, $5, $6, TRUE, '[]'::jsonb)`, [id, name, parseInt(year), parseInt(surface)||0, parseInt(land)||0, password]);
     const defaultSystems = [
       { id: `elec_${id}`, name: "Électricité", icon: "⚡", status: "À configurer", color: "orange" },
       { id: `eau_${id}`, name: "Plomberie & Eau", icon: "💧", status: "À configurer", color: "orange" },
@@ -83,28 +68,19 @@ app.post("/api/setup", async (req, res) => {
       { id: `ext_${id}`, name: "Extérieur", icon: "🌳", status: "À configurer", color: "orange" },
       { id: `domo_${id}`, name: "Réseau", icon: "📡", status: "À configurer", color: "orange" }
     ];
-
-    for (let sys of defaultSystems) {
-      await pool.query(`INSERT INTO systems (id, home_id, name, icon, status, color) VALUES ($1, $2, $3, $4, $5, $6)`, [sys.id, id, sys.name, sys.icon, sys.status, sys.color]);
-    }
+    for (let sys of defaultSystems) { await pool.query(`INSERT INTO systems (id, home_id, name, icon, status, color) VALUES ($1, $2, $3, $4, $5, $6)`, [sys.id, id, sys.name, sys.icon, sys.status, sys.color]); }
     res.json({ ok: true, id: id });
-  } catch (err) { res.status(500).json({ error: "Erreur serveur lors du setup." }); }
+  } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
 });
 
-// ======================================================
-// 🏠 INFOS MAISON & MODIFICATION
-// ======================================================
 app.get("/api/home", async (req, res) => {
   const homeId = req.query.id; 
-  if (!homeId) return res.status(400).json({ error: "ID manquant." });
-
   try {
     const homeResult = await pool.query(`SELECT * FROM home WHERE id = $1`, [homeId]);
     if (homeResult.rows.length === 0) return res.status(404).json({ error: "Maison introuvable." });
     
     let systems = (await pool.query(`SELECT * FROM systems WHERE home_id = $1`, [homeId])).rows;
     const equipCount = await pool.query(`SELECT system_id, COUNT(*) as count FROM equipment WHERE system_id IN (SELECT id FROM systems WHERE home_id = $1) GROUP BY system_id`, [homeId]);
-    
     systems = systems.map(sys => {
       const match = equipCount.rows.find(e => e.system_id === sys.id);
       return { ...sys, equipment: match ? parseInt(match.count) : 0 };
@@ -113,10 +89,7 @@ app.get("/api/home", async (req, res) => {
     const alerts = (await pool.query(`SELECT * FROM alerts WHERE home_id = $1 ORDER BY id DESC`, [homeId])).rows;
     const pros = (await pool.query(`SELECT * FROM professionals WHERE home_id = $1 ORDER BY id DESC`, [homeId])).rows;
 
-    res.json({
-      id: homeResult.rows[0].id, name: homeResult.rows[0].name, year: homeResult.rows[0].year, surface: homeResult.rows[0].surface, land: homeResult.rows[0].land, plans: homeResult.rows[0].plans || [], role: "owner",
-      systems, alerts, professionals: pros
-    });
+    res.json({ id: homeResult.rows[0].id, name: homeResult.rows[0].name, year: homeResult.rows[0].year, surface: homeResult.rows[0].surface, land: homeResult.rows[0].land, plans: homeResult.rows[0].plans || [], role: "owner", systems, alerts, professionals: pros });
   } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
 });
 
@@ -125,38 +98,29 @@ app.post("/api/home/update", async (req, res) => {
   try {
     const check = await pool.query(`SELECT id FROM home WHERE id = $1 AND owner_password = $2`, [id, currentPassword]);
     if (check.rows.length === 0) return res.status(401).json({ error: "Mot de passe incorrect." });
-
     await pool.query(`UPDATE home SET name = $1, year = $2, surface = $3, land = $4 WHERE id = $5`, [name, parseInt(year), parseInt(surface)||0, parseInt(land)||0, id]);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: "Erreur MAJ." }); }
 });
 
-// NOUVELLE ROUTE : SAUVEGARDER UN PLAN (RDC, Étage...)
 app.post("/api/home/plan", async (req, res) => {
   const { id, name, image } = req.body;
   try {
     const homeRes = await pool.query(`SELECT plans FROM home WHERE id = $1`, [id]);
     let plans = homeRes.rows[0].plans || [];
-    
     plans.push({ id: "PLN-" + Date.now(), name: name, image: image });
-    
     await pool.query(`UPDATE home SET plans = $1 WHERE id = $2`, [JSON.stringify(plans), id]);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
 });
 
-// ======================================================
-// ⚙️ SYSTÈMES & ÉQUIPEMENTS 
-// ======================================================
+// --- ROUTES SYSTÈMES ET ÉQUIPEMENTS ---
 app.get("/api/systems/:id", async (req, res) => {
   try {
     const sysResult = await pool.query(`SELECT * FROM systems WHERE id = $1`, [req.params.id]);
-    const equipResult = await pool.query(`SELECT * FROM equipment WHERE system_id = $1`, [req.params.id]);
-    
+    const equipResult = await pool.query(`SELECT * FROM equipment WHERE system_id = $1 ORDER BY created_at ASC`, [req.params.id]);
     if (sysResult.rows.length === 0) return res.status(404).json({ error: "Introuvable" });
-    const sys = sysResult.rows[0];
-    
-    res.json({ id: sys.id, name: sys.name, icon: sys.icon, specs: sys.specs || {}, equipment: equipResult.rows || [] });
+    res.json({ id: sysResult.rows[0].id, name: sysResult.rows[0].name, icon: sysResult.rows[0].icon, specs: sysResult.rows[0].specs || {}, equipment: equipResult.rows || [] });
   } catch(e) { res.status(500).json({ error: "Erreur" }); }
 });
 
@@ -165,14 +129,13 @@ app.post("/api/systems/config", async (req, res) => {
   try {
     await pool.query(`UPDATE systems SET specs = $1, status = 'Configuré', color = 'green' WHERE id = $2`, [specs, systemId]);
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
+  } catch (err) { res.status(500).json({ error: "Erreur" }); }
 });
 
 app.post("/api/equipment", async (req, res) => {
   const { systemId, name, model, artisan, notice, specs } = req.body;
   const eqId = "EQ-" + Date.now().toString(36).toUpperCase();
   const installedDate = new Date().toLocaleDateString("fr-FR");
-
   try {
     await pool.query(
       `INSERT INTO equipment (id, system_id, name, model, installed, notice, artisan, specs) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
@@ -181,6 +144,27 @@ app.post("/api/equipment", async (req, res) => {
     await pool.query(`UPDATE systems SET status = 'À jour', color = 'green' WHERE id = $1`, [systemId]);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: "Erreur." }); }
+});
+
+// NOUVEAU : MODIFIER UN ÉQUIPEMENT
+app.post("/api/equipment/update", async (req, res) => {
+  const { id, name, model, installed, specs } = req.body;
+  try {
+    await pool.query(
+      `UPDATE equipment SET name = $1, model = $2, installed = $3, specs = $4 WHERE id = $5`,
+      [name, model || "", installed, specs || {}, id]
+    );
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur de modification." }); }
+});
+
+// NOUVEAU : SUPPRIMER UN ÉQUIPEMENT
+app.post("/api/equipment/delete", async (req, res) => {
+  const { id } = req.body;
+  try {
+    await pool.query(`DELETE FROM equipment WHERE id = $1`, [id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur de suppression." }); }
 });
 
 app.listen(PORT, () => console.log(`Serveur prêt sur port ${PORT}`));
