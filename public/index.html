@@ -3,114 +3,106 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HOME ID — Tableau de bord</title>
-  <link rel="stylesheet" href="/style.css">
+  <title>HOME ID — Configuration</title>
   <style>
-    /* Styles pour s'assurer que les nouveautés s'affichent bien */
-    .pointer { cursor: pointer; transition: opacity 0.2s; }
-    .pointer:hover { opacity: 0.7; }
-    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2c362f; color: white; padding: 12px 24px; border-radius: 30px; display: none; z-index: 1001; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    .toast.show { display: block; animation: fadein 0.3s; }
-    @keyframes fadein { from { bottom: 0; opacity: 0; } to { bottom: 20px; opacity: 1; } }
-    .pro-section-title { font-size: 13px; color: #77827a; text-transform: uppercase; margin-bottom: 10px; margin-top: 15px; font-weight: 700; border-bottom: 1px solid #e3e8e4; padding-bottom: 5px; }
+    body { background: #f4f6f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .setup-card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); max-width: 400px; width: 90%; }
+    .brand { display: flex; align-items: center; gap: 8px; font-size: 20px; color: #1e362d; margin-bottom: 20px; justify-content: center; }
+    .brand-icon { background: #e3e8e4; width: 32px; height: 32px; border-radius: 8px; display: flex; justify-content: center; align-items: center; font-size: 18px; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 700; color: #59645d; margin-bottom: 6px; }
+    .form-group input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #cdd4ce; box-sizing: border-box; font-size: 14px; }
+    .button.primary { background: #1e362d; color: white; border: none; padding: 14px; width: 100%; border-radius: 8px; font-weight: 700; cursor: pointer; margin-top: 15px; font-size: 15px; transition: 0.2s; }
+    .button.primary:hover { background: #2c4a3e; }
   </style>
 </head>
 <body>
 
-  <header class="topbar">
+  <div class="setup-card">
     <div class="brand">
       <div class="brand-icon">⌂</div>
       <div>HOME <strong>ID</strong></div>
     </div>
-    <div class="user pointer" onclick="openProfileModal()" title="Modifier mon profil">
-      <span class="user-icon">👤</span>
-      <span id="user-role-label">Propriétaire</span>
-    </div>
-  </header>
-
-  <main class="container">
-    <section class="welcome">
-      <div>
-        <div class="eyebrow">IDENTITÉ NUMÉRIQUE</div>
-        <h1 id="display-house-name">...</h1>
-        <p>Toute la mémoire technique de votre maison, au même endroit.</p>
+    <h2 style="margin: 0 0 5px 0; text-align: center;">Bienvenue chez vous</h2>
+    <p style="color: #77827a; font-size: 14px; text-align: center; margin-bottom: 25px;">Commençons par configurer la mémoire numérique de votre maison.</p>
+    
+    <form id="setup-form" onsubmit="submitSetup(event)">
+      <div class="form-group">
+        <label>Nom de la maison *</label>
+        <input type="text" id="setup-name" required placeholder="Ex: Villa des Lilas">
       </div>
-      <button class="button primary" onclick="openAddMenu()">+ Ajouter</button>
-    </section>
-
-    <section class="house-card">
-      <div class="house-info">
-        <div class="house-image">🏠</div>
-        <div>
-          <div class="eyebrow">MA MAISON</div>
-          <h2 id="display-house-id">...</h2>
-          <p>Votre maison, son histoire et tous ses systèmes.</p>
-        </div>
-      </div>
-      <div class="house-details">
-        <div><span>Construction</span><strong id="display-house-year">-</strong></div>
-        <div><span>Surface</span><strong id="display-house-surface">-</strong></div>
-        <div><span>Terrain</span><strong id="display-house-land">-</strong></div>
-      </div>
-      <!-- Bouton Plan modifié avec un ID -->
-      <button id="btn-plan" class="button secondary" onclick="openPlan()">🗺️ Insérer le plan</button>
-      <input type="file" id="plan-upload" accept="image/*,.pdf" style="display: none;" onchange="handlePlanUpload(event)">
-    </section>
-
-    <div class="dashboard-grid">
       
-      <!-- SYSTÈMES -->
-      <section class="card systems-card">
-        <div class="card-header">
-          <div><div class="eyebrow">INSTALLATIONS</div><h2>Mes systèmes</h2></div>
+      <div class="form-group">
+        <label>Année de construction *</label>
+        <input type="number" id="setup-year" required placeholder="Ex: 2015">
+      </div>
+      
+      <div style="display:flex; gap:10px;">
+        <div class="form-group" style="flex:1;">
+          <label>Surface (m²)</label>
+          <input type="number" id="setup-surface" placeholder="120">
         </div>
-        <div id="systems" class="systems"></div>
-      </section>
-
-      <!-- ENTRETIEN -->
-      <section class="card">
-        <div class="card-header">
-          <div><div class="eyebrow">À VENIR</div><h2>Entretien</h2></div>
+        <div class="form-group" style="flex:1;">
+          <label>Terrain (m²)</label>
+          <input type="number" id="setup-land" placeholder="400">
         </div>
-        <div id="alerts"></div>
-      </section>
-
-      <!-- PROFESSIONNELS -->
-      <section class="card">
-        <div class="card-header">
-          <div><div class="eyebrow">ACCÈS & RÉSEAU</div><h2>Artisans</h2></div>
-          <button class="link-button" onclick="openQrSimulatorModal()">Simuler QR Pro</button>
-        </div>
-        <div id="professionals">
-          <!-- Injecté par JS : Artisans Maison + Artisans Google -->
-        </div>
-      </section>
-
-      <!-- DOCUMENTS -->
-      <section class="card documents-card">
-        <div class="card-header">
-          <div><div class="eyebrow">DOCUMENTS</div><h2>Ma bibliothèque</h2></div>
-        </div>
-        <div class="documents">
-          <div class="document"><div class="document-icon">📐</div><strong>Plans</strong><span id="doc-plans">0 fichiers</span></div>
-          <div class="document"><div class="document-icon">🧾</div><strong>Factures</strong><span>0 fichiers</span></div>
-          <div class="document"><div class="document-icon">🛡️</div><strong>Garanties</strong><span>0 fichiers</span></div>
-          <div class="document"><div class="document-icon">📖</div><strong>Notices auto.</strong><span id="doc-notices">0 fichiers</span></div>
-        </div>
-      </section>
-
-    </div>
-  </main>
-
-  <div id="modal" class="modal hidden">
-    <div class="modal-content">
-      <button class="close" onclick="closeModal()">×</button>
-      <div id="modal-content"></div>
-    </div>
+      </div>
+      
+      <!-- LE CHAMP CRUCIAL -->
+      <div class="form-group" style="margin-top: 10px;">
+        <label>Mot de passe propriétaire *</label>
+        <input type="password" id="setup-password" required placeholder="Créez un mot de passe sécurisé">
+      </div>
+      
+      <button type="submit" class="button primary">Créer ma maison</button>
+    </form>
+    
+    <div id="setup-error" style="color: #d93025; font-size: 13px; margin-top: 15px; text-align: center; display: none; font-weight:bold;"></div>
   </div>
 
-  <div id="toast" class="toast"></div>
+  <script>
+    async function submitSetup(event) {
+      event.preventDefault();
+      
+      // 1. Récupérer l'ID généré par le QR code dans l'URL
+      const urlParams = new URLSearchParams(window.location.search);
+      // Si on teste sans QR code, on génère un ID temporaire
+      const id = urlParams.get("id") || "HID-" + Math.random().toString(36).substring(2, 8).toUpperCase();
 
-  <script src="/app.js"></script>
+      const payload = {
+        id: id,
+        name: document.getElementById("setup-name").value,
+        year: document.getElementById("setup-year").value,
+        surface: document.getElementById("setup-surface").value,
+        land: document.getElementById("setup-land").value,
+        password: document.getElementById("setup-password").value // On envoie le mdp
+      };
+
+      try {
+        const response = await fetch("/api/setup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+
+        if (response.ok) {
+          // Succès ! On redirige vers le tableau de bord avec l'ID de la maison
+          window.location.href = `/?id=${result.id}`;
+        } else {
+          showError(result.error || "Erreur lors de la création.");
+        }
+      } catch (err) {
+        showError("Erreur de connexion au serveur.");
+      }
+    }
+
+    function showError(message) {
+      const errDiv = document.getElementById("setup-error");
+      errDiv.textContent = message;
+      errDiv.style.display = "block";
+    }
+  </script>
 </body>
 </html>
