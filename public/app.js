@@ -113,8 +113,23 @@ function displaySystems() {
   }).join("");
 }
 
-function displayAlerts() { document.getElementById("alerts").innerHTML = (homeData.alerts || []).map(a => `<div class="alert"><span class="date">${escapeHTML(a.date)}</span><strong>${escapeHTML(a.title)}</strong><p>${escapeHTML(a.text)}</p></div>`).join("") || "<p style='font-size:13px; color:#77827a;'>Aucun rappel.</p>"; }
-function displayProfessionals() { document.getElementById("professionals").innerHTML = (homeData.professionals || []).map(p => `<div class="pro"><span class="access-active">Intervenu</span><strong>${escapeHTML(p.name)}</strong><p>${escapeHTML(p.domain)}</p></div>`).join("") || "<p style='font-size:13px; color:#77827a;'>Aucun artisan.</p>"; }
+function displayAlerts() {
+  const container = document.getElementById("alerts");
+  if (!container) return;
+  const alerts = homeData.alerts || [];
+  if (alerts.length === 0) { container.innerHTML = "<p style='font-size:13px; color:#77827a;'>Aucun rappel.</p>"; return; }
+  
+  // Formatage de la date à la française pour un affichage propre
+  container.innerHTML = alerts.map(a => {
+    let d = new Date(a.date);
+    let dateStr = !isNaN(d) ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : escapeHTML(a.date);
+    return `<div class="alert"><span class="date" style="background:#e3e8e4; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;">${dateStr}</span><strong style="margin-left:10px;">${escapeHTML(a.title)}</strong><p style="margin-top:5px;">${escapeHTML(a.text)}</p></div>`;
+  }).join("");
+}
+
+function displayProfessionals() { 
+  document.getElementById("professionals").innerHTML = (homeData.professionals || []).map(p => `<div class="pro"><span class="access-active">Intervenu</span><strong>${escapeHTML(p.name)}</strong><p>${escapeHTML(p.domain)}</p></div>`).join("") || "<p style='font-size:13px; color:#77827a;'>Aucun artisan.</p>"; 
+}
 
 /* ============================================================
    L'AFFICHAGE DU SYSTÈME ET DES ÉQUIPEMENTS
@@ -149,7 +164,6 @@ async function openSystem(systemId) {
           noticeBtn = `<a href="https://www.google.com/search?q=${query}" target="_blank" style="color:#d18a35; text-decoration:none; font-size:11px; font-weight:bold; margin-right:8px;">🔍 Notice</a>`;
         }
 
-        // --- AFFICHAGE DU COMMENTAIRE ---
         let notesHTML = "";
         if (item.notes) {
           notesHTML = `<div style="background:#f8f9f7; border-left:3px solid #d18a35; padding:8px 12px; margin-top:10px; border-radius:4px; font-size:12px; color:#59645d; line-height:1.4;"><strong>📌 Info :</strong> ${escapeHTML(item.notes)}</div>`;
@@ -178,11 +192,18 @@ async function openSystem(systemId) {
       equipmentHTML = `<div style="background:#f8f9f7; padding:20px; text-align:center; border-radius:12px; margin-top:10px;"><p style="color:#707a74; font-size:13px; margin:0;">Aucun équipement enregistré.</p></div>`;
     }
 
+    // NOUVEAU : Boutons d'édition et suppression du système
     document.getElementById("modal-content").innerHTML = `
       <div class="eyebrow">${system.icon || "🏠"} SYSTÈME</div>
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h2 style="margin:0;">${escapeHTML(system.name)}</h2>
-        <button class="button secondary" style="padding:6px 12px; font-size:12px;" onclick="openConfigSystemModal('${system.id}', '${escapeHTML(system.name)}')">⚙️ Configurer</button>
+        
+        <div style="display:flex; gap:5px;">
+          <button class="button secondary" style="padding:6px 8px; font-size:12px;" onclick="openEditSystemModal('${system.id}', '${escapeHTML(system.name)}', '${escapeHTML(system.icon)}')">✏️</button>
+          <button class="button secondary" style="padding:6px 8px; font-size:12px; color:#d93025; background:#fffafa; border-color:#fce8e6;" onclick="deleteSystem('${system.id}')">🗑️</button>
+          <button class="button secondary" style="padding:6px 12px; font-size:12px;" onclick="openConfigSystemModal('${system.id}', '${escapeHTML(system.name)}')">⚙️ Config.</button>
+        </div>
+
       </div>
       ${generalSpecsHTML}
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:30px; border-bottom:1px solid #e3e8e4; padding-bottom:10px;">
@@ -193,6 +214,131 @@ async function openSystem(systemId) {
     `;
     openModal();
   } catch (error) { showMessage("Erreur d'ouverture"); }
+}
+
+/* ============================================================
+   MENU "AJOUTER" GLOBAL (LE BOUTON EN HAUT À DROITE)
+   ============================================================ */
+function openAddMenu() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">ACTION RAPIDE</div>
+    <h2>Que voulez-vous ajouter ?</h2>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px;">
+      <button class="button secondary" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddSystemModal()">
+        <span style="font-size:24px;">⚙️</span><strong>Nouveau<br>Système</strong>
+      </button>
+      <button class="button secondary" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddEquipmentModal()">
+        <span style="font-size:24px;">🔌</span><strong>Nouvel<br>Équipement</strong>
+      </button>
+      <button class="button secondary" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddAlertModal()">
+        <span style="font-size:24px;">📅</span><strong>Rappel<br>d'Entretien</strong>
+      </button>
+      <button class="button secondary" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddProModal()">
+        <span style="font-size:24px;">👷</span><strong>Nouvel<br>Artisan</strong>
+      </button>
+    </div>
+  `;
+  openModal();
+}
+
+/* ============================================================
+   AJOUT, MODIFICATION & SUPPRESSION DE SYSTÈME
+   ============================================================ */
+function openAddSystemModal() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">NOUVEAU SYSTÈME</div>
+    <h2>Ajouter un système</h2>
+    <form onsubmit="submitNewSystem(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <input type="text" id="add-sys-name" placeholder="Nom du système (Ex: Panneaux Solaires)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="add-sys-icon" placeholder="Émoji / Icône (Ex: ☀️, 📹...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <button type="submit" class="button primary" style="margin-top:10px;">Créer le système</button>
+    </form>`;
+  openModal();
+}
+
+async function submitNewSystem(event) {
+  event.preventDefault();
+  const payload = { homeId: currentHomeId, name: document.getElementById("add-sys-name").value, icon: document.getElementById("add-sys-icon").value };
+  try {
+    const response = await fetch("/api/systems/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (response.ok) { showMessage("Système créé !"); closeModal(); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
+function openEditSystemModal(id, currentName, currentIcon) {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">MODIFICATION</div>
+    <h2>Modifier le système</h2>
+    <form onsubmit="submitEditSystem(event, '${id}')" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Nom du système</label>
+      <input type="text" id="edit-sys-name" value="${currentName}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Icône (Émoji)</label>
+      <input type="text" id="edit-sys-icon" value="${currentIcon}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <button type="submit" class="button primary" style="margin-top:10px;">Sauvegarder</button>
+    </form>`;
+}
+
+async function submitEditSystem(event, id) {
+  event.preventDefault();
+  const payload = { id, name: document.getElementById("edit-sys-name").value, icon: document.getElementById("edit-sys-icon").value };
+  try {
+    const response = await fetch("/api/systems/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (response.ok) { showMessage("Système modifié !"); openSystem(id); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
+async function deleteSystem(id) {
+  if (!confirm("Voulez-vous vraiment supprimer ce système ? TOUS les équipements à l'intérieur seront effacés définitivement.")) return;
+  try {
+    const response = await fetch("/api/systems/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    if (response.ok) { showMessage("Système supprimé."); closeModal(); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
+/* ============================================================
+   AJOUT D'ENTRETIENS ET ARTISANS
+   ============================================================ */
+function openAddAlertModal() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">NOUVEL ENTRETIEN</div>
+    <h2>Ajouter un rappel</h2>
+    <form onsubmit="submitAlert(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <input type="text" id="add-alert-title" placeholder="Titre (Ex: Nettoyage Filtres Climatisation)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="date" id="add-alert-date" required style="padding:10px; border-radius:8px; border:1px solid #ccc; font-family:inherit;">
+      <textarea id="add-alert-text" placeholder="Détails (Optionnel)..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;"></textarea>
+      <button type="submit" class="button primary" style="margin-top:10px;">Programmer le rappel</button>
+    </form>`;
+  openModal();
+}
+
+async function submitAlert(event) {
+  event.preventDefault();
+  const payload = { homeId: currentHomeId, title: document.getElementById("add-alert-title").value, date: document.getElementById("add-alert-date").value, text: document.getElementById("add-alert-text").value };
+  try {
+    const response = await fetch("/api/alerts/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (response.ok) { showMessage("Rappel programmé !"); closeModal(); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
+function openAddProModal() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">NOUVEL ARTISAN</div>
+    <h2>Ajouter un professionnel</h2>
+    <form onsubmit="submitPro(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <input type="text" id="add-pro-name" placeholder="Nom de l'artisan ou de l'entreprise" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="add-pro-domain" placeholder="Spécialité (Ex: Plombier, Chauffagiste...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <button type="submit" class="button primary" style="margin-top:10px;">Enregistrer l'artisan</button>
+    </form>`;
+  openModal();
+}
+
+async function submitPro(event) {
+  event.preventDefault();
+  const payload = { homeId: currentHomeId, name: document.getElementById("add-pro-name").value, domain: document.getElementById("add-pro-domain").value };
+  try {
+    const response = await fetch("/api/professionals/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (response.ok) { showMessage("Artisan ajouté !"); closeModal(); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
 }
 
 /* ============================================================
@@ -242,10 +388,8 @@ async function submitSystemConfig(event, systemId) {
 }
 
 /* ============================================================
-   AJOUT D'ÉQUIPEMENT (AVEC CHAMP COMMENTAIRE)
+   AJOUT, MODIFICATION ET SUPPRESSION D'ÉQUIPEMENT
    ============================================================ */
-function openAddMenu() { openAddEquipmentModal(); }
-
 function openAddEquipmentModal(preselectedSystem = "") {
   const systemOptions = (homeData.systems || []).map(sys => `<option value="${escapeHTML(sys.id)}" ${sys.id === preselectedSystem ? "selected" : ""}>${escapeHTML(sys.name)}</option>`).join("");
   document.getElementById("modal-content").innerHTML = `
@@ -262,7 +406,6 @@ function openAddEquipmentModal(preselectedSystem = "") {
       
       <div id="dynamic-fields-container" style="display:flex; flex-direction:column; gap:10px;"></div>
       
-      <!-- LE CHAMP COMMENTAIRE -->
       <textarea id="form-notes" placeholder="Commentaire, position, ou particularité d'utilisation..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;"></textarea>
 
       <button type="submit" class="button primary" style="margin-top:10px;">Sauvegarder l'appareil</button>
@@ -286,7 +429,7 @@ async function submitEquipment(event) {
     systemId: document.getElementById("form-sys-id").value,
     name: document.getElementById("form-name").value,
     model: document.getElementById("form-model").value,
-    notes: document.getElementById("form-notes").value, // On capture le commentaire
+    notes: document.getElementById("form-notes").value,
     specs: {},
     notice: null
   };
@@ -298,12 +441,8 @@ async function submitEquipment(event) {
   } catch (e) { showMessage("Erreur réseau"); }
 }
 
-/* ============================================================
-   MODIFICATION ET SUPPRESSION D'UN ÉQUIPEMENT
-   ============================================================ */
 function openEditEquipmentModal(itemEncoded, systemId) {
   const item = JSON.parse(decodeURIComponent(itemEncoded));
-  
   let dynamicFieldsHTML = "";
   if (systemId.includes("piscine")) {
     dynamicFieldsHTML = `<input type="text" data-key="Puissance/Débit" value="${escapeHTML(item.specs['Puissance/Débit'] || '')}" placeholder="Ex: 1.5 CV / 14m3/h" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc;">`;
@@ -340,7 +479,7 @@ async function submitEditEquipment(event, eqId, systemId) {
   const name = document.getElementById("edit-eq-name").value;
   const model = document.getElementById("edit-eq-model").value;
   const installed = document.getElementById("edit-eq-installed").value;
-  const notes = document.getElementById("edit-eq-notes").value; // On capture le commentaire
+  const notes = document.getElementById("edit-eq-notes").value; 
   
   const specs = {};
   document.querySelectorAll(".eq-spec-input-edit").forEach(input => { 
