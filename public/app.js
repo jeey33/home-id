@@ -84,13 +84,25 @@ function populateHouseInfo() {
   document.getElementById("display-house-surface").textContent = homeData.surface ? `${homeData.surface} m²` : "—";
   document.getElementById("display-house-land").textContent = homeData.land ? `${homeData.land} m²` : "—";
 
-  // Mise à jour du bouton Plan
-  const btnPlan = document.getElementById("btn-plan");
+  // GÉNÉRATION DES MINIATURES DE PLANS
+  const gallery = document.getElementById("plans-gallery");
   const docPlans = document.getElementById("doc-plans");
-  const nbPlans = (homeData.plans && homeData.plans.length) ? homeData.plans.length : 0;
+  const plans = homeData.plans || [];
   
-  if (btnPlan) btnPlan.innerText = nbPlans > 0 ? `🗺️ Voir les plans (${nbPlans})` : "🗺️ Insérer un plan";
-  if (docPlans) docPlans.innerText = `${nbPlans} fichier(s)`;
+  if (gallery) {
+    if (plans.length === 0) {
+      gallery.innerHTML = `<p style="font-size:12px; color:#77827a; margin: 10px 0;">Aucun plan enregistré pour le moment.</p>`;
+    } else {
+      gallery.innerHTML = plans.map(p => `
+        <div class="plan-thumbnail" onclick="viewPlanFullscreen('${p.image}', '${escapeHTML(p.name)}')">
+          <img src="${p.image}" class="plan-img" alt="Plan ${escapeHTML(p.name)}">
+          <div class="plan-name">${escapeHTML(p.name)}</div>
+        </div>
+      `).join("");
+    }
+  }
+  
+  if (docPlans) docPlans.innerText = `${plans.length} fichier(s)`;
 }
 
 function displaySystems() {
@@ -116,7 +128,7 @@ function displayAlerts() { document.getElementById("alerts").innerHTML = (homeDa
 function displayProfessionals() { document.getElementById("professionals").innerHTML = (homeData.professionals || []).map(p => `<div class="pro"><span class="access-active">Intervenu</span><strong>${escapeHTML(p.name)}</strong><p>${escapeHTML(p.domain)}</p></div>`).join("") || "<p style='font-size:13px; color:#77827a;'>Aucun artisan.</p>"; }
 
 /* ============================================================
-   L'AFFICHAGE DU SYSTÈME SÉPARÉ (Général vs Équipements)
+   L'AFFICHAGE DU SYSTÈME SÉPARÉ
    ============================================================ */
 async function openSystem(systemId) {
   try {
@@ -173,7 +185,7 @@ async function openSystem(systemId) {
 }
 
 /* ============================================================
-   CONFIGURATION GÉNÉRALE DU SYSTÈME (Ex: Volume Piscine)
+   CONFIGURATION GÉNÉRALE DU SYSTÈME
    ============================================================ */
 function openConfigSystemModal(systemId, systemName) {
   let fieldsHTML = "";
@@ -220,7 +232,7 @@ async function submitSystemConfig(event, systemId) {
 }
 
 /* ============================================================
-   AJOUT D'ÉQUIPEMENT (Formulaire allégé)
+   AJOUT D'ÉQUIPEMENT
    ============================================================ */
 function openAddMenu() { openAddEquipmentModal(); }
 
@@ -274,41 +286,22 @@ async function submitEquipment(event) {
 }
 
 /* ============================================================
-   GESTION DES PLANS MULTIPLES (NOUVEAU)
+   NOUVEAU : GESTION DES PLANS (MINIATURES ET PLEIN ÉCRAN)
    ============================================================ */
-function openPlan() {
-  const plans = homeData.plans || [];
-  let plansHTML = "";
-  
-  if (plans.length > 0) {
-    plansHTML = plans.map(p => `
-      <div style="margin-bottom: 25px;">
-        <h4 style="margin: 0 0 10px 0; font-size:14px; color:#1e362d;">${escapeHTML(p.name)}</h4>
-        <img src="${p.image}" style="max-width:100%; border-radius:8px; border:1px solid #cdd4ce;">
-      </div>
-    `).join("");
-  } else {
-    plansHTML = `<p style="color:#77827a; font-size:13px; text-align:center; margin: 20px 0;">Aucun plan enregistré.</p>`;
-  }
-
+function triggerNewPlan() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">CARTOGRAPHIE</div>
-    <h2>Plans de la maison</h2>
-    
-    <div style="max-height: 50vh; overflow-y: auto; padding-right: 5px; margin-top:15px;">
-      ${plansHTML}
-    </div>
-    
-    <div style="margin-top:20px; border-top: 1px solid #e3e8e4; padding-top: 15px;">
-      <input type="text" id="new-plan-name" placeholder="Nom du nouveau plan (ex: RDC, Étage 1...)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing: border-box;">
-      <button class="button secondary" style="width:100%;" onclick="triggerPlanUpload()">+ Ajouter un plan</button>
+    <h2>Ajouter un plan</h2>
+    <div style="margin-top:20px;">
+      <input type="text" id="new-plan-name" placeholder="Nom du plan (ex: RDC, Étage 1...)" required style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing: border-box;">
+      <button class="button primary" style="width:100%;" onclick="openFileSelector()">Sélectionner l'image</button>
       <input type="file" id="plan-upload-input" accept="image/*" style="display: none;" onchange="handlePlanUpload(event)">
     </div>
   `;
   openModal();
 }
 
-function triggerPlanUpload() {
+function openFileSelector() {
   const nameInput = document.getElementById("new-plan-name").value.trim();
   if (!nameInput) {
     showMessage("Veuillez d'abord donner un nom à ce plan.");
@@ -326,19 +319,49 @@ function handlePlanUpload(event) {
   reader.onload = async function(e) {
     const base64Image = e.target.result;
     try {
-      showMessage("Envoi du plan en cours...");
+      showMessage("Sauvegarde du plan en cours...");
       const response = await fetch("/api/home/plan", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: currentHomeId, name: planName, image: base64Image })
       });
       if (response.ok) {
         showMessage("Plan ajouté avec succès !");
-        await loadHomeData(); 
-        openPlan(); // On recharge la modale pour voir le nouveau plan
+        closeModal();
+        loadHomeData(); // Met à jour les miniatures instantanément
       } else { showMessage("Erreur lors de la sauvegarde."); }
     } catch (err) { showMessage("Erreur réseau."); }
   };
   reader.readAsDataURL(file);
+}
+
+// L'afficheur "Plein Écran" Zoomable
+function viewPlanFullscreen(imageSrc, planName) {
+  document.getElementById("modal-content").innerHTML = `
+    <div style="display:flex; flex-direction:column; height: 75vh;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+        <h2 style="margin:0; font-size:18px;">Plan : ${planName}</h2>
+        <button class="button secondary" style="padding:4px 10px; font-size:11px;" onclick="togglePlanZoom()">🔍 Zoomer</button>
+      </div>
+      <div style="flex:1; overflow:auto; background:#f4f6f5; border-radius:8px; border:1px solid #e3e8e4; text-align:center;">
+        <img id="fullscreen-plan-img" src="${imageSrc}" style="max-width:100%; height:auto; transition: width 0.3s ease; cursor: zoom-in;" onclick="togglePlanZoom()">
+      </div>
+      <p style="font-size:11px; color:#77827a; text-align:center; margin-top:10px;">Cliquez sur l'image pour zoomer et déplacez-vous avec le doigt/souris.</p>
+    </div>
+  `;
+  openModal();
+}
+
+function togglePlanZoom() {
+  const img = document.getElementById("fullscreen-plan-img");
+  if (img.style.maxWidth === "100%") {
+    img.style.maxWidth = "none";
+    img.style.width = "200%"; // 2x Zoom
+    img.style.cursor = "zoom-out";
+  } else {
+    img.style.maxWidth = "100%";
+    img.style.width = "auto";
+    img.style.cursor = "zoom-in";
+  }
 }
 
 /* ============================================================
