@@ -117,7 +117,7 @@ function displayAlerts() { document.getElementById("alerts").innerHTML = (homeDa
 function displayProfessionals() { document.getElementById("professionals").innerHTML = (homeData.professionals || []).map(p => `<div class="pro"><span class="access-active">Intervenu</span><strong>${escapeHTML(p.name)}</strong><p>${escapeHTML(p.domain)}</p></div>`).join("") || "<p style='font-size:13px; color:#77827a;'>Aucun artisan.</p>"; }
 
 /* ============================================================
-   L'AFFICHAGE DU SYSTÈME (AVEC LOGIQUE NOTICES SANS PDF)
+   L'AFFICHAGE DU SYSTÈME ET DES ÉQUIPEMENTS
    ============================================================ */
 async function openSystem(systemId) {
   try {
@@ -143,21 +143,34 @@ async function openSystem(systemId) {
           specsHTML = `<div class="specs-grid">` + Object.entries(item.specs).filter(([k, v]) => v).map(([key, value]) => `<div class="spec-tag"><strong>${escapeHTML(key)}</strong>: ${escapeHTML(String(value))}</div>`).join("") + `</div>`;
         }
         
-        // --- LOGIQUE MAGIQUE DES NOTICES SANS STOCKAGE PDF ---
         let noticeBtn = '';
         if (item.model) {
-          // On génère une recherche ciblée sur Google pour trouver la notice PDF
           const query = encodeURIComponent(`notice utilisation pdf ${item.name} ${item.model}`);
-          noticeBtn = `<a href="https://www.google.com/search?q=${query}" target="_blank" style="color:#d18a35; text-decoration:none; font-size:12px; font-weight:bold;">🔍 Chercher la notice</a>`;
+          noticeBtn = `<a href="https://www.google.com/search?q=${query}" target="_blank" style="color:#d18a35; text-decoration:none; font-size:11px; font-weight:bold; margin-right:8px;">🔍 Notice</a>`;
         }
+
+        // --- AFFICHAGE DU COMMENTAIRE ---
+        let notesHTML = "";
+        if (item.notes) {
+          notesHTML = `<div style="background:#f8f9f7; border-left:3px solid #d18a35; padding:8px 12px; margin-top:10px; border-radius:4px; font-size:12px; color:#59645d; line-height:1.4;"><strong>📌 Info :</strong> ${escapeHTML(item.notes)}</div>`;
+        }
+        
+        const itemJSON = encodeURIComponent(JSON.stringify(item));
 
         return `
           <div class="equipment-deep">
             <div class="equip-header"><strong>${escapeHTML(item.name)}</strong><span class="equip-model">${item.model ? escapeHTML(item.model) : "Modèle non précisé"}</span></div>
             ${specsHTML}
-            <div class="equip-footer" style="display:flex; justify-content:space-between; align-items:center;">
+            ${notesHTML}
+            
+            <div class="equip-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:12px; padding-top:10px; border-top:1px solid #e3e8e4;">
               <span style="font-size:11px; color:#77827a;">Installé le : ${escapeHTML(item.installed || "—")}</span>
-              ${noticeBtn}
+              
+              <div style="display:flex; align-items:center; gap:6px;">
+                ${noticeBtn}
+                <button class="button secondary" style="padding:4px 8px; font-size:11px;" onclick="openEditEquipmentModal('${itemJSON}', '${system.id}')">✏️ Éditer</button>
+                <button class="button secondary" style="padding:4px 8px; font-size:11px; color:#d93025; border-color:#fce8e6; background:#fffafa;" onclick="deleteEquipment('${item.id}', '${system.id}')">🗑️</button>
+              </div>
             </div>
           </div>`;
       }).join("");
@@ -229,7 +242,7 @@ async function submitSystemConfig(event, systemId) {
 }
 
 /* ============================================================
-   AJOUT D'ÉQUIPEMENT (SIMPLE ET ALLÉGÉ)
+   AJOUT D'ÉQUIPEMENT (AVEC CHAMP COMMENTAIRE)
    ============================================================ */
 function openAddMenu() { openAddEquipmentModal(); }
 
@@ -243,14 +256,15 @@ function openAddEquipmentModal(preselectedSystem = "") {
         <option value="" disabled ${preselectedSystem ? "" : "selected"}>-- Choisissez la catégorie --</option>
         ${systemOptions}
       </select>
-      <input type="text" id="form-name" placeholder="Nom (Ex : Pompe, Climatiseur...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
       
-      <div>
-        <input type="text" id="form-model" placeholder="Marque & Modèle (Crucial pour la notice)" style="width:100%; box-sizing:border-box; padding:10px; border-radius:8px; border:1px solid #ccc;">
-        <p style="font-size:10px; color:#77827a; margin-top:5px; margin-bottom:0;">Remplissez ce champ pour que HOME ID génère le lien de la notice.</p>
-      </div>
-
+      <input type="text" id="form-name" placeholder="Nom (Ex : Pompe, Climatiseur...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="form-model" placeholder="Marque & Modèle (Crucial pour la notice)" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      
       <div id="dynamic-fields-container" style="display:flex; flex-direction:column; gap:10px;"></div>
+      
+      <!-- LE CHAMP COMMENTAIRE -->
+      <textarea id="form-notes" placeholder="Commentaire, position, ou particularité d'utilisation..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;"></textarea>
+
       <button type="submit" class="button primary" style="margin-top:10px;">Sauvegarder l'appareil</button>
     </form>`;
   if (preselectedSystem) renderDynamicFields();
@@ -272,8 +286,9 @@ async function submitEquipment(event) {
     systemId: document.getElementById("form-sys-id").value,
     name: document.getElementById("form-name").value,
     model: document.getElementById("form-model").value,
+    notes: document.getElementById("form-notes").value, // On capture le commentaire
     specs: {},
-    notice: null // Désormais géré dynamiquement à l'affichage
+    notice: null
   };
   document.querySelectorAll(".eq-spec-input").forEach(input => { if (input.value) payload.specs[input.getAttribute("data-key")] = input.value; });
 
@@ -281,6 +296,82 @@ async function submitEquipment(event) {
     const response = await fetch("/api/equipment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (response.ok) { showMessage("Équipement ajouté !"); openSystem(payload.systemId); loadHomeData(); }
   } catch (e) { showMessage("Erreur réseau"); }
+}
+
+/* ============================================================
+   MODIFICATION ET SUPPRESSION D'UN ÉQUIPEMENT
+   ============================================================ */
+function openEditEquipmentModal(itemEncoded, systemId) {
+  const item = JSON.parse(decodeURIComponent(itemEncoded));
+  
+  let dynamicFieldsHTML = "";
+  if (systemId.includes("piscine")) {
+    dynamicFieldsHTML = `<input type="text" data-key="Puissance/Débit" value="${escapeHTML(item.specs['Puissance/Débit'] || '')}" placeholder="Ex: 1.5 CV / 14m3/h" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc;">`;
+  } else if (systemId.includes("elec")) {
+    dynamicFieldsHTML = `<input type="text" data-key="Protection" value="${escapeHTML(item.specs['Protection'] || '')}" placeholder="Ampérage (ex: 16A)" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc;">`;
+  }
+
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">MODIFICATION</div>
+    <h2>Modifier l'équipement</h2>
+    <form onsubmit="submitEditEquipment(event, '${item.id}', '${systemId}')" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      
+      <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Nom de l'appareil</label>
+      <input type="text" id="edit-eq-name" value="${escapeHTML(item.name)}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      
+      <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Marque & Modèle</label>
+      <input type="text" id="edit-eq-model" value="${escapeHTML(item.model)}" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      
+      <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Date d'installation</label>
+      <input type="text" id="edit-eq-installed" value="${escapeHTML(item.installed)}" placeholder="ex: 12/05/2023" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:5px;">${dynamicFieldsHTML}</div>
+
+      <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Commentaire / Position</label>
+      <textarea id="edit-eq-notes" placeholder="Informations particulières..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;">${escapeHTML(item.notes || '')}</textarea>
+
+      <button type="submit" class="button primary" style="margin-top:10px;">Enregistrer les modifications</button>
+    </form>`;
+  openModal();
+}
+
+async function submitEditEquipment(event, eqId, systemId) {
+  event.preventDefault();
+  const name = document.getElementById("edit-eq-name").value;
+  const model = document.getElementById("edit-eq-model").value;
+  const installed = document.getElementById("edit-eq-installed").value;
+  const notes = document.getElementById("edit-eq-notes").value; // On capture le commentaire
+  
+  const specs = {};
+  document.querySelectorAll(".eq-spec-input-edit").forEach(input => { 
+    if (input.value) specs[input.getAttribute("data-key")] = input.value; 
+  });
+
+  try {
+    const response = await fetch("/api/equipment/update", { 
+      method: "POST", headers: { "Content-Type": "application/json" }, 
+      body: JSON.stringify({ id: eqId, name, model, installed, specs, notes }) 
+    });
+    if (response.ok) { 
+      showMessage("Équipement modifié !"); 
+      openSystem(systemId); 
+      loadHomeData(); 
+    }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
+async function deleteEquipment(eqId, systemId) {
+  if (!confirm("Voulez-vous vraiment supprimer cet équipement ? Cette action est irréversible.")) return;
+  try {
+    const response = await fetch("/api/equipment/delete", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: eqId })
+    });
+    if (response.ok) {
+      showMessage("Équipement supprimé.");
+      openSystem(systemId); 
+      loadHomeData(); 
+    }
+  } catch (e) { showMessage("Erreur"); }
 }
 
 /* ============================================================
