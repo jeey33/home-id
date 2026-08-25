@@ -20,12 +20,24 @@ const pool = new Pool({
 // Variable globale pour éviter d'interroger la BDD à chaque chargement de page statique
 let isSetupCached = false;
 
+
 // ======================================================
 // INITIALISATION AUTOMATIQUE DES TABLES
 // ======================================================
 async function initDB() {
   try {
-    // 1. Création des tables si elles n'existent pas
+    // 1. NETTOYAGE (À garder le temps de corriger l'erreur)
+    // Cela efface les anciennes tables qui ont les mauvais types (integer vs varchar)
+    await pool.query(`
+      DROP TABLE IF EXISTS documents CASCADE;
+      DROP TABLE IF EXISTS equipment CASCADE;
+      DROP TABLE IF EXISTS alerts CASCADE;
+      DROP TABLE IF EXISTS professionals CASCADE;
+      DROP TABLE IF EXISTS systems CASCADE;
+      DROP TABLE IF EXISTS home CASCADE;
+    `);
+
+    // 2. Création des tables propres
     await pool.query(`
       CREATE TABLE IF NOT EXISTS home (
         id VARCHAR(50) PRIMARY KEY,
@@ -79,13 +91,8 @@ async function initDB() {
       );
     `);
 
-    // 2. Vérifier si la maison est déjà configurée
-    const checkSetup = await pool.query(`SELECT is_setup FROM home LIMIT 1`);
-    if (checkSetup.rows.length > 0 && checkSetup.rows[0].is_setup) {
-      isSetupCached = true;
-    }
-
-    console.log("Base de données connectée et vérifiée ! (Setup:", isSetupCached, ")");
+    isSetupCached = false;
+    console.log("Base de données réinitialisée, connectée et prête !");
   } catch (error) {
     console.error("Erreur d'initialisation de la base de données :", error);
   }
