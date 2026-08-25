@@ -92,10 +92,17 @@ async function submitLogin(event) {
 async function loadHomeData() {
   try {
     const response = await fetch(`/api/home?id=${currentHomeId}`);
+    
+    // NOUVEAU : Si la maison a été supprimée (reset), on force la création
+    if (response.status === 404) {
+      sessionStorage.removeItem("homeid_session"); // On vide la mémoire
+      window.location.href = `/scan/${currentHomeId}`; 
+      return;
+    }
+    
     if (!response.ok) throw new Error("Erreur récupération.");
     
     homeData = await response.json();
-    
     updateUserBadge(homeData.role);
     populateHouseInfo();
     displaySystems();
@@ -366,5 +373,71 @@ function openQrSimulatorModal() {
 
 function openPlan() { document.getElementById("toast").innerText = "Plan à venir !"; document.getElementById("toast").classList.add("show"); setTimeout(() => document.getElementById("toast").classList.remove("show"), 2000); }
 function openAddAlertModal() { showMessage("Fonction entretien bientôt active !"); }
+
+
+
+/* ============================================================
+   PROFIL & MODIFICATION MAISON
+   ============================================================ */
+function openProfileModal() {
+  if (!homeData) return;
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">PROFIL PROPRIÉTAIRE</div>
+    <h2>Modifier ma maison</h2>
+    <form onsubmit="submitProfileEdit(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <div class="form-group">
+        <label style="font-size:12px; font-weight:bold; color:#59645d;">Nom de la maison</label>
+        <input type="text" id="edit-name" value="${homeData.name || ''}" required style="width:100%; padding:10px; border-radius:8px; border:1px solid #cdd4ce;">
+      </div>
+      <div class="form-group">
+        <label style="font-size:12px; font-weight:bold; color:#59645d;">Année de construction</label>
+        <input type="number" id="edit-year" value="${homeData.year || ''}" required style="width:100%; padding:10px; border-radius:8px; border:1px solid #cdd4ce;">
+      </div>
+      <div style="display:flex; gap:10px;">
+        <div class="form-group" style="flex:1;">
+          <label style="font-size:12px; font-weight:bold; color:#59645d;">Surface (m²)</label>
+          <input type="number" id="edit-surface" value="${homeData.surface || ''}" style="width:100%; padding:10px; border-radius:8px; border:1px solid #cdd4ce;">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label style="font-size:12px; font-weight:bold; color:#59645d;">Terrain (m²)</label>
+          <input type="number" id="edit-land" value="${homeData.land || ''}" style="width:100%; padding:10px; border-radius:8px; border:1px solid #cdd4ce;">
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label style="font-size:12px; font-weight:bold; color:#d93025;">Mot de passe actuel (Sécurité) *</label>
+        <input type="password" id="edit-password" required placeholder="Nécessaire pour valider" style="width:100%; padding:10px; border-radius:8px; border:1px solid #cdd4ce;">
+      </div>
+      <button type="submit" class="button primary" style="margin-top:10px;">Enregistrer les modifications</button>
+    </form>
+  `;
+  openModal();
+}
+
+async function submitProfileEdit(event) {
+  event.preventDefault();
+  const payload = {
+    id: currentHomeId,
+    name: document.getElementById("edit-name").value,
+    year: document.getElementById("edit-year").value,
+    surface: document.getElementById("edit-surface").value,
+    land: document.getElementById("edit-land").value,
+    currentPassword: document.getElementById("edit-password").value
+  };
+  try {
+    const response = await fetch("/api/home/update", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (response.ok) {
+      closeModal();
+      showMessage("Maison mise à jour avec succès !");
+      loadHomeData(); // Recharge l'interface instantanément
+    } else {
+      showMessage(result.error || "Erreur de mise à jour");
+    }
+  } catch (err) {
+    showMessage("Erreur réseau");
+  }
+}
 
 init();
