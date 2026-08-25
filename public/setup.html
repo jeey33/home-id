@@ -21,7 +21,7 @@
     <form id="setup-form" class="onboarding-form">
       <div class="form-group">
         <label>Nom de la maison *</label>
-        <input type="text" id="setup-name" placeholder="ex: Villa des Pins, Ma Maison..." required>
+        <input type="text" id="setup-name" placeholder="ex: Villa des Pins" required>
       </div>
       
       <div class="form-group">
@@ -40,7 +40,6 @@
         </div>
       </div>
 
-      <!-- Le champ Mot de passe crucial pour la suite -->
       <div class="form-group" style="margin-top: 15px;">
         <label>Mot de passe propriétaire *</label>
         <input type="password" id="setup-password" placeholder="Créez un mot de passe sécurisé" required>
@@ -57,8 +56,6 @@
   <script>
     document.getElementById("setup-form").addEventListener("submit", async function(event) {
       event.preventDefault();
-      
-      // Récupération de l'ID depuis l'URL
       const urlParams = new URLSearchParams(window.location.search);
       const homeId = urlParams.get("id") || "HID-" + Math.random().toString(36).substring(2, 8).toUpperCase();
 
@@ -73,19 +70,12 @@
 
       try {
         const response = await fetch("/api/setup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
         });
-
         const result = await response.json();
-
         if (response.ok) {
-          // ON DIT AU NAVIGATEUR : "C'est bon, laisse-le passer sans demander le mot de passe cette fois"
           sessionStorage.setItem("homeid_session", result.id);
-          
-          // Redirection vers le tableau de bord avec le bon ID
-          window.location.href = `/?id=${result.id}`;
+          window.location.href = `/?id=${result.id}`; // ➔ Redirige vers le tableau de bord (index.html)
         } else {
           showToast(result.error || "Erreur lors de la création.");
         }
@@ -93,11 +83,9 @@
         showToast("Erreur de communication avec le serveur.");
       }
     });
-
     function showToast(message) {
       const toast = document.getElementById("toast");
-      toast.textContent = message;
-      toast.classList.add("show");
+      toast.textContent = message; toast.classList.add("show");
       setTimeout(() => toast.classList.remove("show"), 3500);
     }
   </script>
