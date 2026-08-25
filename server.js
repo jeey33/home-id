@@ -20,16 +20,7 @@ const pool = new Pool({
 // ======================================================
 async function initDB() {
   try {
-    // 1. ON FORCE LE NETTOYAGE POUR INTÉGRER LE MOT DE PASSE ET LE MULTI-MAISONS
-    await pool.query(`
-      DROP TABLE IF EXISTS documents CASCADE;
-      DROP TABLE IF EXISTS equipment CASCADE;
-      DROP TABLE IF EXISTS alerts CASCADE;
-      DROP TABLE IF EXISTS professionals CASCADE;
-      DROP TABLE IF EXISTS systems CASCADE;
-      DROP TABLE IF EXISTS home CASCADE;
-    `);
-
+ 
     // 2. ON RECRÉE LA BASE AVEC LA BONNE STRUCTURE
     await pool.query(`
       CREATE TABLE home (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100), year INT, surface INT, land INT, owner_password VARCHAR(255), is_setup BOOLEAN DEFAULT FALSE);
