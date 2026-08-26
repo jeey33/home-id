@@ -4,7 +4,7 @@
 
 let homeData = null;
 let currentHomeId = null; 
-window.isDragging = false; // Sécurité pour empêcher le clic lors d'un glisser-déposer
+window.isDragging = false; 
 
 async function init() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -96,7 +96,7 @@ function populateHouseInfo() {
 }
 
 /* ============================================================
-   AFFICHAGE SYSTÈMES ET GLISSER-DÉPOSER (DRAG & DROP)
+   AFFICHAGE SYSTÈMES ET GLISSER-DÉPOSER
    ============================================================ */
 function displaySystems() {
   const container = document.getElementById("systems");
@@ -108,7 +108,6 @@ function displaySystems() {
     const equipmentCount = Number(system.equipment || 0);
     const equipmentHTML = equipmentCount > 0 ? `<div style="font-size:11px; color:#77827a; margin-top:4px;">${equipmentCount} équipement(s)</div>` : `<div style="font-size:11px; color:#a26b28; margin-top:4px;">À configurer</div>`;
     
-    // NOUVEAU : Ajout de draggable="true" et data-id
     return `
       <div class="system pointer" draggable="true" data-id="${system.id}" onclick="if(!window.isDragging) openSystem('${system.id}')">
         <div class="system-icon">${system.icon || "🏠"}</div>
@@ -118,7 +117,6 @@ function displaySystems() {
       </div>`;
   }).join("");
 
-  // NOUVEAU : Logique de glisser-déposer
   let draggedItem = null;
   const draggables = container.querySelectorAll('.system');
   
@@ -134,12 +132,9 @@ function displaySystems() {
       draggedItem = null;
       setTimeout(() => window.isDragging = false, 100);
 
-      // Récupérer le nouvel ordre et l'enregistrer
       const orderData = [...container.querySelectorAll('.system')].map((el, index) => ({
-        id: el.getAttribute('data-id'),
-        order: index
+        id: el.getAttribute('data-id'), order: index
       }));
-      
       try {
         await fetch('/api/systems/reorder', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({orderData}) });
       } catch(e) { console.error("Erreur de sauvegarde de l'ordre"); }
@@ -165,7 +160,6 @@ function displayAlerts() {
   if (!container) return;
   const alerts = homeData.alerts || [];
 
-  // Séparation À faire vs Archivés
   const todo = alerts.filter(a => !a.is_done);
   const done = alerts.filter(a => a.is_done);
   
@@ -175,15 +169,12 @@ function displayAlerts() {
     html += "<p style='font-size:13px; color:#77827a;'>Aucun rappel à faire.</p>";
   } else {
     html += todo.map(a => {
-      // Vérifier si la date est dépassée (ex format attendu: YYYY-MM-DD depuis input type="date")
       let isOverdue = false;
       let dateStr = escapeHTML(a.date);
       if (a.date && a.date.includes('-')) {
         const taskDate = new Date(`${a.date}T00:00:00`);
-        const today = new Date();
-        today.setHours(0,0,0,0);
+        const today = new Date(); today.setHours(0,0,0,0);
         if (taskDate < today) isOverdue = true;
-        // Format FR propre
         dateStr = taskDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
       }
 
@@ -202,7 +193,6 @@ function displayAlerts() {
     }).join("");
   }
 
-  // Section Archivés (Accordéon)
   if (done.length > 0) {
     html += `
       <details style="margin-top:15px; border-top:1px solid #e3e8e4; padding-top:10px;">
@@ -224,19 +214,15 @@ function displayAlerts() {
   container.innerHTML = html;
 }
 
-// Fonction pour cocher / décocher un entretien
 async function toggleAlert(id, isDone) {
   try {
-    await fetch("/api/alerts/toggle", { 
-      method: "POST", headers: { "Content-Type": "application/json" }, 
-      body: JSON.stringify({ id, is_done: isDone }) 
-    });
-    loadHomeData(); // On recharge pour rafraîchir l'affichage
+    await fetch("/api/alerts/toggle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, is_done: isDone }) });
+    loadHomeData(); 
   } catch (error) { showMessage("Erreur lors de la sauvegarde."); }
 }
 
 /* ============================================================
-   AFFICHAGE ARTISANS (AVEC CONTACTS)
+   AFFICHAGE ARTISANS (AVEC AVIS/NOTES ET BOUTON ÉDITION)
    ============================================================ */
 function displayProfessionals() { 
   const container = document.getElementById("professionals");
@@ -244,24 +230,170 @@ function displayProfessionals() {
   const pros = homeData.professionals || [];
   if (pros.length === 0) { container.innerHTML = "<p style='font-size:13px; color:#77827a;'>Aucun artisan.</p>"; return; }
 
-  container.innerHTML = pros.map(p => `
-    <div class="pro">
+  container.innerHTML = pros.map(p => {
+    const pJSON = encodeURIComponent(JSON.stringify(p));
+    // Affichage conditionnel de la note / avis
+    let notesHtml = p.notes ? `<div style="margin-top:6px; font-size:11px; color:#59645d; background:#f4f6f5; padding:6px; border-radius:4px; border-left:2px solid #4b9b69;"><i>"${escapeHTML(p.notes)}"</i></div>` : "";
+    
+    return `
+    <div class="pro" style="position:relative;">
       <span class="access-active">Intervenu</span>
+      <button onclick="openEditProModal('${pJSON}')" style="position:absolute; right:0; top:10px; background:none; border:none; cursor:pointer; font-size:14px; color:#77827a; transition:0.2s;" onmouseover="this.style.color='#1e362d'" onmouseout="this.style.color='#77827a'">✏️</button>
       <strong>${escapeHTML(p.name)}</strong>
       <p style="margin:2px 0;">${escapeHTML(p.domain)}</p>
       
-      <!-- Boutons de contacts -->
-      <div style="display:flex; gap:10px; margin-top:6px;">
+      ${notesHtml}
+      
+      <div style="display:flex; gap:10px; margin-top:8px;">
         ${p.phone ? `<a href="tel:${escapeHTML(p.phone)}" style="display:inline-flex; align-items:center; gap:5px; font-size:11px; color:#1e362d; background:#eef2ef; padding:4px 8px; border-radius:6px; text-decoration:none;">📞 Appeler</a>` : ''}
         ${p.email ? `<a href="mailto:${escapeHTML(p.email)}" style="display:inline-flex; align-items:center; gap:5px; font-size:11px; color:#1e362d; background:#eef2ef; padding:4px 8px; border-radius:6px; text-decoration:none;">✉️ Email</a>` : ''}
       </div>
     </div>
-  `).join("");
+  `}).join("");
 }
 
 /* ============================================================
-   L'AFFICHAGE DU SYSTÈME ET DES ÉQUIPEMENTS
+   MENU "AJOUTER" GLOBAL
    ============================================================ */
+function openAddMenu() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">ACTION RAPIDE</div>
+    <h2>Que voulez-vous ajouter ?</h2>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px;">
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddSystemModal()">
+        <span style="font-size:24px;">⚙️</span><strong>Nouveau<br>Système</strong>
+      </button>
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddEquipmentModal()">
+        <span style="font-size:24px;">🔌</span><strong>Nouvel<br>Équipement</strong>
+      </button>
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddAlertModal()">
+        <span style="font-size:24px;">📅</span><strong>Rappel<br>d'Entretien</strong>
+      </button>
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddProModal()">
+        <span style="font-size:24px;">👷</span><strong>Nouvel<br>Artisan</strong>
+      </button>
+    </div>
+  `;
+  openModal();
+}
+
+/* ============================================================
+   ARTISANS : AJOUT, MODIFICATION ET SUPPRESSION
+   ============================================================ */
+function openAddProModal() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">NOUVEL ARTISAN</div>
+    <h2>Ajouter un professionnel</h2>
+    <form onsubmit="submitPro(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <input type="text" id="add-pro-name" placeholder="Nom de l'entreprise ou artisan *" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="add-pro-domain" placeholder="Spécialité (Ex: Plombier, Chauffagiste...) *" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      
+      <div style="display:flex; gap:10px;">
+        <input type="tel" id="add-pro-phone" placeholder="N° Téléphone" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="email" id="add-pro-email" placeholder="Adresse Email" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+      </div>
+
+      <textarea id="add-pro-notes" placeholder="Avis, tarifs, commentaires (ex: Très bon plombier, tarif honnête...)" style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;"></textarea>
+
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Enregistrer l'artisan</button>
+    </form>`;
+  openModal();
+}
+
+async function submitPro(event) {
+  event.preventDefault();
+  const payload = { 
+    homeId: currentHomeId, 
+    name: document.getElementById("add-pro-name").value, 
+    domain: document.getElementById("add-pro-domain").value,
+    phone: document.getElementById("add-pro-phone").value,
+    email: document.getElementById("add-pro-email").value,
+    notes: document.getElementById("add-pro-notes").value
+  };
+  try {
+    const response = await fetch("/api/professionals/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (response.ok) { showMessage("Artisan ajouté !"); closeModal(); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
+function openEditProModal(encodedPro) {
+  const pro = JSON.parse(decodeURIComponent(encodedPro));
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">MODIFICATION ARTISAN</div>
+    <h2>Modifier ${escapeHTML(pro.name)}</h2>
+    <form onsubmit="submitEditPro(event, ${pro.id})" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      
+      <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Nom et Spécialité</label>
+      <input type="text" id="edit-pro-name" value="${escapeHTML(pro.name)}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="edit-pro-domain" value="${escapeHTML(pro.domain)}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      
+      <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Contacts</label>
+      <div style="display:flex; gap:10px;">
+        <input type="tel" id="edit-pro-phone" value="${escapeHTML(pro.phone || '')}" placeholder="N° Téléphone" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="email" id="edit-pro-email" value="${escapeHTML(pro.email || '')}" placeholder="Adresse Email" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+      </div>
+
+      <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Avis / Notes</label>
+      <textarea id="edit-pro-notes" placeholder="Avis, tarifs, commentaires (ex: Très bon plombier, tarif honnête...)" style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;">${escapeHTML(pro.notes || '')}</textarea>
+
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <button type="submit" class="button primary pointer" style="flex:1;">Enregistrer</button>
+        <button type="button" class="button secondary pointer" style="color:#d93025; border:1px solid #fce8e6; background:#fffafa;" onclick="deletePro(${pro.id})">🗑️ Supprimer</button>
+      </div>
+    </form>`;
+  openModal();
+}
+
+async function submitEditPro(event, proId) {
+  event.preventDefault();
+  const payload = { 
+    id: proId, 
+    name: document.getElementById("edit-pro-name").value, 
+    domain: document.getElementById("edit-pro-domain").value,
+    phone: document.getElementById("edit-pro-phone").value,
+    email: document.getElementById("edit-pro-email").value,
+    notes: document.getElementById("edit-pro-notes").value
+  };
+  try {
+    const response = await fetch("/api/professionals/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (response.ok) { showMessage("Artisan modifié !"); closeModal(); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
+async function deletePro(proId) {
+  if (!confirm("Voulez-vous vraiment supprimer cet artisan de votre carnet ?")) return;
+  try {
+    const response = await fetch("/api/professionals/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: proId }) });
+    if (response.ok) { showMessage("Artisan supprimé."); closeModal(); loadHomeData(); }
+  } catch (e) { showMessage("Erreur"); }
+}
+
+/* ============================================================
+   RESTE DES FONCTIONS : ENTRETIENS, SYSTÈMES ET ÉQUIPEMENTS
+   ============================================================ */
+
+function openAddAlertModal() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">NOUVEL ENTRETIEN</div>
+    <h2>Ajouter un rappel</h2>
+    <form onsubmit="submitAlert(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <input type="text" id="add-alert-title" placeholder="Titre (Ex: Nettoyage Filtres Climatisation)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="date" id="add-alert-date" required style="padding:10px; border-radius:8px; border:1px solid #ccc; font-family:inherit;">
+      <textarea id="add-alert-text" placeholder="Détails (Optionnel)..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;"></textarea>
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Programmer le rappel</button>
+    </form>`;
+  openModal();
+}
+
+async function submitAlert(event) {
+  event.preventDefault();
+  const payload = { homeId: currentHomeId, title: document.getElementById("add-alert-title").value, date: document.getElementById("add-alert-date").value, text: document.getElementById("add-alert-text").value };
+  try {
+    const response = await fetch("/api/alerts/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (response.ok) { showMessage("Rappel programmé !"); closeModal(); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
 async function openSystem(systemId) {
   try {
     const response = await fetch(`/api/systems/${encodeURIComponent(systemId)}`);
@@ -312,7 +444,6 @@ async function openSystem(systemId) {
             
             <div class="equip-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:12px; padding-top:10px; border-top:1px solid #e3e8e4;">
               <span style="font-size:11px; color:#77827a;">Installé le : ${escapeHTML(item.installed || "—")}</span>
-              
               <div style="display:flex; align-items:center; gap:6px;">
                 ${noticeBtn}
                 <button class="button secondary pointer" style="padding:4px 8px; font-size:11px;" onclick="openEditEquipmentModal('${itemJSON}', '${system.id}')">✏️ Éditer</button>
@@ -348,34 +479,6 @@ async function openSystem(systemId) {
   } catch (error) { showMessage("Erreur d'ouverture"); }
 }
 
-/* ============================================================
-   MENU "AJOUTER" GLOBAL
-   ============================================================ */
-function openAddMenu() {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">ACTION RAPIDE</div>
-    <h2>Que voulez-vous ajouter ?</h2>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px;">
-      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddSystemModal()">
-        <span style="font-size:24px;">⚙️</span><strong>Nouveau<br>Système</strong>
-      </button>
-      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddEquipmentModal()">
-        <span style="font-size:24px;">🔌</span><strong>Nouvel<br>Équipement</strong>
-      </button>
-      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddAlertModal()">
-        <span style="font-size:24px;">📅</span><strong>Rappel<br>d'Entretien</strong>
-      </button>
-      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddProModal()">
-        <span style="font-size:24px;">👷</span><strong>Nouvel<br>Artisan</strong>
-      </button>
-    </div>
-  `;
-  openModal();
-}
-
-/* ============================================================
-   AJOUT, MODIFICATION & SUPPRESSION DE SYSTÈME
-   ============================================================ */
 function openAddSystemModal() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">NOUVEAU SYSTÈME</div>
@@ -427,68 +530,6 @@ async function deleteSystem(id) {
   } catch (e) { showMessage("Erreur réseau"); }
 }
 
-/* ============================================================
-   AJOUT D'ENTRETIENS ET ARTISANS
-   ============================================================ */
-function openAddAlertModal() {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">NOUVEL ENTRETIEN</div>
-    <h2>Ajouter un rappel</h2>
-    <form onsubmit="submitAlert(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="add-alert-title" placeholder="Titre (Ex: Nettoyage Filtres Climatisation)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="date" id="add-alert-date" required style="padding:10px; border-radius:8px; border:1px solid #ccc; font-family:inherit;">
-      <textarea id="add-alert-text" placeholder="Détails (Optionnel)..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;"></textarea>
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Programmer le rappel</button>
-    </form>`;
-  openModal();
-}
-
-async function submitAlert(event) {
-  event.preventDefault();
-  const payload = { homeId: currentHomeId, title: document.getElementById("add-alert-title").value, date: document.getElementById("add-alert-date").value, text: document.getElementById("add-alert-text").value };
-  try {
-    const response = await fetch("/api/alerts/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (response.ok) { showMessage("Rappel programmé !"); closeModal(); loadHomeData(); }
-  } catch (e) { showMessage("Erreur réseau"); }
-}
-
-function openAddProModal() {
-  // NOUVEAU: Ajout des inputs Téléphone et Email
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">NOUVEL ARTISAN</div>
-    <h2>Ajouter un professionnel</h2>
-    <form onsubmit="submitPro(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="add-pro-name" placeholder="Nom de l'entreprise ou artisan" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="text" id="add-pro-domain" placeholder="Spécialité (Ex: Plombier, Chauffagiste...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      
-      <div style="display:flex; gap:10px;">
-        <input type="tel" id="add-pro-phone" placeholder="N° Téléphone" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
-        <input type="email" id="add-pro-email" placeholder="Adresse Email" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
-      </div>
-
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Enregistrer l'artisan</button>
-    </form>`;
-  openModal();
-}
-
-async function submitPro(event) {
-  event.preventDefault();
-  const payload = { 
-    homeId: currentHomeId, 
-    name: document.getElementById("add-pro-name").value, 
-    domain: document.getElementById("add-pro-domain").value,
-    phone: document.getElementById("add-pro-phone").value,
-    email: document.getElementById("add-pro-email").value
-  };
-  try {
-    const response = await fetch("/api/professionals/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (response.ok) { showMessage("Artisan ajouté !"); closeModal(); loadHomeData(); }
-  } catch (e) { showMessage("Erreur réseau"); }
-}
-
-/* ============================================================
-   CONFIGURATION GÉNÉRALE DU SYSTÈME
-   ============================================================ */
 function openConfigSystemModal(systemId, systemName) {
   let fieldsHTML = "";
   if (systemId.includes("piscine")) {
@@ -532,9 +573,6 @@ async function submitSystemConfig(event, systemId) {
   } catch (e) { showMessage("Erreur réseau"); }
 }
 
-/* ============================================================
-   AJOUT, MODIFICATION ET SUPPRESSION D'ÉQUIPEMENT INTELLIGENT
-   ============================================================ */
 function openAddEquipmentModal(preselectedSystem = "") {
   const systemOptions = (homeData.systems || []).map(sys => `<option value="${escapeHTML(sys.id)}" ${sys.id === preselectedSystem ? "selected" : ""}>${escapeHTML(sys.name)}</option>`).join("");
   document.getElementById("modal-content").innerHTML = `
@@ -563,18 +601,8 @@ function renderDynamicFields() {
   const container = document.getElementById("dynamic-fields-container");
   if (!container) return;
   let html = "";
-  
-  if (sysId.includes("piscine")) {
-    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input type="text" data-key="Puissance/Débit" placeholder="Puissance/Débit (ex: 14m3/h)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"><select data-key="Type Filtre" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"><option value="">-- Filtre --</option><option value="Sable/Verre">Sable/Verre</option><option value="Cartouche">Cartouche</option></select><input type="text" data-key="Charge filtrante" placeholder="Média (ex: Verre 150kg)" class="eq-spec-input" style="grid-column: 1/-1; padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"></div>`;
-  } else if (sysId.includes("elec")) {
-    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input type="text" data-key="Protection" placeholder="Ampérage (ex: 16A, 32A)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"><input type="text" data-key="Type Câble" placeholder="Section (ex: 3G2.5)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"></div>`;
-  } else if (sysId.includes("eau") || sysId.includes("plomberie") || sysId.includes("chauffe") || sysId.includes("clim")) {
-    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input type="text" data-key="Caractéristique" placeholder="Info clé (ex: 200L, 12kW...)" class="eq-spec-input" style="grid-column: 1/-1; padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"></div>`;
-  } else if (sysId.includes("domo") || sysId.includes("reseau")) {
-    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><select data-key="Protocole" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"><option value="">-- Protocole --</option><option value="Wi-Fi">Wi-Fi</option><option value="Zigbee">Zigbee</option><option value="RJ45">Filaire (RJ45)</option><option value="Radio (RTS/IO)">Radio RTS/IO</option></select><select data-key="Secours" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"><option value="">-- Batterie Secours --</option><option value="Oui">Oui (Batterie)</option><option value="Non">Non</option></select></div>`;
-  } else if (sysId.includes("ext")) {
-    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><select data-key="Alimentation" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"><option value="">-- Alimentation --</option><option value="Secteur 230V">Secteur 230V</option><option value="Solaire / Batterie">Solaire / Batterie</option></select><input type="text" data-key="Mécanisme" placeholder="Méca (ex: Vérin)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"></div>`;
-  }
+  if (sysId.includes("piscine")) html = `<input type="text" data-key="Puissance/Débit" placeholder="Ex: 1.5 CV / 14m3/h" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc;">`;
+  else if (sysId.includes("elec")) html = `<input type="text" data-key="Protection" placeholder="Ampérage (ex: 16A)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc;">`;
   container.innerHTML = html;
 }
 
@@ -588,9 +616,7 @@ async function submitEquipment(event) {
     specs: {},
     notice: null
   };
-  document.querySelectorAll(".eq-spec-input").forEach(input => { 
-    if (input.value) payload.specs[input.getAttribute("data-key")] = input.value; 
-  });
+  document.querySelectorAll(".eq-spec-input").forEach(input => { if (input.value) payload.specs[input.getAttribute("data-key")] = input.value; });
 
   try {
     const response = await fetch("/api/equipment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -600,7 +626,13 @@ async function submitEquipment(event) {
 
 function openEditEquipmentModal(itemEncoded, systemId) {
   const item = JSON.parse(decodeURIComponent(itemEncoded));
-  
+  let dynamicFieldsHTML = "";
+  if (systemId.includes("piscine")) {
+    dynamicFieldsHTML = `<input type="text" data-key="Puissance/Débit" value="${escapeHTML(item.specs['Puissance/Débit'] || '')}" placeholder="Ex: 1.5 CV / 14m3/h" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc;">`;
+  } else if (systemId.includes("elec")) {
+    dynamicFieldsHTML = `<input type="text" data-key="Protection" value="${escapeHTML(item.specs['Protection'] || '')}" placeholder="Ampérage (ex: 16A)" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc;">`;
+  }
+
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">MODIFICATION</div>
     <h2>Modifier l'équipement</h2>
@@ -615,6 +647,8 @@ function openEditEquipmentModal(itemEncoded, systemId) {
       <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Date d'installation</label>
       <input type="text" id="edit-eq-installed" value="${escapeHTML(item.installed)}" placeholder="ex: 12/05/2023" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
       
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:5px;">${dynamicFieldsHTML}</div>
+
       <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Commentaire / Position</label>
       <textarea id="edit-eq-notes" placeholder="Informations particulières..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;">${escapeHTML(item.notes || '')}</textarea>
 
@@ -630,20 +664,35 @@ async function submitEditEquipment(event, eqId, systemId) {
   const installed = document.getElementById("edit-eq-installed").value;
   const notes = document.getElementById("edit-eq-notes").value; 
   
+  const specs = {};
+  document.querySelectorAll(".eq-spec-input-edit").forEach(input => { 
+    if (input.value) specs[input.getAttribute("data-key")] = input.value; 
+  });
+
   try {
     const response = await fetch("/api/equipment/update", { 
       method: "POST", headers: { "Content-Type": "application/json" }, 
-      body: JSON.stringify({ id: eqId, name, model, installed, specs: {}, notes }) 
+      body: JSON.stringify({ id: eqId, name, model, installed, specs, notes }) 
     });
-    if (response.ok) { showMessage("Équipement modifié !"); openSystem(systemId); loadHomeData(); }
+    if (response.ok) { 
+      showMessage("Équipement modifié !"); 
+      openSystem(systemId); 
+      loadHomeData(); 
+    }
   } catch (e) { showMessage("Erreur réseau"); }
 }
 
 async function deleteEquipment(eqId, systemId) {
   if (!confirm("Voulez-vous vraiment supprimer cet équipement ? Cette action est irréversible.")) return;
   try {
-    const response = await fetch("/api/equipment/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: eqId }) });
-    if (response.ok) { showMessage("Équipement supprimé."); openSystem(systemId); loadHomeData(); }
+    const response = await fetch("/api/equipment/delete", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: eqId })
+    });
+    if (response.ok) {
+      showMessage("Équipement supprimé.");
+      openSystem(systemId); 
+      loadHomeData(); 
+    }
   } catch (e) { showMessage("Erreur"); }
 }
 
@@ -682,8 +731,9 @@ function handlePlanUpload(event) {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: currentHomeId, name: planName, image: base64Image })
       });
-      if (response.ok) { showMessage("Plan ajouté avec succès !"); closeModal(); loadHomeData(); } 
-      else { showMessage("Erreur lors de la sauvegarde."); }
+      if (response.ok) {
+        showMessage("Plan ajouté avec succès !"); closeModal(); loadHomeData();
+      } else { showMessage("Erreur lors de la sauvegarde."); }
     } catch (err) { showMessage("Erreur réseau."); }
   };
   reader.readAsDataURL(file);
@@ -709,7 +759,7 @@ function togglePlanZoom() {
   const img = document.getElementById("fullscreen-plan-img");
   if (img.style.maxWidth === "100%") {
     img.style.maxWidth = "none";
-    img.style.width = "200%"; 
+    img.style.width = "200%"; // 2x Zoom
     img.style.cursor = "zoom-out";
   } else {
     img.style.maxWidth = "100%";
@@ -732,7 +782,7 @@ function openProfileModal() {
         <input type="number" id="edit-land" value="${escapeHTML(String(homeData.land))}" placeholder="Terrain" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
       </div>
       <input type="password" id="edit-password" required placeholder="Mot de passe actuel *" style="padding:10px; border-radius:8px; border:1px solid #ccc; border-left:4px solid #d93025;">
-      <button type="submit" class="button primary pointer">Enregistrer</button>
+      <button type="submit" class="button primary">Enregistrer</button>
     </form>`;
   openModal();
 }
