@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HOME ID — Tableau de bord</title>
   <link rel="stylesheet" href="/style.css">
+  
+  <!-- Police d'écriture pour le nouveau logo -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
+
   <style>
     .pointer { cursor: pointer; transition: opacity 0.2s; }
     .pointer:hover { opacity: 0.7; }
@@ -25,16 +31,46 @@
     .plan-thumbnail:hover { transform: scale(1.05); }
     .plan-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid #cdd4ce; }
     .plan-name { font-size: 10px; color: #59645d; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold; }
+
+    /* Customisation de la barre de navigation pour le nouveau Logo */
+    .topbar .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .topbar .brand-text {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-top: 2px;
+    }
+    /* Couleurs de ton logo */
+    .home-word { color: #51838d; }
+    .id-word { color: #7bd0df; }
   </style>
 </head>
 <body>
 
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-icon">⌂</div>
-      <div>HOME <strong>ID</strong></div>
+  <header class="topbar" style="background: #1d2c33; border-bottom: 3px solid #7bd0df;">
+    <!-- LE NOUVEAU LOGO HOME ID -->
+    <div class="brand pointer" onclick="window.scrollTo(0,0);">
+      <svg width="35" height="35" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 8 45 L 50 12 L 92 45" stroke="#7bd0df" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M 22 35 V 80 Q 22 88 30 88 H 70 Q 78 88 78 80 V 35" stroke="#7bd0df" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- Faux QR Code dessiné à l'intérieur -->
+        <rect x="36" y="44" width="8" height="8" fill="#7bd0df"/>
+        <rect x="48" y="44" width="16" height="8" fill="#7bd0df"/>
+        <rect x="36" y="56" width="16" height="16" fill="#7bd0df"/>
+        <rect x="56" y="56" width="8" height="8" fill="#7bd0df"/>
+        <rect x="56" y="68" width="8" height="4" fill="#7bd0df"/>
+      </svg>
+      <div class="brand-text">
+        <span class="home-word">home</span> <span class="id-word">id</span>
+      </div>
     </div>
-    <div class="user pointer" title="Mon Profil" onclick="openProfileModal()">
+    
+    <div class="user pointer" title="Mon Profil" onclick="openProfileModal()" style="color: white;">
       <span class="user-icon">👤</span>
       <span id="user-role-label">Propriétaire</span>
     </div>
@@ -106,13 +142,11 @@
           <div><div class="eyebrow">SÉCURITÉ & DOCUMENTS</div><h2>Ma bibliothèque</h2></div>
         </div>
         <div class="documents">
-          <!-- LE COFFRE FORT -->
           <div class="document" style="background:#fffcf5; border-color:#ffe8a1;" onclick="openVaultCheck()">
             <div class="document-icon">🔐</div>
             <strong style="color:#856404;">Coffre-fort</strong>
             <span style="color:#b38c23;">Mots de passe</span>
           </div>
-          
           <div class="document"><div class="document-icon">📐</div><strong>Plans</strong><span id="doc-plans">0 fichiers</span></div>
           <div class="document"><div class="document-icon">🧾</div><strong>Factures</strong><span>0 fichiers</span></div>
           <div class="document"><div class="document-icon">📖</div><strong>Notices auto.</strong><span id="doc-notices">0 fichiers</span></div>
@@ -130,6 +164,7 @@
 
   <div id="toast" class="toast"></div>
 
-  <script src="/app.js?v=28"></script> 
+  <!-- v=30 pour forcer le rafraîchissement du cache sur ton téléphone/PC -->
+  <script src="/app.js?v=30"></script> 
 </body>
 </html>
