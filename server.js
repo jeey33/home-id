@@ -1,6 +1,7 @@
 const express = require("express");
 const path = require("path");
 const { Pool } = require("pg");
+const crypto = require("crypto"); // NOUVEAU : Module de cryptographie pour le coffre-fort
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,6 +13,29 @@ const pool = new Pool({
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
+// --- SÉCURITÉ COFFRE FORT (AES-256) ---
+// Clé de chiffrement générée à partir d'un secret serveur
+const ENCRYPTION_KEY = crypto.createHash('sha256').update(process.env.VAULT_SECRET || "home-id-ultra-secure-key-2026").digest('base64').substring(0, 32);
+const IV_LENGTH = 16;
+
+function encryptPassword(text) {
+  let iv = crypto.randomBytes(IV_LENGTH);
+  let cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+  let encrypted = cipher.update(text);
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+function decryptPassword(text) {
+  let textParts = text.split(':');
+  let iv = Buffer.from(textParts.shift(), 'hex');
+  let encryptedText = Buffer.from(textParts.join(':'), 'hex');
+  let decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+  let decrypted = decipher.update(encryptedText);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
+}
+
 async function initDB() {
   try {
     await pool.query(`
@@ -21,6 +45,9 @@ async function initDB() {
       CREATE TABLE IF NOT EXISTS alerts (id SERIAL PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id) ON DELETE CASCADE, title VARCHAR(255), text TEXT, date VARCHAR(50));
       CREATE TABLE IF NOT EXISTS professionals (id SERIAL PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id) ON DELETE CASCADE, name VARCHAR(100), domain VARCHAR(100), access VARCHAR(50), expires VARCHAR(50));
       CREATE TABLE IF NOT EXISTS documents (id VARCHAR(50) PRIMARY KEY, system_id VARCHAR(50) REFERENCES systems(id) ON DELETE CASCADE, name VARCHAR(255), added VARCHAR(50));
+      
+      -- NOUVEAU : Tables pour le coffre-fort
+      CREATE TABLE IF NOT EXISTS vault_items (id SERIAL PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id) ON DELETE CASCADE, title VARCHAR(100), login VARCHAR(100), encrypted_pwd TEXT);
     `);
 
     await pool.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS specs JSONB;`);
@@ -31,6 +58,9 @@ async function initDB() {
     await pool.query(`ALTER TABLE alerts ADD COLUMN IF NOT EXISTS is_done BOOLEAN DEFAULT FALSE;`);
     await pool.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;`);
     await pool.query(`ALTER TABLE professionals ADD COLUMN IF NOT EXISTS notes TEXT;`);
+    
+    // Ajout du code PIN du coffre à la maison
+    await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS vault_pin VARCHAR(255);`);
 
     console.log("Base de données connectée, mise à jour et prête !");
   } catch (error) {
@@ -119,7 +149,7 @@ app.post("/api/home/plan", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
 });
 
-// --- ROUTES SYSTÈMES ET ÉQUIPEMENTS ---
+// --- ROUTES SYSTÈMES, EQUIPEMENTS, ALERTES ET ARTISANS ---
 app.get("/api/systems/:id", async (req, res) => {
   try {
     const sysResult = await pool.query(`SELECT * FROM systems WHERE id = $1`, [req.params.id]);
@@ -202,7 +232,6 @@ app.post("/api/equipment/delete", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur de suppression." }); }
 });
 
-// --- ENTRETIENS (ALERTS) ---
 app.post("/api/alerts/add", async (req, res) => {
   const { homeId, title, date, text } = req.body;
   try {
@@ -219,7 +248,6 @@ app.post("/api/alerts/toggle", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur." }); }
 });
 
-// NOUVEAU : Modifier un entretien
 app.post("/api/alerts/update", async (req, res) => {
   const { id, title, date, text } = req.body;
   try {
@@ -228,7 +256,6 @@ app.post("/api/alerts/update", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur de modification." }); }
 });
 
-// NOUVEAU : Supprimer un entretien
 app.post("/api/alerts/delete", async (req, res) => {
   const { id } = req.body;
   try {
@@ -237,7 +264,6 @@ app.post("/api/alerts/delete", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur de suppression." }); }
 });
 
-// --- ARTISANS ---
 app.post("/api/professionals/add", async (req, res) => {
   const { homeId, name, domain, phone, email, notes } = req.body;
   try {
@@ -260,6 +286,85 @@ app.post("/api/professionals/delete", async (req, res) => {
     await pool.query(`DELETE FROM professionals WHERE id = $1`, [id]);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: "Erreur." }); }
+});
+
+// --- NOUVELLES ROUTES : COFFRE-FORT DE MOTS DE PASSE ---
+
+// 1. Vérifier si un PIN existe ou l'initialiser
+app.post("/api/vault/check", async (req, res) => {
+  const { homeId } = req.body;
+  try {
+    const home = await pool.query(`SELECT vault_pin FROM home WHERE id = $1`, [homeId]);
+    if (home.rows.length === 0) return res.status(404).json({ error: "Maison introuvable" });
+    res.json({ isSetup: !!home.rows[0].vault_pin });
+  } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
+});
+
+app.post("/api/vault/setup", async (req, res) => {
+  const { homeId, pin } = req.body;
+  try {
+    // On hache le PIN pour ne pas l'avoir en clair dans la DB
+    const hashedPin = crypto.createHash('sha256').update(pin).digest('hex');
+    await pool.query(`UPDATE home SET vault_pin = $1 WHERE id = $2`, [hashedPin, homeId]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
+});
+
+// 2. Déverrouiller et récupérer les mots de passe
+app.post("/api/vault/unlock", async (req, res) => {
+  const { homeId, pin } = req.body;
+  try {
+    const home = await pool.query(`SELECT vault_pin FROM home WHERE id = $1`, [homeId]);
+    const hashedPin = crypto.createHash('sha256').update(pin).digest('hex');
+    
+    if (home.rows[0].vault_pin !== hashedPin) {
+      return res.status(401).json({ error: "Code PIN incorrect" });
+    }
+
+    // PIN valide = on décrypte les mots de passe
+    const items = await pool.query(`SELECT * FROM vault_items WHERE home_id = $1`, [homeId]);
+    const decryptedItems = items.rows.map(item => ({
+      id: item.id,
+      title: item.title,
+      login: item.login,
+      password: decryptPassword(item.encrypted_pwd) // On déchiffre à la volée !
+    }));
+
+    res.json({ ok: true, items: decryptedItems });
+  } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
+});
+
+// 3. Ajouter un mot de passe (Chiffrement)
+app.post("/api/vault/add", async (req, res) => {
+  const { homeId, pin, title, login, password } = req.body;
+  try {
+    // Vérification de sécurité avant d'ajouter
+    const home = await pool.query(`SELECT vault_pin FROM home WHERE id = $1`, [homeId]);
+    const hashedPin = crypto.createHash('sha256').update(pin).digest('hex');
+    if (home.rows[0].vault_pin !== hashedPin) return res.status(401).json({ error: "Accès refusé" });
+
+    // Chiffrement du mot de passe
+    const encryptedPwd = encryptPassword(password);
+    
+    await pool.query(
+      `INSERT INTO vault_items (home_id, title, login, encrypted_pwd) VALUES ($1, $2, $3, $4)`,
+      [homeId, title, login || "", encryptedPwd]
+    );
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
+});
+
+// 4. Supprimer un mot de passe
+app.post("/api/vault/delete", async (req, res) => {
+  const { homeId, pin, itemId } = req.body;
+  try {
+    const home = await pool.query(`SELECT vault_pin FROM home WHERE id = $1`, [homeId]);
+    const hashedPin = crypto.createHash('sha256').update(pin).digest('hex');
+    if (home.rows[0].vault_pin !== hashedPin) return res.status(401).json({ error: "Accès refusé" });
+
+    await pool.query(`DELETE FROM vault_items WHERE id = $1`, [itemId]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur" }); }
 });
 
 app.listen(PORT, () => console.log(`Serveur prêt sur port ${PORT}`));
