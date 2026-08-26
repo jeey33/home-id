@@ -13,7 +13,8 @@
     <h1>Bienvenue sur HOME ID</h1>
     <p>Ce QR Code est vierge. Configurez votre carnet numérique.</p>
     
-    <form id="setup-form" class="onboarding-form">
+    <!-- AJOUT DE action="javascript:void(0);" POUR BLOQUER LE RAFRAÎCHISSEMENT -->
+    <form id="setup-form" action="javascript:void(0);" class="onboarding-form">
       <div class="form-group">
         <label>Nom de la maison *</label>
         <input type="text" id="setup-name" placeholder="ex: Villa des Pins, Ma Maison..." required>
@@ -35,7 +36,6 @@
         </div>
       </div>
 
-      <!-- Mot de passe exigé par ta base de données -->
       <div class="form-group" style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 15px;">
         <label style="color: #a24b4b;">🔒 Mot de passe Propriétaire *</label>
         <input type="password" id="setup-password" placeholder="Saisissez un mot de passe de sécurité" required>
@@ -55,7 +55,7 @@
       event.preventDefault();
       
       const urlParams = new URLSearchParams(window.location.search);
-      const homeId = urlParams.get("id"); // Récupère l'ID depuis l'URL
+      const homeId = urlParams.get("id");
 
       if (!homeId) {
         showToast("Erreur : Aucun QR Code scanné.");
@@ -79,6 +79,7 @@
         });
 
         if (response.ok) {
+          // On ajoute bien l'ID dans la redirection !
           window.location.href = `/?id=${homeId}`;
         } else {
           showToast("Erreur lors de la création.");
