@@ -17,7 +17,7 @@ async function initDB() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS home (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100), year INT, surface INT, land INT, owner_password VARCHAR(255), is_setup BOOLEAN DEFAULT FALSE);
       CREATE TABLE IF NOT EXISTS systems (id VARCHAR(50) PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id) ON DELETE CASCADE, name VARCHAR(100), icon VARCHAR(10), status VARCHAR(50), color VARCHAR(20));
-      CREATE TABLE IF NOT EXISTS equipment (id VARCHAR(50) PRIMARY KEY, system_id VARCHAR(50) REFERENCES systems(id) ON DELETE CASCADE, name VARCHAR(100), model VARCHAR(100), installed VARCHAR(50), notice VARCHAR(255), artisan VARCHAR(100), specs JSONB, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+      CREATE TABLE IF NOT EXISTS equipment (id VARCHAR(50) PRIMARY KEY, system_id VARCHAR(50) REFERENCES systems(id) ON DELETE CASCADE, name VARCHAR(100), model VARCHAR(100), installed VARCHAR(50), notice TEXT, artisan VARCHAR(100), specs JSONB, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS alerts (id SERIAL PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id) ON DELETE CASCADE, title VARCHAR(255), text TEXT, date VARCHAR(50));
       CREATE TABLE IF NOT EXISTS professionals (id SERIAL PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id) ON DELETE CASCADE, name VARCHAR(100), domain VARCHAR(100), access VARCHAR(50), expires VARCHAR(50));
       CREATE TABLE IF NOT EXISTS documents (id VARCHAR(50) PRIMARY KEY, system_id VARCHAR(50) REFERENCES systems(id) ON DELETE CASCADE, name VARCHAR(255), added VARCHAR(50));
@@ -25,7 +25,6 @@ async function initDB() {
 
     await pool.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS specs JSONB;`);
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS plans JSONB DEFAULT '[]'::jsonb;`);
-    await pool.query(`ALTER TABLE equipment ALTER COLUMN notice TYPE TEXT;`);
     await pool.query(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS notes TEXT;`);
 
     console.log("Base de données connectée, mise à jour et prête !");
@@ -125,7 +124,6 @@ app.get("/api/systems/:id", async (req, res) => {
   } catch(e) { res.status(500).json({ error: "Erreur" }); }
 });
 
-// NOUVEAU : AJOUTER UN SYSTÈME
 app.post("/api/systems/add", async (req, res) => {
   const { homeId, name, icon } = req.body;
   const sysId = "SYS-" + Date.now().toString(36).toUpperCase();
@@ -138,7 +136,6 @@ app.post("/api/systems/add", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
 });
 
-// NOUVEAU : MODIFIER UN SYSTÈME
 app.post("/api/systems/update", async (req, res) => {
   const { id, name, icon } = req.body;
   try {
@@ -147,7 +144,6 @@ app.post("/api/systems/update", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur" }); }
 });
 
-// NOUVEAU : SUPPRIMER UN SYSTÈME
 app.post("/api/systems/delete", async (req, res) => {
   const { id } = req.body;
   try {
@@ -194,7 +190,6 @@ app.post("/api/equipment/delete", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur de suppression." }); }
 });
 
-// NOUVEAU : AJOUTER UN ENTRETIEN (ALERTE)
 app.post("/api/alerts/add", async (req, res) => {
   const { homeId, title, date, text } = req.body;
   try {
@@ -203,11 +198,9 @@ app.post("/api/alerts/add", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur." }); }
 });
 
-// NOUVEAU : AJOUTER UN ARTISAN
 app.post("/api/professionals/add", async (req, res) => {
   const { homeId, name, domain } = req.body;
   try {
-    // Par défaut, l'artisan est marqué "Intervenu"
     await pool.query(`INSERT INTO professionals (home_id, name, domain, access) VALUES ($1, $2, $3, 'Intervenu')`, [homeId, name, domain]);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: "Erreur." }); }
