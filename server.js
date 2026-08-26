@@ -30,8 +30,6 @@ async function initDB() {
     await pool.query(`ALTER TABLE professionals ADD COLUMN IF NOT EXISTS email VARCHAR(100);`);
     await pool.query(`ALTER TABLE alerts ADD COLUMN IF NOT EXISTS is_done BOOLEAN DEFAULT FALSE;`);
     await pool.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;`);
-    
-    // NOUVEAU : Colonne "notes" pour stocker les avis sur les professionnels
     await pool.query(`ALTER TABLE professionals ADD COLUMN IF NOT EXISTS notes TEXT;`);
 
     console.log("Base de données connectée, mise à jour et prête !");
@@ -135,10 +133,7 @@ app.post("/api/systems/add", async (req, res) => {
   const { homeId, name, icon } = req.body;
   const sysId = "SYS-" + Date.now().toString(36).toUpperCase();
   try {
-    await pool.query(
-      `INSERT INTO systems (id, home_id, name, icon, status, color, display_order) VALUES ($1, $2, $3, $4, 'À configurer', 'orange', 99)`,
-      [sysId, homeId, name, icon || "⚙️"]
-    );
+    await pool.query(`INSERT INTO systems (id, home_id, name, icon, status, color, display_order) VALUES ($1, $2, $3, $4, 'À configurer', 'orange', 99)`, [sysId, homeId, name, icon || "⚙️"]);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
 });
@@ -207,6 +202,7 @@ app.post("/api/equipment/delete", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur de suppression." }); }
 });
 
+// --- ENTRETIENS (ALERTS) ---
 app.post("/api/alerts/add", async (req, res) => {
   const { homeId, title, date, text } = req.body;
   try {
@@ -223,7 +219,25 @@ app.post("/api/alerts/toggle", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur." }); }
 });
 
-// NOUVEAU : Ajout de la note (Avis) pour l'artisan
+// NOUVEAU : Modifier un entretien
+app.post("/api/alerts/update", async (req, res) => {
+  const { id, title, date, text } = req.body;
+  try {
+    await pool.query(`UPDATE alerts SET title = $1, date = $2, text = $3 WHERE id = $4`, [title, date, text || "", id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur de modification." }); }
+});
+
+// NOUVEAU : Supprimer un entretien
+app.post("/api/alerts/delete", async (req, res) => {
+  const { id } = req.body;
+  try {
+    await pool.query(`DELETE FROM alerts WHERE id = $1`, [id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur de suppression." }); }
+});
+
+// --- ARTISANS ---
 app.post("/api/professionals/add", async (req, res) => {
   const { homeId, name, domain, phone, email, notes } = req.body;
   try {
@@ -232,7 +246,6 @@ app.post("/api/professionals/add", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur." }); }
 });
 
-// NOUVEAU : Modification d'un artisan (avec notes)
 app.post("/api/professionals/update", async (req, res) => {
   const { id, name, domain, phone, email, notes } = req.body;
   try {
@@ -241,7 +254,6 @@ app.post("/api/professionals/update", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur." }); }
 });
 
-// NOUVEAU : Suppression d'un artisan
 app.post("/api/professionals/delete", async (req, res) => {
   const { id } = req.body;
   try {
