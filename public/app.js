@@ -5,7 +5,6 @@
 let homeData = null;
 let currentHomeId = null; 
 window.isDragging = false; 
-// Token temporaire du coffre-fort pour ne pas redemander le code à chaque clic en session
 let sessionVaultPin = null; 
 
 async function init() {
@@ -22,6 +21,9 @@ async function init() {
   else openLoginModal();
 }
 
+/* ============================================================
+   SÉCURITÉ & CHARGEMENT
+   ============================================================ */
 function openLoginModal() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">SÉCURITÉ</div><h2>Déverrouiller la maison</h2>
@@ -107,19 +109,16 @@ function populateHouseInfo() {
 /* ============================================================
    COFFRE FORT DE MOTS DE PASSE (Ultra-Sécurisé)
    ============================================================ */
-
 async function openVaultCheck() {
-  // Vérifie d'abord si le coffre est initialisé côté serveur
   try {
     const response = await fetch("/api/vault/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ homeId: currentHomeId }) });
     const data = await response.json();
     
     if (!data.isSetup) {
-      // Le coffre n'a jamais été ouvert, on crée le PIN
       document.getElementById("modal-content").innerHTML = `
         <div class="eyebrow" style="color:#d93025;">SÉCURITÉ EXTRÊME</div>
         <h2>Initialiser le Coffre-Fort</h2>
-        <p style="font-size:13px; color:#59645d; line-height:1.4;">Vos mots de passe (Wi-Fi, Alarme, Cadenas...) seront <strong>chiffrés de bout en bout (AES-256)</strong>. Créez un Code PIN unique à 4 ou 6 chiffres pour les verrouiller.</p>
+        <p style="font-size:13px; color:#59645d; line-height:1.4;">Vos mots de passe seront <strong>chiffrés (AES-256)</strong>. Créez un Code PIN unique pour les verrouiller.</p>
         <form action="javascript:void(0);" onsubmit="event.preventDefault(); setupVault(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:20px;">
           <input type="password" id="vault-setup-pin" inputmode="numeric" pattern="[0-9]*" placeholder="Code PIN (ex: 1234)" required style="padding:15px; border-radius:8px; border:2px solid #1e362d; font-size:24px; text-align:center; letter-spacing:8px;">
           <button type="submit" class="button primary pointer" style="padding:15px; font-size:16px;">Créer le Coffre</button>
@@ -127,13 +126,8 @@ async function openVaultCheck() {
       `;
       openModal();
     } else {
-      // Le coffre existe, si on n'a pas le PIN en session, on demande de déverrouiller
-      if (!sessionVaultPin) {
-        showVaultUnlock();
-      } else {
-        // On l'a déjà en session, on ouvre direct
-        loadVaultDashboard();
-      }
+      if (!sessionVaultPin) showVaultUnlock();
+      else loadVaultDashboard();
     }
   } catch(e) { showMessage("Erreur de connexion au coffre."); }
 }
@@ -142,28 +136,18 @@ async function setupVault() {
   const pin = document.getElementById("vault-setup-pin").value;
   try {
     const res = await fetch("/api/vault/setup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ homeId: currentHomeId, pin }) });
-    if(res.ok) {
-      sessionVaultPin = pin;
-      showMessage("Coffre-fort créé et sécurisé !");
-      loadVaultDashboard();
-    }
-  } catch(e) { showMessage("Erreur lors de la création du coffre."); }
+    if(res.ok) { sessionVaultPin = pin; showMessage("Coffre-fort créé !"); loadVaultDashboard(); }
+  } catch(e) { showMessage("Erreur réseau."); }
 }
 
 function showVaultUnlock() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow" style="color:#d93025;">🔐 COFFRE-FORT</div>
     <h2>Déverrouillage requis</h2>
-    <p style="font-size:13px; color:#59645d;">Saisissez le Code PIN du coffre. Si votre appareil le permet, vous pouvez utiliser Face ID / Touch ID.</p>
-    
     <form action="javascript:void(0);" onsubmit="event.preventDefault(); unlockVault(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:20px;">
-      <!-- autocomplete="webauthn" et "current-password" active le trousseau biométrique natif des téléphones (iOS/Android) -->
       <input type="password" id="vault-unlock-pin" autocomplete="current-password" inputmode="numeric" placeholder="Code PIN" required style="padding:15px; border-radius:8px; border:2px solid #1e362d; font-size:24px; text-align:center; letter-spacing:8px;">
-      
       <div style="display:flex; gap:10px;">
-        <button type="button" class="button secondary pointer" style="flex:1; padding:15px; font-size:16px; background:#e3e8e4;" onclick="triggerBiometricUnlock()">
-          👁️ / 👆 Biométrie
-        </button>
+        <button type="button" class="button secondary pointer" style="flex:1; padding:15px; font-size:16px; background:#e3e8e4;" onclick="triggerBiometricUnlock()">👁️ / 👆 Biométrie</button>
         <button type="submit" class="button primary pointer" style="flex:1; padding:15px; font-size:16px;">Déverrouiller</button>
       </div>
     </form>
@@ -172,11 +156,8 @@ function showVaultUnlock() {
   openModal();
 }
 
-// Simule un appel biométrique propre qui va focus le champ PIN pour forcer le clavier natif FaceID/TouchID
 function triggerBiometricUnlock() {
-  const pinInput = document.getElementById("vault-unlock-pin");
-  pinInput.focus();
-  // Sur mobile, cela suffit souvent à déclencher l'auto-complétion Face ID si le PIN a été enregistré !
+  document.getElementById("vault-unlock-pin").focus();
 }
 
 async function unlockVault() {
@@ -184,17 +165,12 @@ async function unlockVault() {
   const errDiv = document.getElementById("vault-error");
   try {
     const res = await fetch("/api/vault/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ homeId: currentHomeId, pin }) });
-    if(res.ok) {
-      sessionVaultPin = pin; // On le garde en mémoire temporaire le temps de la visite
-      loadVaultDashboard();
-    } else {
-      errDiv.textContent = "Code PIN incorrect."; errDiv.style.display = "block";
-    }
+    if(res.ok) { sessionVaultPin = pin; loadVaultDashboard(); } 
+    else { errDiv.textContent = "Code PIN incorrect."; errDiv.style.display = "block"; }
   } catch(e) { errDiv.textContent = "Erreur réseau."; errDiv.style.display = "block"; }
 }
 
 async function loadVaultDashboard() {
-  // On récupère les données décryptées en passant le PIN
   try {
     const res = await fetch("/api/vault/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ homeId: currentHomeId, pin: sessionVaultPin }) });
     if(!res.ok) { sessionVaultPin = null; openVaultCheck(); return; }
@@ -211,7 +187,6 @@ async function loadVaultDashboard() {
           <div style="flex:1;">
             <strong style="display:block; color:#17211c; font-size:15px;">${escapeHTML(item.title)}</strong>
             ${item.login ? `<span style="font-size:12px; color:#59645d; display:block; margin-top:2px;">ID: ${escapeHTML(item.login)}</span>` : ''}
-            
             <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
               <input type="password" value="${escapeHTML(item.password)}" id="pwd-${item.id}" readonly style="border:none; background:transparent; font-family:monospace; font-size:14px; width:120px; outline:none; pointer-events:none;">
               <button onclick="togglePwdVisibility('pwd-${item.id}')" style="background:none; border:none; cursor:pointer; font-size:12px; color:#4b9b69; font-weight:bold;">Afficher</button>
@@ -229,11 +204,7 @@ async function loadVaultDashboard() {
         <h2 style="margin:0;">Mots de passe</h2>
         <button class="button secondary pointer" style="padding:6px 12px; font-size:12px;" onclick="sessionVaultPin=null; openVaultCheck();">🔒 Verrouiller</button>
       </div>
-      
-      <div style="max-height:50vh; overflow-y:auto; padding-right:5px; margin-bottom:15px;">
-        ${itemsHTML}
-      </div>
-
+      <div style="max-height:50vh; overflow-y:auto; padding-right:5px; margin-bottom:15px;">${itemsHTML}</div>
       <button class="button primary pointer" style="width:100%; padding:12px;" onclick="openAddVaultItemModal()">+ Nouveau mot de passe</button>
     `;
   } catch(e) { showMessage("Erreur réseau"); }
@@ -241,8 +212,7 @@ async function loadVaultDashboard() {
 
 function togglePwdVisibility(inputId) {
   const input = document.getElementById(inputId);
-  if (input.type === "password") input.type = "text";
-  else input.type = "password";
+  input.type = input.type === "password" ? "text" : "password";
 }
 
 function copyToClipboard(text) {
@@ -256,13 +226,10 @@ function openAddVaultItemModal() {
     <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitVaultItem(event); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
       <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Nom (Ex: Wi-Fi, Alarme, Netflix...)</label>
       <input type="text" id="vault-add-title" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      
       <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Identifiant / Email (Optionnel)</label>
       <input type="text" id="vault-add-login" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      
       <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Mot de passe secret *</label>
       <input type="text" id="vault-add-pwd" required style="padding:10px; border-radius:8px; border:1px solid #ccc; font-family:monospace;">
-      
       <div style="display:flex; gap:10px; margin-top:10px;">
         <button type="button" class="button secondary pointer" style="flex:1;" onclick="loadVaultDashboard()">Annuler</button>
         <button type="submit" class="button primary pointer" style="flex:2;">Chiffrer et Enregistrer</button>
@@ -273,11 +240,8 @@ function openAddVaultItemModal() {
 
 async function submitVaultItem(event) {
   const payload = {
-    homeId: currentHomeId,
-    pin: sessionVaultPin, // Requis par le backend pour chiffrer
-    title: document.getElementById("vault-add-title").value,
-    login: document.getElementById("vault-add-login").value,
-    password: document.getElementById("vault-add-pwd").value
+    homeId: currentHomeId, pin: sessionVaultPin, title: document.getElementById("vault-add-title").value,
+    login: document.getElementById("vault-add-login").value, password: document.getElementById("vault-add-pwd").value
   };
   try {
     const res = await fetch("/api/vault/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -294,9 +258,8 @@ async function deleteVaultItem(itemId) {
   } catch(e) { showMessage("Erreur réseau"); }
 }
 
-
 /* ============================================================
-   SYSTÈMES ET GLISSER-DÉPOSER
+   AFFICHAGE SYSTÈMES ET GLISSER-DÉPOSER
    ============================================================ */
 function displaySystems() {
   const container = document.getElementById("systems");
@@ -307,7 +270,6 @@ function displaySystems() {
   container.innerHTML = systems.map(system => {
     const equipmentCount = Number(system.equipment || 0);
     const equipmentHTML = equipmentCount > 0 ? `<div style="font-size:11px; color:#77827a; margin-top:4px;">${equipmentCount} équipement(s)</div>` : `<div style="font-size:11px; color:#a26b28; margin-top:4px;">À configurer</div>`;
-    
     return `
       <div class="system pointer" draggable="true" data-id="${system.id}" onclick="if(!window.isDragging) openSystem('${system.id}')">
         <div class="system-icon">${system.icon || "🏠"}</div>
@@ -322,34 +284,117 @@ function displaySystems() {
   
   draggables.forEach(item => {
     item.addEventListener('dragstart', function(e) {
-      window.isDragging = true;
-      draggedItem = this;
+      window.isDragging = true; draggedItem = this;
       setTimeout(() => this.classList.add('dragging'), 0);
     });
-
     item.addEventListener('dragend', async function() {
-      this.classList.remove('dragging');
-      draggedItem = null;
+      this.classList.remove('dragging'); draggedItem = null;
       setTimeout(() => window.isDragging = false, 100);
-
-      const orderData = [...container.querySelectorAll('.system')].map((el, index) => ({
-        id: el.getAttribute('data-id'), order: index
-      }));
-      try {
-        await fetch('/api/systems/reorder', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({orderData}) });
-      } catch(e) { console.error("Erreur de sauvegarde de l'ordre"); }
+      const orderData = [...container.querySelectorAll('.system')].map((el, index) => ({ id: el.getAttribute('data-id'), order: index }));
+      try { await fetch('/api/systems/reorder', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({orderData}) }); } catch(e) {}
     });
-
     item.addEventListener('dragover', function(e) {
       e.preventDefault();
       if (this !== draggedItem && draggedItem) {
         const bounding = this.getBoundingClientRect();
         const offset = e.clientX - bounding.left - (bounding.width / 2);
-        if (offset > 0) this.after(draggedItem);
-        else this.before(draggedItem);
+        if (offset > 0) this.after(draggedItem); else this.before(draggedItem);
       }
     });
   });
+}
+
+/* ============================================================
+   ARTISANS (AFFICHAGE, AJOUT, MODIF ET SUPPRESSION)
+   ============================================================ */
+function displayProfessionals() { 
+  const container = document.getElementById("professionals");
+  if (!container) return;
+  const pros = homeData.professionals || [];
+  if (pros.length === 0) { container.innerHTML = "<p style='font-size:13px; color:#77827a;'>Aucun artisan enregistré.</p>"; return; }
+
+  container.innerHTML = pros.map(p => {
+    const pJSON = encodeURIComponent(JSON.stringify(p));
+    let notesHtml = p.notes ? `<div style="margin-top:6px; font-size:11px; color:#59645d; background:#f4f6f5; padding:6px; border-radius:4px; border-left:2px solid #4b9b69;"><i>"${escapeHTML(p.notes)}"</i></div>` : "";
+    
+    return `
+    <div class="pro" style="position:relative;">
+      <span class="access-active">Intervenu</span>
+      <button onclick="openEditProModal('${pJSON}')" style="position:absolute; right:0; top:10px; background:none; border:none; cursor:pointer; font-size:14px; color:#77827a; transition:0.2s;" onmouseover="this.style.color='#1e362d'" onmouseout="this.style.color='#77827a'">✏️</button>
+      <strong>${escapeHTML(p.name)}</strong>
+      <p style="margin:2px 0;">${escapeHTML(p.domain)}</p>
+      ${notesHtml}
+      <div style="display:flex; gap:10px; margin-top:8px;">
+        ${p.phone ? `<a href="tel:${escapeHTML(p.phone)}" style="display:inline-flex; align-items:center; gap:5px; font-size:11px; color:#1e362d; background:#eef2ef; padding:4px 8px; border-radius:6px; text-decoration:none;">📞 Appeler</a>` : ''}
+        ${p.email ? `<a href="mailto:${escapeHTML(p.email)}" style="display:inline-flex; align-items:center; gap:5px; font-size:11px; color:#1e362d; background:#eef2ef; padding:4px 8px; border-radius:6px; text-decoration:none;">✉️ Email</a>` : ''}
+      </div>
+    </div>
+  `}).join("");
+}
+
+function openAddProModal() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">NOUVEL ARTISAN</div>
+    <h2>Ajouter un professionnel</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitPro(event); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <input type="text" id="add-pro-name" placeholder="Nom de l'entreprise ou artisan *" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="add-pro-domain" placeholder="Spécialité (Ex: Plombier, Chauffagiste...) *" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <div style="display:flex; gap:10px;">
+        <input type="tel" id="add-pro-phone" placeholder="N° Téléphone" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="email" id="add-pro-email" placeholder="Adresse Email" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+      </div>
+      <textarea id="add-pro-notes" placeholder="Avis, tarifs, commentaires (ex: Très bon plombier...)" style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;"></textarea>
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Enregistrer l'artisan</button>
+    </form>`;
+  openModal();
+}
+
+async function submitPro(event) {
+  const payload = { homeId: currentHomeId, name: document.getElementById("add-pro-name").value, domain: document.getElementById("add-pro-domain").value, phone: document.getElementById("add-pro-phone").value, email: document.getElementById("add-pro-email").value, notes: document.getElementById("add-pro-notes").value };
+  try {
+    const response = await fetch("/api/professionals/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (response.ok) { showMessage("Artisan ajouté !"); closeModal(); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
+function openEditProModal(encodedPro) {
+  const pro = JSON.parse(decodeURIComponent(encodedPro));
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">MODIFICATION ARTISAN</div>
+    <h2>Modifier ${escapeHTML(pro.name)}</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitEditPro(event, ${pro.id}); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Nom et Spécialité</label>
+      <input type="text" id="edit-pro-name" value="${escapeHTML(pro.name)}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="edit-pro-domain" value="${escapeHTML(pro.domain)}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Contacts</label>
+      <div style="display:flex; gap:10px;">
+        <input type="tel" id="edit-pro-phone" value="${escapeHTML(pro.phone || '')}" placeholder="N° Téléphone" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="email" id="edit-pro-email" value="${escapeHTML(pro.email || '')}" placeholder="Adresse Email" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+      </div>
+      <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Avis / Notes</label>
+      <textarea id="edit-pro-notes" placeholder="Avis, tarifs, commentaires..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;">${escapeHTML(pro.notes || '')}</textarea>
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <button type="submit" class="button primary pointer" style="flex:1;">Enregistrer</button>
+        <button type="button" class="button secondary pointer" style="color:#d93025; border:1px solid #fce8e6; background:#fffafa;" onclick="deletePro(${pro.id})">🗑️ Supprimer</button>
+      </div>
+    </form>`;
+  openModal();
+}
+
+async function submitEditPro(event, proId) {
+  const payload = { id: proId, name: document.getElementById("edit-pro-name").value, domain: document.getElementById("edit-pro-domain").value, phone: document.getElementById("edit-pro-phone").value, email: document.getElementById("edit-pro-email").value, notes: document.getElementById("edit-pro-notes").value };
+  try {
+    const response = await fetch("/api/professionals/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (response.ok) { showMessage("Artisan modifié !"); closeModal(); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
+async function deletePro(proId) {
+  if (!confirm("Voulez-vous vraiment supprimer cet artisan de votre carnet ?")) return;
+  try {
+    const response = await fetch("/api/professionals/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: proId }) });
+    if (response.ok) { showMessage("Artisan supprimé."); closeModal(); loadHomeData(); }
+  } catch (e) { showMessage("Erreur"); }
 }
 
 /* ============================================================
@@ -421,11 +466,30 @@ async function toggleAlert(id, isDone) {
   } catch (error) { showMessage("Erreur."); }
 }
 
+function openAddAlertModal() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">NOUVEL ENTRETIEN</div><h2>Ajouter un rappel</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitAlert(event); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <input type="text" id="add-alert-title" placeholder="Titre (Ex: Nettoyage Filtres Climatisation)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="date" id="add-alert-date" required style="padding:10px; border-radius:8px; border:1px solid #ccc; font-family:inherit;">
+      <textarea id="add-alert-text" placeholder="Détails (Optionnel)..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;"></textarea>
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Programmer le rappel</button>
+    </form>`;
+  openModal();
+}
+
+async function submitAlert(event) {
+  const payload = { homeId: currentHomeId, title: document.getElementById("add-alert-title").value, date: document.getElementById("add-alert-date").value, text: document.getElementById("add-alert-text").value };
+  try {
+    const response = await fetch("/api/alerts/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (response.ok) { showMessage("Rappel programmé !"); closeModal(); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
 function openEditAlertModal(encodedAlert) {
   const alert = JSON.parse(decodeURIComponent(encodedAlert));
   document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">MODIFICATION ENTRETIEN</div>
-    <h2>Modifier le rappel</h2>
+    <div class="eyebrow">MODIFICATION ENTRETIEN</div><h2>Modifier le rappel</h2>
     <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitEditAlert(event, ${alert.id}); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
       <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Titre de l'entretien</label>
       <input type="text" id="edit-alert-title" value="${escapeHTML(alert.title)}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
@@ -457,42 +521,9 @@ async function deleteAlert(alertId) {
   } catch (e) { showMessage("Erreur"); }
 }
 
-// ... Les autres fonctions de app.js restent 100% IDENTIQUES à celles du message précédent pour les Systèmes, Equipements, Plans et Profils ...
-// Je rajoute juste les fonctions qui te manquent ci-dessous pour que ce soit copiable d'un coup.
-
-function openAddMenu() {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">ACTION RAPIDE</div>
-    <h2>Que voulez-vous ajouter ?</h2>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px;">
-      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddSystemModal()"><span style="font-size:24px;">⚙️</span><strong>Nouveau<br>Système</strong></button>
-      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddEquipmentModal()"><span style="font-size:24px;">🔌</span><strong>Nouvel<br>Équipement</strong></button>
-      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddAlertModal()"><span style="font-size:24px;">📅</span><strong>Rappel<br>d'Entretien</strong></button>
-      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddProModal()"><span style="font-size:24px;">👷</span><strong>Nouvel<br>Artisan</strong></button>
-    </div>`;
-  openModal();
-}
-
-function openAddAlertModal() {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">NOUVEL ENTRETIEN</div><h2>Ajouter un rappel</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitAlert(event); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="add-alert-title" placeholder="Titre (Ex: Nettoyage Filtres Climatisation)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="date" id="add-alert-date" required style="padding:10px; border-radius:8px; border:1px solid #ccc; font-family:inherit;">
-      <textarea id="add-alert-text" placeholder="Détails (Optionnel)..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;"></textarea>
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Programmer le rappel</button>
-    </form>`;
-  openModal();
-}
-
-async function submitAlert(event) {
-  const payload = { homeId: currentHomeId, title: document.getElementById("add-alert-title").value, date: document.getElementById("add-alert-date").value, text: document.getElementById("add-alert-text").value };
-  try {
-    const response = await fetch("/api/alerts/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (response.ok) { showMessage("Rappel programmé !"); closeModal(); loadHomeData(); }
-  } catch (e) { showMessage("Erreur réseau"); }
-}
-
+/* ============================================================
+   AFFICHAGE SYSTÈMES ET ÉQUIPEMENTS
+   ============================================================ */
 async function openSystem(systemId) {
   try {
     const response = await fetch(`/api/systems/${encodeURIComponent(systemId)}`);
@@ -540,6 +571,19 @@ async function openSystem(systemId) {
   } catch (error) { showMessage("Erreur d'ouverture"); }
 }
 
+function openAddMenu() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">ACTION RAPIDE</div>
+    <h2>Que voulez-vous ajouter ?</h2>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px;">
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddSystemModal()"><span style="font-size:24px;">⚙️</span><strong>Nouveau<br>Système</strong></button>
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddEquipmentModal()"><span style="font-size:24px;">🔌</span><strong>Nouvel<br>Équipement</strong></button>
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddAlertModal()"><span style="font-size:24px;">📅</span><strong>Rappel<br>d'Entretien</strong></button>
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddProModal()"><span style="font-size:24px;">👷</span><strong>Nouvel<br>Artisan</strong></button>
+    </div>`;
+  openModal();
+}
+
 function openAddSystemModal() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">NOUVEAU SYSTÈME</div><h2>Ajouter un système</h2>
@@ -557,6 +601,7 @@ async function submitNewSystem(event) {
     if (response.ok) { showMessage("Système créé !"); closeModal(); loadHomeData(); }
   } catch (e) { showMessage("Erreur réseau"); }
 }
+
 function openEditSystemModal(id, currentName, currentIcon) {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">MODIFICATION</div><h2>Modifier le système</h2>
@@ -573,6 +618,7 @@ async function submitEditSystem(event, id) {
     if (response.ok) { showMessage("Système modifié !"); openSystem(id); loadHomeData(); }
   } catch (e) { showMessage("Erreur réseau"); }
 }
+
 async function deleteSystem(id) {
   if (!confirm("Voulez-vous supprimer ce système ? TOUS les équipements à l'intérieur seront effacés.")) return;
   try {
@@ -580,6 +626,7 @@ async function deleteSystem(id) {
     if (response.ok) { showMessage("Système supprimé."); closeModal(); loadHomeData(); }
   } catch (e) { showMessage("Erreur réseau"); }
 }
+
 function openConfigSystemModal(systemId, systemName) {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">CONFIGURATION</div><h2>Général : ${systemName}</h2>
@@ -611,12 +658,27 @@ function openAddEquipmentModal(preselectedSystem = "") {
     </form>`;
   if (preselectedSystem) renderDynamicFields();
 }
+
 function renderDynamicFields() {
   const sysId = document.getElementById("form-sys-id").value;
   const container = document.getElementById("dynamic-fields-container");
   if (!container) return;
-  container.innerHTML = `<input type="text" data-key="Info clé" placeholder="Caractéristique principale (ex: 200L, 16A...)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">`;
+  
+  if (sysId.includes("piscine")) {
+    container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input type="text" data-key="Puissance/Débit" placeholder="Puissance/Débit (ex: 14m3/h)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><select data-key="Type Filtre" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><option value="">-- Filtre --</option><option value="Sable/Verre">Sable/Verre</option><option value="Cartouche">Cartouche</option></select><input type="text" data-key="Charge filtrante" placeholder="Média (ex: Verre 150kg)" class="eq-spec-input" style="grid-column: 1/-1; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"></div>`;
+  } else if (sysId.includes("elec")) {
+    container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input type="text" data-key="Protection" placeholder="Ampérage (ex: 16A, 32A)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><input type="text" data-key="Type Câble" placeholder="Section (ex: 3G2.5)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"></div>`;
+  } else if (sysId.includes("eau") || sysId.includes("plomberie") || sysId.includes("chauffe") || sysId.includes("clim")) {
+    container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input type="text" data-key="Caractéristique" placeholder="Info clé (ex: 200L, 12kW...)" class="eq-spec-input" style="grid-column: 1/-1; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"></div>`;
+  } else if (sysId.includes("domo") || sysId.includes("reseau")) {
+    container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><select data-key="Protocole" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><option value="">-- Protocole --</option><option value="Wi-Fi">Wi-Fi</option><option value="Zigbee">Zigbee</option><option value="RJ45">Filaire (RJ45)</option><option value="Radio (RTS/IO)">Radio RTS/IO</option></select><select data-key="Secours" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><option value="">-- Batterie Secours --</option><option value="Oui">Oui (Batterie)</option><option value="Non">Non</option></select></div>`;
+  } else if (sysId.includes("ext")) {
+    container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><select data-key="Alimentation" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><option value="">-- Alimentation --</option><option value="Secteur 230V">Secteur 230V</option><option value="Solaire / Batterie">Solaire / Batterie</option></select><input type="text" data-key="Mécanisme" placeholder="Méca (ex: Vérin)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"></div>`;
+  } else {
+    container.innerHTML = `<input type="text" data-key="Info clé" placeholder="Caractéristique principale..." class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">`;
+  }
 }
+
 async function submitEquipment(event) {
   const payload = { systemId: document.getElementById("form-sys-id").value, name: document.getElementById("form-name").value, model: document.getElementById("form-model").value, notes: document.getElementById("form-notes").value, specs: {}, notice: null };
   document.querySelectorAll(".eq-spec-input").forEach(input => { if (input.value) payload.specs[input.getAttribute("data-key")] = input.value; });
@@ -625,6 +687,7 @@ async function submitEquipment(event) {
     if (response.ok) { showMessage("Équipement ajouté !"); openSystem(payload.systemId); loadHomeData(); }
   } catch (e) { showMessage("Erreur réseau"); }
 }
+
 function openEditEquipmentModal(itemEncoded, systemId) {
   const item = JSON.parse(decodeURIComponent(itemEncoded));
   document.getElementById("modal-content").innerHTML = `
@@ -638,6 +701,7 @@ function openEditEquipmentModal(itemEncoded, systemId) {
     </form>`;
   openModal();
 }
+
 async function submitEditEquipment(event, eqId, systemId) {
   const name = document.getElementById("edit-eq-name").value; const model = document.getElementById("edit-eq-model").value; const installed = document.getElementById("edit-eq-installed").value; const notes = document.getElementById("edit-eq-notes").value; 
   try {
@@ -645,6 +709,7 @@ async function submitEditEquipment(event, eqId, systemId) {
     if (response.ok) { showMessage("Équipement modifié !"); openSystem(systemId); loadHomeData(); }
   } catch (e) { showMessage("Erreur réseau"); }
 }
+
 async function deleteEquipment(eqId, systemId) {
   if (!confirm("Supprimer cet équipement ?")) return;
   try {
@@ -653,6 +718,9 @@ async function deleteEquipment(eqId, systemId) {
   } catch (e) { showMessage("Erreur"); }
 }
 
+/* ============================================================
+   CARTOGRAPHIE / PLANS
+   ============================================================ */
 function triggerNewPlan() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">CARTOGRAPHIE</div><h2>Ajouter un plan</h2>
@@ -663,10 +731,12 @@ function triggerNewPlan() {
     </div>`;
   openModal();
 }
+
 function openFileSelector() {
   if (!document.getElementById("new-plan-name").value.trim()) { showMessage("Donnez un nom au plan."); return; }
   document.getElementById("plan-upload-input").click();
 }
+
 function handlePlanUpload(event) {
   const file = event.target.files[0]; if (!file) return;
   const planName = document.getElementById("new-plan-name").value.trim();
@@ -680,6 +750,7 @@ function handlePlanUpload(event) {
   };
   reader.readAsDataURL(file);
 }
+
 function viewPlanFullscreen(imageSrc, planName) {
   document.getElementById("modal-content").innerHTML = `
     <div style="display:flex; flex-direction:column; height: 75vh;">
@@ -693,12 +764,16 @@ function viewPlanFullscreen(imageSrc, planName) {
     </div>`;
   openModal();
 }
+
 function togglePlanZoom() {
   const img = document.getElementById("fullscreen-plan-img");
   if (img.style.maxWidth === "100%") { img.style.maxWidth = "none"; img.style.width = "200%"; img.style.cursor = "zoom-out"; } 
   else { img.style.maxWidth = "100%"; img.style.width = "auto"; img.style.cursor = "zoom-in"; }
 }
 
+/* ============================================================
+   PROFIL ET GÉNÉRATION DE PLAQUE
+   ============================================================ */
 function openProfileModal() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">PROFIL</div><h2>Modifier ma maison</h2>
@@ -711,9 +786,15 @@ function openProfileModal() {
       </div>
       <input type="password" id="edit-password" required placeholder="Mot de passe actuel *" style="padding:10px; border-radius:8px; border:1px solid #ccc; border-left:4px solid #d93025;">
       <button type="submit" class="button primary pointer">Enregistrer</button>
-    </form>`;
+    </form>
+    
+    <div style="margin-top: 30px; border-top: 1px solid #e3e8e4; padding-top: 15px; text-align: center;">
+      <button class="button secondary pointer" onclick="generateMyQrCard()">🖨️ Imprimer la plaque de ma maison</button>
+    </div>
+  `;
   openModal();
 }
+
 async function submitProfileEdit(event) {
   const payload = { id: currentHomeId, name: document.getElementById("edit-name").value, year: document.getElementById("edit-year").value, surface: document.getElementById("edit-surface").value, land: document.getElementById("edit-land").value, currentPassword: document.getElementById("edit-password").value };
   try {
@@ -722,6 +803,51 @@ async function submitProfileEdit(event) {
   } catch(e) { showMessage("Erreur"); }
 }
 
+function generateMyQrCard() {
+  const qrUrl = `https://home-id.onrender.com/scan/${currentHomeId}`;
+  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}&margin=0`;
+
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow" style="color:#4b9b69;">VOTRE PLAQUE OFFICIELLE</div>
+    <h2>Votre QR Code Unique</h2>
+    <p style="font-size:13px; color:#59645d;">Voici la plaque officielle de votre maison. Vous pouvez l'imprimer pour la coller dans votre tableau électrique.</p>
+    
+    <div style="display:flex; justify-content:center; margin:25px 0;">
+      <div id="print-plaque" style="width: 320px; background: #ffffff; border-radius: 20px; box-shadow: 0 15px 35px rgba(23, 33, 28, 0.15); border: 4px solid #17211c; display: flex; flex-direction: column; align-items: center; padding: 25px 20px; text-align: center; position: relative; overflow: hidden; box-sizing: border-box;">
+        <div style="position: absolute; top: 0; left: 0; right: 0; height: 110px; background: #17211c; border-bottom: 5px solid #4b9b69;"></div>
+        <div style="font-size: 40px; background: white; width: 80px; height: 80px; display: flex; justify-content: center; align-items: center; border-radius: 50%; border: 4px solid #4b9b69; z-index: 10; margin-top: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">🏠</div>
+        <div style="margin-top: 15px; font-size: 24px; color: #17211c; font-weight: 800; letter-spacing: 2px;">HOME ID</div>
+        <div style="font-size: 11px; color: #77827a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; font-weight: 700;">${escapeHTML(homeData.name)}</div>
+        <div style="background: white; padding: 12px; border-radius: 16px; border: 2px dashed #cdd4ce;">
+          <img src="${qrApiUrl}" style="width: 140px; height: 140px; display: block;">
+        </div>
+        <div style="font-family: monospace; background: #f4f6f5; padding: 6px 12px; border-radius: 8px; margin-top: 15px; font-size: 12px; color: #1e362d; border: 1px solid #e3e8e4; font-weight: bold; letter-spacing: 1px;">
+          ID: ${currentHomeId}
+        </div>
+      </div>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <button class="button secondary pointer" style="flex:1;" onclick="closeModal()">Fermer</button>
+      <button class="button primary pointer" style="flex:2;" onclick="printPlaque()">🖨️ Imprimer la plaque</button>
+    </div>
+  `;
+}
+
+function printPlaque() {
+  const plaqueHtml = document.getElementById("print-plaque").outerHTML;
+  const printWindow = window.open('', '', 'height=800,width=600');
+  printWindow.document.write('<html><head><title>Impression Plaque HOME ID</title>');
+  printWindow.document.write('<style>body { display:flex; justify-content:center; align-items:center; height:100vh; margin:0; font-family:sans-serif; background:white; }</style>');
+  printWindow.document.write('</head><body>');
+  printWindow.document.write(plaqueHtml);
+  printWindow.document.write('</body></html>');
+  printWindow.document.close();
+  setTimeout(() => { printWindow.print(); }, 500);
+}
+
+/* ============================================================
+   UTILITAIRES
+   ============================================================ */
 function openModal() { document.getElementById("modal").classList.remove("hidden"); }
 function closeModal() { document.getElementById("modal").classList.add("hidden"); }
 document.addEventListener("click", e => { const m = document.getElementById("modal"); if (m && e.target === m) closeModal(); });
