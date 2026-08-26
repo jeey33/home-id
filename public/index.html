@@ -16,9 +16,12 @@
     /* Pleine largeur pour les systèmes */
     .systems-card { grid-column: 1 / -1 !important; }
     .systems { display: flex !important; flex-wrap: wrap; gap: 15px; }
-    .system { flex: 1 1 140px !important; min-width: 140px; margin: 0 !important; }
+    .system { flex: 1 1 140px !important; min-width: 140px; margin: 0 !important; transition: opacity 0.2s, transform 0.2s; }
+    
+    /* NOUVEAU: Style quand on déplace un système */
+    .system.dragging { opacity: 0.4; border: 2px dashed #4b9b69; transform: scale(0.98); }
 
-    /* Galerie de plans (Scroll horizontal) */
+    /* Galerie de plans */
     .plans-container { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: thin; }
     .plan-thumbnail { flex: 0 0 80px; cursor: pointer; text-align: center; transition: transform 0.2s; }
     .plan-thumbnail:hover { transform: scale(1.05); }
@@ -64,22 +67,23 @@
         <div><span>Terrain</span><strong id="display-house-land">-</strong></div>
       </div>
       
-      <!-- NOUVEAU : La section Galerie de plans -->
       <div style="margin-top: 20px; border-top: 1px solid #e3e8e4; padding-top: 15px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
           <span style="font-size: 11px; font-weight: 700; color: #77827a; text-transform: uppercase;">Plans de la maison</span>
           <button class="button secondary" style="padding: 4px 10px; font-size: 11px;" onclick="triggerNewPlan()">+ Ajouter</button>
         </div>
-        <div id="plans-gallery" class="plans-container">
-          <!-- Les miniatures seront injectées ici par JS -->
-        </div>
+        <div id="plans-gallery" class="plans-container"></div>
       </div>
     </section>
 
     <div class="dashboard-grid">
       <section class="card systems-card">
         <div class="card-header">
-          <div><div class="eyebrow">INSTALLATIONS</div><h2>Mes systèmes</h2></div>
+          <div>
+            <div class="eyebrow">INSTALLATIONS</div>
+            <h2>Mes systèmes</h2>
+            <p style="font-size:11px; color:#77827a; margin:4px 0 0 0;">Maintenez et glissez pour organiser</p>
+          </div>
         </div>
         <div id="systems" class="systems"></div>
       </section>
@@ -121,6 +125,6 @@
 
   <div id="toast" class="toast"></div>
 
-  <script src="/app.js?v=15"></script> 
+  <script src="/app.js?v=25"></script> 
 </body>
 </html>
