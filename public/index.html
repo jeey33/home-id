@@ -17,8 +17,6 @@
     .systems-card { grid-column: 1 / -1 !important; }
     .systems { display: flex !important; flex-wrap: wrap; gap: 15px; }
     .system { flex: 1 1 140px !important; min-width: 140px; margin: 0 !important; transition: opacity 0.2s, transform 0.2s; }
-    
-    /* NOUVEAU: Style quand on déplace un système */
     .system.dragging { opacity: 0.4; border: 2px dashed #4b9b69; transform: scale(0.98); }
 
     /* Galerie de plans */
@@ -42,7 +40,7 @@
     </div>
   </header>
 
-  <main class="container">
+  <main class="container" id="main-content" style="display:none;">
     <section class="welcome">
       <div>
         <div class="eyebrow">IDENTITÉ NUMÉRIQUE</div>
@@ -105,9 +103,16 @@
 
       <section class="card documents-card">
         <div class="card-header">
-          <div><div class="eyebrow">DOCUMENTS</div><h2>Ma bibliothèque</h2></div>
+          <div><div class="eyebrow">SÉCURITÉ & DOCUMENTS</div><h2>Ma bibliothèque</h2></div>
         </div>
         <div class="documents">
+          <!-- LE COFFRE FORT -->
+          <div class="document" style="background:#fffcf5; border-color:#ffe8a1;" onclick="openVaultCheck()">
+            <div class="document-icon">🔐</div>
+            <strong style="color:#856404;">Coffre-fort</strong>
+            <span style="color:#b38c23;">Mots de passe</span>
+          </div>
+          
           <div class="document"><div class="document-icon">📐</div><strong>Plans</strong><span id="doc-plans">0 fichiers</span></div>
           <div class="document"><div class="document-icon">🧾</div><strong>Factures</strong><span>0 fichiers</span></div>
           <div class="document"><div class="document-icon">📖</div><strong>Notices auto.</strong><span id="doc-notices">0 fichiers</span></div>
@@ -125,6 +130,6 @@
 
   <div id="toast" class="toast"></div>
 
-  <script src="/app.js?v=25"></script> 
+  <script src="/app.js?v=28"></script> 
 </body>
 </html>
