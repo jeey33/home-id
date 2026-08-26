@@ -26,12 +26,13 @@ async function initDB() {
     await pool.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS specs JSONB;`);
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS plans JSONB DEFAULT '[]'::jsonb;`);
     await pool.query(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS notes TEXT;`);
-
-    // --- NOUVEAUTÉS : Ajout des colonnes pour les contacts, l'ordre et l'archivage ---
     await pool.query(`ALTER TABLE professionals ADD COLUMN IF NOT EXISTS phone VARCHAR(50);`);
     await pool.query(`ALTER TABLE professionals ADD COLUMN IF NOT EXISTS email VARCHAR(100);`);
     await pool.query(`ALTER TABLE alerts ADD COLUMN IF NOT EXISTS is_done BOOLEAN DEFAULT FALSE;`);
     await pool.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;`);
+    
+    // NOUVEAU : Colonne "notes" pour stocker les avis sur les professionnels
+    await pool.query(`ALTER TABLE professionals ADD COLUMN IF NOT EXISTS notes TEXT;`);
 
     console.log("Base de données connectée, mise à jour et prête !");
   } catch (error) {
@@ -85,7 +86,6 @@ app.get("/api/home", async (req, res) => {
     const homeResult = await pool.query(`SELECT * FROM home WHERE id = $1`, [homeId]);
     if (homeResult.rows.length === 0) return res.status(404).json({ error: "Maison introuvable." });
     
-    // NOUVEAU: Tri des systèmes par "display_order"
     let systems = (await pool.query(`SELECT * FROM systems WHERE home_id = $1 ORDER BY display_order ASC, id ASC`, [homeId])).rows;
     const equipCount = await pool.query(`SELECT system_id, COUNT(*) as count FROM equipment WHERE system_id IN (SELECT id FROM systems WHERE home_id = $1) GROUP BY system_id`, [homeId]);
     systems = systems.map(sys => {
@@ -93,7 +93,6 @@ app.get("/api/home", async (req, res) => {
       return { ...sys, equipment: match ? parseInt(match.count) : 0 };
     });
 
-    // NOUVEAU: Récupération de tous les champs alerts et professionnels
     const alerts = (await pool.query(`SELECT * FROM alerts WHERE home_id = $1 ORDER BY id DESC`, [homeId])).rows;
     const pros = (await pool.query(`SELECT * FROM professionals WHERE home_id = $1 ORDER BY id DESC`, [homeId])).rows;
 
@@ -136,7 +135,6 @@ app.post("/api/systems/add", async (req, res) => {
   const { homeId, name, icon } = req.body;
   const sysId = "SYS-" + Date.now().toString(36).toUpperCase();
   try {
-    // Le nouveau système est ajouté à la fin (order = 99 par sécurité)
     await pool.query(
       `INSERT INTO systems (id, home_id, name, icon, status, color, display_order) VALUES ($1, $2, $3, $4, 'À configurer', 'orange', 99)`,
       [sysId, homeId, name, icon || "⚙️"]
@@ -161,9 +159,8 @@ app.post("/api/systems/delete", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur" }); }
 });
 
-// NOUVEAU : Sauvegarder l'ordre des systèmes (Drag and Drop)
 app.post("/api/systems/reorder", async (req, res) => {
-  const { orderData } = req.body; // Tableau d'objets { id, order }
+  const { orderData } = req.body;
   try {
     for (let item of orderData) {
       await pool.query(`UPDATE systems SET display_order = $1 WHERE id = $2`, [item.order, item.id]);
@@ -218,7 +215,6 @@ app.post("/api/alerts/add", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur." }); }
 });
 
-// NOUVEAU : Cocher ou décocher un rappel (Archivage)
 app.post("/api/alerts/toggle", async (req, res) => {
   const { id, is_done } = req.body;
   try {
@@ -227,11 +223,29 @@ app.post("/api/alerts/toggle", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur." }); }
 });
 
-// NOUVEAU : Ajout des contacts pro (téléphone, email)
+// NOUVEAU : Ajout de la note (Avis) pour l'artisan
 app.post("/api/professionals/add", async (req, res) => {
-  const { homeId, name, domain, phone, email } = req.body;
+  const { homeId, name, domain, phone, email, notes } = req.body;
   try {
-    await pool.query(`INSERT INTO professionals (home_id, name, domain, phone, email, access) VALUES ($1, $2, $3, $4, $5, 'Intervenu')`, [homeId, name, domain, phone || null, email || null]);
+    await pool.query(`INSERT INTO professionals (home_id, name, domain, phone, email, notes, access) VALUES ($1, $2, $3, $4, $5, $6, 'Intervenu')`, [homeId, name, domain, phone || null, email || null, notes || ""]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur." }); }
+});
+
+// NOUVEAU : Modification d'un artisan (avec notes)
+app.post("/api/professionals/update", async (req, res) => {
+  const { id, name, domain, phone, email, notes } = req.body;
+  try {
+    await pool.query(`UPDATE professionals SET name = $1, domain = $2, phone = $3, email = $4, notes = $5 WHERE id = $6`, [name, domain, phone || null, email || null, notes || "", id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur." }); }
+});
+
+// NOUVEAU : Suppression d'un artisan
+app.post("/api/professionals/delete", async (req, res) => {
+  const { id } = req.body;
+  try {
+    await pool.query(`DELETE FROM professionals WHERE id = $1`, [id]);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: "Erreur." }); }
 });
