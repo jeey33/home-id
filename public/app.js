@@ -4,6 +4,7 @@
 
 let homeData = null;
 let currentHomeId = null; 
+window.isDragging = false; // Sécurité pour empêcher le clic lors d'un glisser-déposer
 
 async function init() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -22,8 +23,7 @@ async function init() {
 function openLoginModal() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">SÉCURITÉ</div><h2>Déverrouiller la maison</h2>
-    <!-- LE CORRECTIF EST ICI : action="javascript:void(0);" et return false; -->
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitLogin(event); return false;" style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
+    <form onsubmit="submitLogin(event)" style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
       <input type="password" id="login-password" required placeholder="Votre mot de passe" style="width:100%; padding:12px; border-radius:8px; border:1px solid #cdd4ce;">
       <button type="submit" class="button primary" style="padding:12px;">Accéder au tableau de bord</button>
     </form>
@@ -95,6 +95,9 @@ function populateHouseInfo() {
   if (docPlans) docPlans.innerText = `${plans.length} fichier(s)`;
 }
 
+/* ============================================================
+   AFFICHAGE SYSTÈMES ET GLISSER-DÉPOSER (DRAG & DROP)
+   ============================================================ */
 function displaySystems() {
   const container = document.getElementById("systems");
   if (!container) return;
@@ -104,31 +107,156 @@ function displaySystems() {
   container.innerHTML = systems.map(system => {
     const equipmentCount = Number(system.equipment || 0);
     const equipmentHTML = equipmentCount > 0 ? `<div style="font-size:11px; color:#77827a; margin-top:4px;">${equipmentCount} équipement(s)</div>` : `<div style="font-size:11px; color:#a26b28; margin-top:4px;">À configurer</div>`;
+    
+    // NOUVEAU : Ajout de draggable="true" et data-id
     return `
-      <div class="system" onclick="openSystem('${system.id}')">
+      <div class="system pointer" draggable="true" data-id="${system.id}" onclick="if(!window.isDragging) openSystem('${system.id}')">
         <div class="system-icon">${system.icon || "🏠"}</div>
         <div class="system-name">${escapeHTML(system.name)}</div>
         <div class="status ${system.color || "orange"}"><span class="dot"></span>${escapeHTML(system.status || "À configurer")}</div>
         ${equipmentHTML}
       </div>`;
   }).join("");
+
+  // NOUVEAU : Logique de glisser-déposer
+  let draggedItem = null;
+  const draggables = container.querySelectorAll('.system');
+  
+  draggables.forEach(item => {
+    item.addEventListener('dragstart', function(e) {
+      window.isDragging = true;
+      draggedItem = this;
+      setTimeout(() => this.classList.add('dragging'), 0);
+    });
+
+    item.addEventListener('dragend', async function() {
+      this.classList.remove('dragging');
+      draggedItem = null;
+      setTimeout(() => window.isDragging = false, 100);
+
+      // Récupérer le nouvel ordre et l'enregistrer
+      const orderData = [...container.querySelectorAll('.system')].map((el, index) => ({
+        id: el.getAttribute('data-id'),
+        order: index
+      }));
+      
+      try {
+        await fetch('/api/systems/reorder', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({orderData}) });
+      } catch(e) { console.error("Erreur de sauvegarde de l'ordre"); }
+    });
+
+    item.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      if (this !== draggedItem && draggedItem) {
+        const bounding = this.getBoundingClientRect();
+        const offset = e.clientX - bounding.left - (bounding.width / 2);
+        if (offset > 0) this.after(draggedItem);
+        else this.before(draggedItem);
+      }
+    });
+  });
 }
 
+/* ============================================================
+   AFFICHAGE ALERTES & ARCHIVAGE
+   ============================================================ */
 function displayAlerts() {
   const container = document.getElementById("alerts");
   if (!container) return;
   const alerts = homeData.alerts || [];
-  if (alerts.length === 0) { container.innerHTML = "<p style='font-size:13px; color:#77827a;'>Aucun rappel.</p>"; return; }
+
+  // Séparation À faire vs Archivés
+  const todo = alerts.filter(a => !a.is_done);
+  const done = alerts.filter(a => a.is_done);
   
-  container.innerHTML = alerts.map(a => {
-    let d = new Date(a.date);
-    let dateStr = !isNaN(d) ? d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : escapeHTML(a.date);
-    return `<div class="alert"><span class="date" style="background:#e3e8e4; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;">${dateStr}</span><strong style="margin-left:10px;">${escapeHTML(a.title)}</strong><p style="margin-top:5px;">${escapeHTML(a.text)}</p></div>`;
-  }).join("");
+  let html = "";
+  
+  if (todo.length === 0) {
+    html += "<p style='font-size:13px; color:#77827a;'>Aucun rappel à faire.</p>";
+  } else {
+    html += todo.map(a => {
+      // Vérifier si la date est dépassée (ex format attendu: YYYY-MM-DD depuis input type="date")
+      let isOverdue = false;
+      let dateStr = escapeHTML(a.date);
+      if (a.date && a.date.includes('-')) {
+        const taskDate = new Date(`${a.date}T00:00:00`);
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        if (taskDate < today) isOverdue = true;
+        // Format FR propre
+        dateStr = taskDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      }
+
+      const overdueBadge = isOverdue ? `<span style="color:#d93025; font-size:10px; margin-left:5px;">⚠️ Dépassé</span>` : "";
+      
+      return `
+        <div class="alert" style="display:flex; align-items:flex-start; gap:12px;">
+          <input type="checkbox" onclick="toggleAlert(${a.id}, true)" style="margin-top:4px; transform:scale(1.2); cursor:pointer;">
+          <div>
+            <span class="date" style="background:#e3e8e4; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;">${dateStr}</span>
+            ${overdueBadge}
+            <strong style="display:block; margin-top:5px; color:${isOverdue ? '#d93025' : 'inherit'}">${escapeHTML(a.title)}</strong>
+            <p style="margin-top:2px; font-size:12px;">${escapeHTML(a.text)}</p>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  // Section Archivés (Accordéon)
+  if (done.length > 0) {
+    html += `
+      <details style="margin-top:15px; border-top:1px solid #e3e8e4; padding-top:10px;">
+        <summary style="font-size:12px; color:#77827a; cursor:pointer; font-weight:bold;">Historique des réalisations (${done.length})</summary>
+        <div style="margin-top:10px; opacity:0.6;">
+          ${done.map(a => `
+            <div class="alert" style="display:flex; align-items:flex-start; gap:12px;">
+              <input type="checkbox" checked onclick="toggleAlert(${a.id}, false)" style="margin-top:4px; transform:scale(1.2); cursor:pointer;">
+              <div>
+                <strong style="display:block; text-decoration:line-through;">${escapeHTML(a.title)}</strong>
+                <p style="margin-top:2px; font-size:12px; text-decoration:line-through;">Fait : ${escapeHTML(a.text)}</p>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </details>`;
+  }
+
+  container.innerHTML = html;
 }
 
+// Fonction pour cocher / décocher un entretien
+async function toggleAlert(id, isDone) {
+  try {
+    await fetch("/api/alerts/toggle", { 
+      method: "POST", headers: { "Content-Type": "application/json" }, 
+      body: JSON.stringify({ id, is_done: isDone }) 
+    });
+    loadHomeData(); // On recharge pour rafraîchir l'affichage
+  } catch (error) { showMessage("Erreur lors de la sauvegarde."); }
+}
+
+/* ============================================================
+   AFFICHAGE ARTISANS (AVEC CONTACTS)
+   ============================================================ */
 function displayProfessionals() { 
-  document.getElementById("professionals").innerHTML = (homeData.professionals || []).map(p => `<div class="pro"><span class="access-active">Intervenu</span><strong>${escapeHTML(p.name)}</strong><p>${escapeHTML(p.domain)}</p></div>`).join("") || "<p style='font-size:13px; color:#77827a;'>Aucun artisan.</p>"; 
+  const container = document.getElementById("professionals");
+  if (!container) return;
+  const pros = homeData.professionals || [];
+  if (pros.length === 0) { container.innerHTML = "<p style='font-size:13px; color:#77827a;'>Aucun artisan.</p>"; return; }
+
+  container.innerHTML = pros.map(p => `
+    <div class="pro">
+      <span class="access-active">Intervenu</span>
+      <strong>${escapeHTML(p.name)}</strong>
+      <p style="margin:2px 0;">${escapeHTML(p.domain)}</p>
+      
+      <!-- Boutons de contacts -->
+      <div style="display:flex; gap:10px; margin-top:6px;">
+        ${p.phone ? `<a href="tel:${escapeHTML(p.phone)}" style="display:inline-flex; align-items:center; gap:5px; font-size:11px; color:#1e362d; background:#eef2ef; padding:4px 8px; border-radius:6px; text-decoration:none;">📞 Appeler</a>` : ''}
+        ${p.email ? `<a href="mailto:${escapeHTML(p.email)}" style="display:inline-flex; align-items:center; gap:5px; font-size:11px; color:#1e362d; background:#eef2ef; padding:4px 8px; border-radius:6px; text-decoration:none;">✉️ Email</a>` : ''}
+      </div>
+    </div>
+  `).join("");
 }
 
 /* ============================================================
@@ -155,7 +283,7 @@ async function openSystem(systemId) {
       equipmentHTML = system.equipment.map(item => {
         let specsHTML = "";
         if (item.specs && Object.keys(item.specs).length > 0) {
-          specsHTML = `<div class="specs-grid" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; margin-bottom:10px;">` + Object.entries(item.specs).filter(([k, v]) => v).map(([key, value]) => `<div class="spec-tag" style="background:#eef2ef; color:#3b453f; font-size:11px; padding:5px 10px; border-radius:8px; border:1px solid #dce2dd;"><strong>${escapeHTML(key)}</strong>: ${escapeHTML(String(value))}</div>`).join("") + `</div>`;
+          specsHTML = `<div class="specs-grid">` + Object.entries(item.specs).filter(([k, v]) => v).map(([key, value]) => `<div class="spec-tag" style="background:#eef2ef; color:#3b453f; font-size:11px; padding:5px 10px; border-radius:8px; display:inline-block; border:1px solid #dce2dd; margin-right:5px; margin-top:5px;"><strong>${escapeHTML(key)}</strong>: ${escapeHTML(String(value))}</div>`).join("") + `</div>`;
         }
         
         let noticeBtn = '';
@@ -172,7 +300,7 @@ async function openSystem(systemId) {
         const itemJSON = encodeURIComponent(JSON.stringify(item));
 
         return `
-          <div class="equipment-deep" style="background:#ffffff; border:1px solid #e3e8e4; border-radius:12px; padding:16px; margin-bottom:12px; box-shadow:0 4px 10px rgba(0,0,0,0.02);">
+          <div class="equipment-deep" style="border:1px solid #e3e8e4; border-radius:12px; padding:16px; margin-bottom:12px;">
             <div class="equip-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
               <div>
                 <strong style="display:block; font-size:15px; color:#17211c;">${escapeHTML(item.name)}</strong>
@@ -187,8 +315,8 @@ async function openSystem(systemId) {
               
               <div style="display:flex; align-items:center; gap:6px;">
                 ${noticeBtn}
-                <button class="button secondary" style="padding:4px 8px; font-size:11px;" onclick="openEditEquipmentModal('${itemJSON}', '${system.id}')">✏️ Éditer</button>
-                <button class="button secondary" style="padding:4px 8px; font-size:11px; color:#d93025; border-color:#fce8e6; background:#fffafa;" onclick="deleteEquipment('${item.id}', '${system.id}')">🗑️</button>
+                <button class="button secondary pointer" style="padding:4px 8px; font-size:11px;" onclick="openEditEquipmentModal('${itemJSON}', '${system.id}')">✏️ Éditer</button>
+                <button class="button secondary pointer" style="padding:4px 8px; font-size:11px; color:#d93025; border-color:#fce8e6; background:#fffafa;" onclick="deleteEquipment('${item.id}', '${system.id}')">🗑️</button>
               </div>
             </div>
           </div>`;
@@ -203,16 +331,16 @@ async function openSystem(systemId) {
         <h2 style="margin:0;">${escapeHTML(system.name)}</h2>
         
         <div style="display:flex; gap:5px;">
-          <button class="button secondary" style="padding:6px 8px; font-size:12px;" onclick="openEditSystemModal('${system.id}', '${escapeHTML(system.name)}', '${escapeHTML(system.icon)}')">✏️</button>
-          <button class="button secondary" style="padding:6px 8px; font-size:12px; color:#d93025; background:#fffafa; border-color:#fce8e6;" onclick="deleteSystem('${system.id}')">🗑️</button>
-          <button class="button secondary" style="padding:6px 12px; font-size:12px;" onclick="openConfigSystemModal('${system.id}', '${escapeHTML(system.name)}')">⚙️ Config.</button>
+          <button class="button secondary pointer" style="padding:6px 8px; font-size:12px;" onclick="openEditSystemModal('${system.id}', '${escapeHTML(system.name)}', '${escapeHTML(system.icon)}')">✏️</button>
+          <button class="button secondary pointer" style="padding:6px 8px; font-size:12px; color:#d93025; background:#fffafa; border-color:#fce8e6;" onclick="deleteSystem('${system.id}')">🗑️</button>
+          <button class="button secondary pointer" style="padding:6px 12px; font-size:12px;" onclick="openConfigSystemModal('${system.id}', '${escapeHTML(system.name)}')">⚙️ Config.</button>
         </div>
 
       </div>
       ${generalSpecsHTML}
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:30px; border-bottom:1px solid #e3e8e4; padding-bottom:10px;">
         <h3 style="margin:0;">Équipements</h3>
-        <button class="button secondary" style="padding:4px 10px; font-size:12px;" onclick="openAddEquipmentModal('${system.id}')">+ Ajouter</button>
+        <button class="button secondary pointer" style="padding:4px 10px; font-size:12px;" onclick="openAddEquipmentModal('${system.id}')">+ Ajouter</button>
       </div>
       <div style="margin-top:15px;">${equipmentHTML}</div>
     `;
@@ -221,23 +349,23 @@ async function openSystem(systemId) {
 }
 
 /* ============================================================
-   MENU "AJOUTER" GLOBAL (LE BOUTON EN HAUT À DROITE)
+   MENU "AJOUTER" GLOBAL
    ============================================================ */
 function openAddMenu() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">ACTION RAPIDE</div>
     <h2>Que voulez-vous ajouter ?</h2>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px;">
-      <button class="button secondary" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddSystemModal()">
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddSystemModal()">
         <span style="font-size:24px;">⚙️</span><strong>Nouveau<br>Système</strong>
       </button>
-      <button class="button secondary" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddEquipmentModal()">
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddEquipmentModal()">
         <span style="font-size:24px;">🔌</span><strong>Nouvel<br>Équipement</strong>
       </button>
-      <button class="button secondary" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddAlertModal()">
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddAlertModal()">
         <span style="font-size:24px;">📅</span><strong>Rappel<br>d'Entretien</strong>
       </button>
-      <button class="button secondary" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddProModal()">
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddProModal()">
         <span style="font-size:24px;">👷</span><strong>Nouvel<br>Artisan</strong>
       </button>
     </div>
@@ -255,7 +383,7 @@ function openAddSystemModal() {
     <form onsubmit="submitNewSystem(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
       <input type="text" id="add-sys-name" placeholder="Nom du système (Ex: Panneaux Solaires)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
       <input type="text" id="add-sys-icon" placeholder="Émoji / Icône (Ex: ☀️, 📹...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <button type="submit" class="button primary" style="margin-top:10px;">Créer le système</button>
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Créer le système</button>
     </form>`;
   openModal();
 }
@@ -278,7 +406,7 @@ function openEditSystemModal(id, currentName, currentIcon) {
       <input type="text" id="edit-sys-name" value="${currentName}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
       <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Icône (Émoji)</label>
       <input type="text" id="edit-sys-icon" value="${currentIcon}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <button type="submit" class="button primary" style="margin-top:10px;">Sauvegarder</button>
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder</button>
     </form>`;
 }
 
@@ -310,7 +438,7 @@ function openAddAlertModal() {
       <input type="text" id="add-alert-title" placeholder="Titre (Ex: Nettoyage Filtres Climatisation)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
       <input type="date" id="add-alert-date" required style="padding:10px; border-radius:8px; border:1px solid #ccc; font-family:inherit;">
       <textarea id="add-alert-text" placeholder="Détails (Optionnel)..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;"></textarea>
-      <button type="submit" class="button primary" style="margin-top:10px;">Programmer le rappel</button>
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Programmer le rappel</button>
     </form>`;
   openModal();
 }
@@ -325,20 +453,33 @@ async function submitAlert(event) {
 }
 
 function openAddProModal() {
+  // NOUVEAU: Ajout des inputs Téléphone et Email
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">NOUVEL ARTISAN</div>
     <h2>Ajouter un professionnel</h2>
     <form onsubmit="submitPro(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="add-pro-name" placeholder="Nom de l'artisan ou de l'entreprise" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="add-pro-name" placeholder="Nom de l'entreprise ou artisan" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
       <input type="text" id="add-pro-domain" placeholder="Spécialité (Ex: Plombier, Chauffagiste...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <button type="submit" class="button primary" style="margin-top:10px;">Enregistrer l'artisan</button>
+      
+      <div style="display:flex; gap:10px;">
+        <input type="tel" id="add-pro-phone" placeholder="N° Téléphone" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="email" id="add-pro-email" placeholder="Adresse Email" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+      </div>
+
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Enregistrer l'artisan</button>
     </form>`;
   openModal();
 }
 
 async function submitPro(event) {
   event.preventDefault();
-  const payload = { homeId: currentHomeId, name: document.getElementById("add-pro-name").value, domain: document.getElementById("add-pro-domain").value };
+  const payload = { 
+    homeId: currentHomeId, 
+    name: document.getElementById("add-pro-name").value, 
+    domain: document.getElementById("add-pro-domain").value,
+    phone: document.getElementById("add-pro-phone").value,
+    email: document.getElementById("add-pro-email").value
+  };
   try {
     const response = await fetch("/api/professionals/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (response.ok) { showMessage("Artisan ajouté !"); closeModal(); loadHomeData(); }
@@ -352,23 +493,23 @@ function openConfigSystemModal(systemId, systemName) {
   let fieldsHTML = "";
   if (systemId.includes("piscine")) {
     fieldsHTML = `
-      <input type="text" data-key="Volume" placeholder="Volume (ex: 45m³)" class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-      <select data-key="Traitement" class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+      <input type="text" data-key="Volume" placeholder="Volume (ex: 45m³)" class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing: border-box;">
+      <select data-key="Traitement" class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing: border-box;">
         <option value="">-- Traitement --</option><option value="Au Sel">Au Sel</option><option value="Chlore">Chlore</option><option value="Brome">Brome</option>
       </select>
-      <input type="text" data-key="Revêtement" placeholder="Ex: Liner, Coque..." class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+      <input type="text" data-key="Revêtement" placeholder="Ex: Liner, Coque..." class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing: border-box;">
     `;
   } else if (systemId.includes("elec")) {
     fieldsHTML = `
-      <select data-key="Abonnement" class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
+      <select data-key="Abonnement" class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing: border-box;">
         <option value="">-- Phase --</option><option value="Monophasé">Monophasé</option><option value="Triphasé">Triphasé</option>
       </select>
-      <input type="text" data-key="Puissance Souscrite" placeholder="Ex: 9 kVA" class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing:border-box;">
-      <input type="text" data-key="PDL / PRM" placeholder="Numéro PDL (14 chiffres)" class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
+      <input type="text" data-key="Puissance Souscrite" placeholder="Ex: 9 kVA" class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; box-sizing: border-box;">
+      <input type="text" data-key="PDL / PRM" placeholder="Numéro PDL (14 chiffres)" class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing: border-box;">
     `;
   } else {
     fieldsHTML = `<p style="font-size:13px; color:#77827a;">Configuration standard pour ${systemName}.</p>
-    <input type="text" data-key="Note" placeholder="Informations générales..." class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">`;
+    <input type="text" data-key="Note" placeholder="Informations générales..." class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing: border-box;">`;
   }
 
   document.getElementById("modal-content").innerHTML = `
@@ -376,7 +517,7 @@ function openConfigSystemModal(systemId, systemName) {
     <h2>Général : ${systemName}</h2>
     <form onsubmit="submitSystemConfig(event, '${systemId}')" style="margin-top:20px;">
       ${fieldsHTML}
-      <button type="submit" class="button primary" style="width:100%; margin-top:20px;">Enregistrer les paramètres</button>
+      <button type="submit" class="button primary pointer" style="width:100%; margin-top:20px;">Enregistrer les paramètres</button>
     </form>
   `;
 }
@@ -392,7 +533,7 @@ async function submitSystemConfig(event, systemId) {
 }
 
 /* ============================================================
-   AJOUT, MODIFICATION ET SUPPRESSION D'ÉQUIPEMENT (VERSION EXPERTE)
+   AJOUT, MODIFICATION ET SUPPRESSION D'ÉQUIPEMENT INTELLIGENT
    ============================================================ */
 function openAddEquipmentModal(preselectedSystem = "") {
   const systemOptions = (homeData.systems || []).map(sys => `<option value="${escapeHTML(sys.id)}" ${sys.id === preselectedSystem ? "selected" : ""}>${escapeHTML(sys.name)}</option>`).join("");
@@ -412,12 +553,11 @@ function openAddEquipmentModal(preselectedSystem = "") {
       
       <textarea id="form-notes" placeholder="Commentaire, position, ou particularité d'utilisation..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;"></textarea>
 
-      <button type="submit" class="button primary" style="margin-top:10px;">Sauvegarder l'appareil</button>
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder l'appareil</button>
     </form>`;
   if (preselectedSystem) renderDynamicFields();
 }
 
-// Fonction centrale pour générer les champs experts selon la catégorie
 function renderDynamicFields() {
   const sysId = document.getElementById("form-sys-id").value;
   const container = document.getElementById("dynamic-fields-container");
@@ -425,46 +565,15 @@ function renderDynamicFields() {
   let html = "";
   
   if (sysId.includes("piscine")) {
-    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-      <input type="text" data-key="Puissance/Débit" placeholder="Puissance/Débit (ex: 14m3/h)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-      <select data-key="Type Filtre" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-        <option value="">-- Filtre --</option><option value="Sable/Verre">Sable/Verre</option><option value="Cartouche">Cartouche</option>
-      </select>
-      <input type="text" data-key="Charge filtrante" placeholder="Média (ex: Verre 150kg)" class="eq-spec-input" style="grid-column:1/-1; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-    </div>`;
+    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input type="text" data-key="Puissance/Débit" placeholder="Puissance/Débit (ex: 14m3/h)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"><select data-key="Type Filtre" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"><option value="">-- Filtre --</option><option value="Sable/Verre">Sable/Verre</option><option value="Cartouche">Cartouche</option></select><input type="text" data-key="Charge filtrante" placeholder="Média (ex: Verre 150kg)" class="eq-spec-input" style="grid-column: 1/-1; padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"></div>`;
   } else if (sysId.includes("elec")) {
-    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-      <input type="text" data-key="Protection" placeholder="Ampérage (ex: 16A)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-      <input type="text" data-key="Type Câble" placeholder="Section (ex: 3G2.5)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-    </div>`;
-  } else if (sysId.includes("eau") || sysId.includes("plomberie")) {
-    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-      <input type="text" data-key="Capacité" placeholder="Volume (ex: 200L)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-      <input type="text" data-key="Consommable" placeholder="Conso (ex: Sel Adoucisseur)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-    </div>`;
-  } else if (sysId.includes("chauffe") || sysId.includes("clim")) {
-    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-      <select data-key="Énergie / Gaz" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-        <option value="">-- Énergie/Gaz --</option><option value="R32">Gaz R32</option><option value="R410A">Gaz R410A</option><option value="Électrique">Électrique</option><option value="Gaz Ville">Gaz de Ville</option>
-      </select>
-      <input type="text" data-key="Puissance Thermique" placeholder="Puissance (ex: 12 kW)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-    </div>`;
+    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input type="text" data-key="Protection" placeholder="Ampérage (ex: 16A, 32A)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"><input type="text" data-key="Type Câble" placeholder="Section (ex: 3G2.5)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"></div>`;
+  } else if (sysId.includes("eau") || sysId.includes("plomberie") || sysId.includes("chauffe") || sysId.includes("clim")) {
+    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input type="text" data-key="Caractéristique" placeholder="Info clé (ex: 200L, 12kW...)" class="eq-spec-input" style="grid-column: 1/-1; padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"></div>`;
   } else if (sysId.includes("domo") || sysId.includes("reseau")) {
-    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-      <select data-key="Protocole" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-        <option value="">-- Protocole --</option><option value="Wi-Fi">Wi-Fi</option><option value="Zigbee">Zigbee</option><option value="RJ45">Filaire (RJ45)</option><option value="Radio (RTS/IO)">Radio RTS/IO</option>
-      </select>
-      <select data-key="Secours" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-        <option value="">-- Batterie Secours --</option><option value="Oui">Oui (Batterie)</option><option value="Non">Non</option>
-      </select>
-    </div>`;
+    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><select data-key="Protocole" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"><option value="">-- Protocole --</option><option value="Wi-Fi">Wi-Fi</option><option value="Zigbee">Zigbee</option><option value="RJ45">Filaire (RJ45)</option><option value="Radio (RTS/IO)">Radio RTS/IO</option></select><select data-key="Secours" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"><option value="">-- Batterie Secours --</option><option value="Oui">Oui (Batterie)</option><option value="Non">Non</option></select></div>`;
   } else if (sysId.includes("ext")) {
-    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-      <select data-key="Alimentation" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-        <option value="">-- Alimentation --</option><option value="Secteur 230V">Secteur 230V</option><option value="Solaire / Batterie">Solaire / Batterie</option>
-      </select>
-      <input type="text" data-key="Mécanisme" placeholder="Méca (ex: Vérin)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-    </div>`;
+    html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><select data-key="Alimentation" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"><option value="">-- Alimentation --</option><option value="Secteur 230V">Secteur 230V</option><option value="Solaire / Batterie">Solaire / Batterie</option></select><input type="text" data-key="Mécanisme" placeholder="Méca (ex: Vérin)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; box-sizing:border-box;"></div>`;
   }
   container.innerHTML = html;
 }
@@ -491,65 +600,7 @@ async function submitEquipment(event) {
 
 function openEditEquipmentModal(itemEncoded, systemId) {
   const item = JSON.parse(decodeURIComponent(itemEncoded));
-  let dynamicFieldsHTML = "";
   
-  if (systemId.includes("piscine")) {
-    dynamicFieldsHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-      <input type="text" data-key="Puissance/Débit" value="${escapeHTML(item.specs['Puissance/Débit'] || '')}" placeholder="Ex: 1.5 CV / 14m3/h" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-      <select data-key="Type Filtre" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-        <option value="">-- Filtre --</option>
-        <option value="Sable/Verre" ${item.specs['Type Filtre'] === 'Sable/Verre' ? 'selected' : ''}>Sable/Verre</option>
-        <option value="Cartouche" ${item.specs['Type Filtre'] === 'Cartouche' ? 'selected' : ''}>Cartouche</option>
-      </select>
-      <input type="text" data-key="Charge filtrante" value="${escapeHTML(item.specs['Charge filtrante'] || '')}" placeholder="Média (ex: Verre 150kg)" class="eq-spec-input-edit" style="grid-column:1/-1; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-    </div>`;
-  } else if (systemId.includes("elec")) {
-    dynamicFieldsHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-      <input type="text" data-key="Protection" value="${escapeHTML(item.specs['Protection'] || '')}" placeholder="Ampérage (ex: 16A)" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-      <input type="text" data-key="Type Câble" value="${escapeHTML(item.specs['Type Câble'] || '')}" placeholder="Section (ex: 3G2.5)" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-    </div>`;
-  } else if (systemId.includes("eau") || systemId.includes("plomberie")) {
-    dynamicFieldsHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-      <input type="text" data-key="Capacité" value="${escapeHTML(item.specs['Capacité'] || '')}" placeholder="Volume (ex: 200L)" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-      <input type="text" data-key="Consommable" value="${escapeHTML(item.specs['Consommable'] || '')}" placeholder="Conso (ex: Sel Adoucisseur)" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-    </div>`;
-  } else if (systemId.includes("chauffe") || systemId.includes("clim")) {
-    dynamicFieldsHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-      <select data-key="Énergie / Gaz" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-        <option value="">-- Énergie/Gaz --</option>
-        <option value="R32" ${item.specs['Énergie / Gaz'] === 'R32' ? 'selected' : ''}>Gaz R32</option>
-        <option value="R410A" ${item.specs['Énergie / Gaz'] === 'R410A' ? 'selected' : ''}>Gaz R410A</option>
-        <option value="Électrique" ${item.specs['Énergie / Gaz'] === 'Électrique' ? 'selected' : ''}>Électrique</option>
-        <option value="Gaz Ville" ${item.specs['Énergie / Gaz'] === 'Gaz Ville' ? 'selected' : ''}>Gaz de Ville</option>
-      </select>
-      <input type="text" data-key="Puissance Thermique" value="${escapeHTML(item.specs['Puissance Thermique'] || '')}" placeholder="Puissance (ex: 12 kW)" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-    </div>`;
-  } else if (systemId.includes("domo") || systemId.includes("reseau")) {
-    dynamicFieldsHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-      <select data-key="Protocole" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-        <option value="">-- Protocole --</option>
-        <option value="Wi-Fi" ${item.specs['Protocole'] === 'Wi-Fi' ? 'selected' : ''}>Wi-Fi</option>
-        <option value="Zigbee" ${item.specs['Protocole'] === 'Zigbee' ? 'selected' : ''}>Zigbee</option>
-        <option value="RJ45" ${item.specs['Protocole'] === 'RJ45' ? 'selected' : ''}>Filaire (RJ45)</option>
-        <option value="Radio (RTS/IO)" ${item.specs['Protocole'] === 'Radio (RTS/IO)' ? 'selected' : ''}>Radio RTS/IO</option>
-      </select>
-      <select data-key="Secours" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-        <option value="">-- Batterie Secours --</option>
-        <option value="Oui" ${item.specs['Secours'] === 'Oui' ? 'selected' : ''}>Oui (Batterie)</option>
-        <option value="Non" ${item.specs['Secours'] === 'Non' ? 'selected' : ''}>Non</option>
-      </select>
-    </div>`;
-  } else if (systemId.includes("ext")) {
-    dynamicFieldsHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-      <select data-key="Alimentation" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-        <option value="">-- Alimentation --</option>
-        <option value="Secteur 230V" ${item.specs['Alimentation'] === 'Secteur 230V' ? 'selected' : ''}>Secteur 230V</option>
-        <option value="Solaire / Batterie" ${item.specs['Alimentation'] === 'Solaire / Batterie' ? 'selected' : ''}>Solaire / Batterie</option>
-      </select>
-      <input type="text" data-key="Mécanisme" value="${escapeHTML(item.specs['Mécanisme'] || '')}" placeholder="Méca (ex: Vérin)" class="eq-spec-input-edit" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">
-    </div>`;
-  }
-
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">MODIFICATION</div>
     <h2>Modifier l'équipement</h2>
@@ -564,12 +615,10 @@ function openEditEquipmentModal(itemEncoded, systemId) {
       <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Date d'installation</label>
       <input type="text" id="edit-eq-installed" value="${escapeHTML(item.installed)}" placeholder="ex: 12/05/2023" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
       
-      <div style="display:flex; flex-direction:column; gap:10px; margin-top:5px;">${dynamicFieldsHTML}</div>
-
       <label style="font-size:11px; font-weight:bold; color:#59645d; margin-bottom:-8px;">Commentaire / Position</label>
       <textarea id="edit-eq-notes" placeholder="Informations particulières..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;">${escapeHTML(item.notes || '')}</textarea>
 
-      <button type="submit" class="button primary" style="margin-top:10px;">Enregistrer les modifications</button>
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Enregistrer les modifications</button>
     </form>`;
   openModal();
 }
@@ -581,40 +630,25 @@ async function submitEditEquipment(event, eqId, systemId) {
   const installed = document.getElementById("edit-eq-installed").value;
   const notes = document.getElementById("edit-eq-notes").value; 
   
-  const specs = {};
-  document.querySelectorAll(".eq-spec-input-edit").forEach(input => { 
-    if (input.value) specs[input.getAttribute("data-key")] = input.value; 
-  });
-
   try {
     const response = await fetch("/api/equipment/update", { 
       method: "POST", headers: { "Content-Type": "application/json" }, 
-      body: JSON.stringify({ id: eqId, name, model, installed, specs, notes }) 
+      body: JSON.stringify({ id: eqId, name, model, installed, specs: {}, notes }) 
     });
-    if (response.ok) { 
-      showMessage("Équipement modifié !"); 
-      openSystem(systemId); 
-      loadHomeData(); 
-    }
+    if (response.ok) { showMessage("Équipement modifié !"); openSystem(systemId); loadHomeData(); }
   } catch (e) { showMessage("Erreur réseau"); }
 }
 
 async function deleteEquipment(eqId, systemId) {
   if (!confirm("Voulez-vous vraiment supprimer cet équipement ? Cette action est irréversible.")) return;
   try {
-    const response = await fetch("/api/equipment/delete", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: eqId })
-    });
-    if (response.ok) {
-      showMessage("Équipement supprimé.");
-      openSystem(systemId); 
-      loadHomeData(); 
-    }
+    const response = await fetch("/api/equipment/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: eqId }) });
+    if (response.ok) { showMessage("Équipement supprimé."); openSystem(systemId); loadHomeData(); }
   } catch (e) { showMessage("Erreur"); }
 }
 
 /* ============================================================
-   GESTION DES PLANS (MINIATURES ET PLEIN ÉCRAN)
+   GESTION DES PLANS
    ============================================================ */
 function triggerNewPlan() {
   document.getElementById("modal-content").innerHTML = `
@@ -622,7 +656,7 @@ function triggerNewPlan() {
     <h2>Ajouter un plan</h2>
     <div style="margin-top:20px;">
       <input type="text" id="new-plan-name" placeholder="Nom du plan (ex: RDC, Étage 1...)" required style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing: border-box;">
-      <button class="button primary" style="width:100%;" onclick="openFileSelector()">Sélectionner l'image</button>
+      <button class="button primary pointer" style="width:100%;" onclick="openFileSelector()">Sélectionner l'image</button>
       <input type="file" id="plan-upload-input" accept="image/*" style="display: none;" onchange="handlePlanUpload(event)">
     </div>
   `;
@@ -648,9 +682,8 @@ function handlePlanUpload(event) {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: currentHomeId, name: planName, image: base64Image })
       });
-      if (response.ok) {
-        showMessage("Plan ajouté avec succès !"); closeModal(); loadHomeData();
-      } else { showMessage("Erreur lors de la sauvegarde."); }
+      if (response.ok) { showMessage("Plan ajouté avec succès !"); closeModal(); loadHomeData(); } 
+      else { showMessage("Erreur lors de la sauvegarde."); }
     } catch (err) { showMessage("Erreur réseau."); }
   };
   reader.readAsDataURL(file);
@@ -661,7 +694,7 @@ function viewPlanFullscreen(imageSrc, planName) {
     <div style="display:flex; flex-direction:column; height: 75vh;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
         <h2 style="margin:0; font-size:18px;">Plan : ${escapeHTML(planName)}</h2>
-        <button class="button secondary" style="padding:4px 10px; font-size:11px;" onclick="togglePlanZoom()">🔍 Zoomer</button>
+        <button class="button secondary pointer" style="padding:4px 10px; font-size:11px;" onclick="togglePlanZoom()">🔍 Zoomer</button>
       </div>
       <div style="flex:1; overflow:auto; background:#f4f6f5; border-radius:8px; border:1px solid #e3e8e4; text-align:center;">
         <img id="fullscreen-plan-img" src="${imageSrc}" style="max-width:100%; height:auto; transition: width 0.3s ease; cursor: zoom-in;" onclick="togglePlanZoom()">
@@ -676,7 +709,7 @@ function togglePlanZoom() {
   const img = document.getElementById("fullscreen-plan-img");
   if (img.style.maxWidth === "100%") {
     img.style.maxWidth = "none";
-    img.style.width = "200%"; // 2x Zoom
+    img.style.width = "200%"; 
     img.style.cursor = "zoom-out";
   } else {
     img.style.maxWidth = "100%";
@@ -699,7 +732,7 @@ function openProfileModal() {
         <input type="number" id="edit-land" value="${escapeHTML(String(homeData.land))}" placeholder="Terrain" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
       </div>
       <input type="password" id="edit-password" required placeholder="Mot de passe actuel *" style="padding:10px; border-radius:8px; border:1px solid #ccc; border-left:4px solid #d93025;">
-      <button type="submit" class="button primary">Enregistrer</button>
+      <button type="submit" class="button primary pointer">Enregistrer</button>
     </form>`;
   openModal();
 }
