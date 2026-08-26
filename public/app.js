@@ -22,7 +22,8 @@ async function init() {
 function openLoginModal() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">SÉCURITÉ</div><h2>Déverrouiller la maison</h2>
-    <form onsubmit="submitLogin(event)" style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
+    <!-- LE CORRECTIF EST ICI : action="javascript:void(0);" et return false; -->
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitLogin(event); return false;" style="display:flex; flex-direction:column; gap:15px; margin-top:20px;">
       <input type="password" id="login-password" required placeholder="Votre mot de passe" style="width:100%; padding:12px; border-radius:8px; border:1px solid #cdd4ce;">
       <button type="submit" class="button primary" style="padding:12px;">Accéder au tableau de bord</button>
     </form>
