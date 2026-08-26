@@ -28,89 +28,105 @@
 </head>
 <body>
 
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-icon">⌂</div>
-      <div>HOME <strong>ID</strong></div>
+  <!-- ÉCRAN DE CONNEXION (RESTAURÉ) -->
+  <div id="login-overlay" style="position: fixed; inset: 0; background: #f4f6f3; z-index: 999; display: flex; align-items: center; justify-content: center;">
+    <div class="onboarding-card">
+      <div class="onboarding-icon">🔒</div>
+      <h1>Maison Sécurisée</h1>
+      <p>Entrez le mot de passe propriétaire pour accéder à cette maison.</p>
+      <form onsubmit="handleLogin(event)" class="onboarding-form">
+        <input type="password" id="login-password" placeholder="Mot de passe" required style="width:100%; padding:12px; border-radius:10px; border:1px solid #cdd4ce;">
+        <button type="submit" class="button primary" style="width:100%; padding:12px; margin-top:10px;">Déverrouiller</button>
+      </form>
     </div>
-    <div class="user pointer" title="Mon Profil" onclick="openProfileModal()">
-      <span class="user-icon">👤</span>
-      <span id="user-role-label">Propriétaire</span>
-    </div>
-  </header>
+  </div>
 
-  <main class="container">
-    <section class="welcome">
-      <div>
-        <div class="eyebrow">IDENTITÉ NUMÉRIQUE</div>
-        <h1 id="display-house-name">Chargement...</h1>
-        <p>Toute la mémoire technique de votre maison, au même endroit.</p>
+  <!-- LE COEUR DE TON APPLICATION, CACHÉ TANT QU'ON N'A PAS LE MOT DE PASSE -->
+  <div id="app-content" class="hidden">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">⌂</div>
+        <div>HOME <strong>ID</strong></div>
       </div>
-      <button class="button primary" onclick="openAddMenu()">+ Ajouter</button>
-    </section>
+      <div class="user pointer" title="Mon Profil" onclick="openProfileModal()">
+        <span class="user-icon">👤</span>
+        <span id="user-role-label">Propriétaire</span>
+      </div>
+    </header>
 
-    <section class="house-card">
-      <div class="house-info">
-        <div class="house-image">🏠</div>
+    <main class="container">
+      <section class="welcome">
         <div>
-          <div class="eyebrow">MA MAISON</div>
-          <h2 id="display-house-id">...</h2>
-          <p>Votre maison, son histoire et tous ses systèmes.</p>
+          <div class="eyebrow">IDENTITÉ NUMÉRIQUE</div>
+          <h1 id="display-house-name">Chargement...</h1>
+          <p>Toute la mémoire technique de votre maison, au même endroit.</p>
         </div>
+        <button class="button primary" onclick="openAddMenu()">+ Ajouter</button>
+      </section>
+
+      <section class="house-card">
+        <div class="house-info">
+          <div class="house-image">🏠</div>
+          <div>
+            <div class="eyebrow">MA MAISON</div>
+            <h2 id="display-house-id">...</h2>
+            <p>Votre maison, son histoire et tous ses systèmes.</p>
+          </div>
+        </div>
+        <div class="house-details">
+          <div><span>Construction</span><strong id="display-house-year">-</strong></div>
+          <div><span>Surface</span><strong id="display-house-surface">-</strong></div>
+          <div><span>Terrain</span><strong id="display-house-land">-</strong></div>
+        </div>
+        
+        <!-- Galerie de plans -->
+        <div style="margin-top: 20px; border-top: 1px solid #e3e8e4; padding-top: 15px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 11px; font-weight: 700; color: #77827a; text-transform: uppercase;">Plans de la maison</span>
+            <button class="button secondary" style="padding: 4px 10px; font-size: 11px;" onclick="triggerNewPlan()">+ Ajouter</button>
+          </div>
+          <div id="plans-gallery" class="plans-container">
+            <!-- Les miniatures seront injectées ici par JS -->
+          </div>
+        </div>
+      </section>
+
+      <div class="dashboard-grid">
+        <section class="card systems-card">
+          <div class="card-header">
+            <div><div class="eyebrow">INSTALLATIONS</div><h2>Mes systèmes</h2></div>
+          </div>
+          <div id="systems" class="systems"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div><div class="eyebrow">À VENIR</div><h2>Entretien</h2></div>
+          </div>
+          <div id="alerts"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div><div class="eyebrow">ACCÈS & RÉSEAU</div><h2>Artisans</h2></div>
+            <button class="link-button" onclick="openQrSimulatorModal()">Simuler QR Pro</button>
+          </div>
+          <div id="professionals"></div>
+        </section>
+
+        <section class="card documents-card">
+          <div class="card-header">
+            <div><div class="eyebrow">DOCUMENTS</div><h2>Ma bibliothèque</h2></div>
+          </div>
+          <div class="documents">
+            <div class="document"><div class="document-icon">📐</div><strong>Plans</strong><span id="doc-plans">0 fichiers</span></div>
+            <div class="document"><div class="document-icon">🧾</div><strong>Factures</strong><span>0 fichiers</span></div>
+            <div class="document"><div class="document-icon">📖</div><strong>Notices auto.</strong><span id="doc-notices">0 fichiers</span></div>
+          </div>
+        </section>
       </div>
-      <div class="house-details">
-        <div><span>Construction</span><strong id="display-house-year">-</strong></div>
-        <div><span>Surface</span><strong id="display-house-surface">-</strong></div>
-        <div><span>Terrain</span><strong id="display-house-land">-</strong></div>
-      </div>
-      
-      <!-- NOUVEAU : La section Galerie de plans -->
-      <div style="margin-top: 20px; border-top: 1px solid #e3e8e4; padding-top: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-          <span style="font-size: 11px; font-weight: 700; color: #77827a; text-transform: uppercase;">Plans de la maison</span>
-          <button class="button secondary" style="padding: 4px 10px; font-size: 11px;" onclick="triggerNewPlan()">+ Ajouter</button>
-        </div>
-        <div id="plans-gallery" class="plans-container">
-          <!-- Les miniatures seront injectées ici par JS -->
-        </div>
-      </div>
-    </section>
-
-    <div class="dashboard-grid">
-      <section class="card systems-card">
-        <div class="card-header">
-          <div><div class="eyebrow">INSTALLATIONS</div><h2>Mes systèmes</h2></div>
-        </div>
-        <div id="systems" class="systems"></div>
-      </section>
-
-      <section class="card">
-        <div class="card-header">
-          <div><div class="eyebrow">À VENIR</div><h2>Entretien</h2></div>
-        </div>
-        <div id="alerts"></div>
-      </section>
-
-      <section class="card">
-        <div class="card-header">
-          <div><div class="eyebrow">ACCÈS & RÉSEAU</div><h2>Artisans</h2></div>
-          <button class="link-button" onclick="openQrSimulatorModal()">Simuler QR Pro</button>
-        </div>
-        <div id="professionals"></div>
-      </section>
-
-      <section class="card documents-card">
-        <div class="card-header">
-          <div><div class="eyebrow">DOCUMENTS</div><h2>Ma bibliothèque</h2></div>
-        </div>
-        <div class="documents">
-          <div class="document"><div class="document-icon">📐</div><strong>Plans</strong><span id="doc-plans">0 fichiers</span></div>
-          <div class="document"><div class="document-icon">🧾</div><strong>Factures</strong><span>0 fichiers</span></div>
-          <div class="document"><div class="document-icon">📖</div><strong>Notices auto.</strong><span id="doc-notices">0 fichiers</span></div>
-        </div>
-      </section>
-    </div>
-  </main>
+    </main>
+  </div>
 
   <div id="modal" class="modal hidden">
     <div class="modal-content" style="max-width: 600px; width: 90%;">
@@ -121,6 +137,6 @@
 
   <div id="toast" class="toast"></div>
 
-  <script src="/app.js?v=15"></script> 
+  <script src="/app.js?v=16"></script> 
 </body>
 </html>
