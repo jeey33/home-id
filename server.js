@@ -167,20 +167,49 @@ app.post("/api/home/plan", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
 });
 
-// --- NOUVELLE ROUTE POUR SAUVEGARDER LES DIAGNOSTICS ET WIDGETS ---
+// --- NOUVELLE ROUTE AMÉLIORÉE AVEC LOGS POUR SAUVEGARDER LES DIAGNOSTICS, WIDGETS ET CADASTRE ---
 app.post("/api/home/update-fields", async (req, res) => {
-  const { id, diagnostics, customWidgets } = req.body;
-  if (!id) return res.status(400).json({ error: "ID manquant" });
+  const { id, diagnostics, customWidgets, cadastre } = req.body;
+  
+  // LOG : Tentative de mise à jour pour la maison
+  console.log(`[DEBUG] Tentative de MAJ pour la maison ${id}`);
+
+  if (!id) {
+    console.error("[ERREUR] ID maison manquant dans la requête");
+    return res.status(400).json({ error: "ID manquant" });
+  }
 
   try {
+    // Sauvegarde Diagnostics
     if (diagnostics !== undefined) {
+      console.log(`[DEBUG] Sauvegarde de ${diagnostics.length} diagnostics`);
       await pool.query("UPDATE home SET diagnostics = $1 WHERE id = $2", [JSON.stringify(diagnostics), id]);
     }
+    
+    // Sauvegarde Widgets
     if (customWidgets !== undefined) {
+      console.log(`[DEBUG] Sauvegarde de ${customWidgets.length} widgets libres`);
       await pool.query("UPDATE home SET custom_widgets = $1 WHERE id = $2", [JSON.stringify(customWidgets), id]);
     }
+    
+    // --- NOUVEAUTÉ CADASTRE : Sauvegarde des infos cadastrales ---
+    if (cadastre !== undefined) {
+      // LOG : On logue le début de la chaîne base64 pour vérifier sa présence
+      console.log("[DEBUG] Sauvegarde Cadastre demandée.");
+      if(cadastre.images) {
+        console.log(`[DEBUG] Nombre d'images cadastre à uploader : ${cadastre.images.length}`);
+        // Log partiel de la première image (si présente) pour débugger
+        if(cadastre.images[0]) console.log(`[DEBUG] Base64 Image 1 (partiel) : ${cadastre.images[0].base64.substring(0, 50)}...`);
+      }
+
+      await pool.query("UPDATE home SET cadastre = $1 WHERE id = $2", [JSON.stringify(cadastre), id]);
+      console.log("[DEBUG] UPDATE cadastre réussi en base.");
+    }
+    
     res.json({ ok: true });
   } catch (error) {
+    // LOG : Grosse erreur serveur
+    console.error("[ERREUR SERVEUR] /api/home/update-fields:", error);
     res.status(500).json({ error: "Erreur serveur lors de la sauvegarde" });
   }
 });
