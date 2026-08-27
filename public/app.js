@@ -1303,8 +1303,8 @@ async function deleteCustomWidget(index) {
   const widgets = homeData.customWidgets;
   widgets.splice(index, 1);
   try {
-    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
-    loadHomeData();
+    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
+    if(res.ok) { loadHomeData(); }
   } catch(e) { showMessage("Erreur"); }
 }
 
@@ -1312,20 +1312,47 @@ async function deleteCustomWidget(index) {
    CADASTRE - GESTION MULTI-IMAGES
    ============================================================ */
 function displayCadastre() {
-  const container = document.getElementById("cadastre-container");
-  if (!container) return;
+  const textContainer = document.getElementById("cadastre-text-container");
+  const galleryContainer = document.getElementById("cadastre-gallery");
+  if (!textContainer || !galleryContainer) return;
   
-  let cadastreItems = homeData.cadastre;
-  if (!Array.isArray(cadastreItems)) cadastreItems = [];
-  
-  if (cadastreItems.length === 0) {
-    container.innerHTML = `<p style="font-size:13px; color:#77827a;">Aucun document cadastral enregistré.</p>`;
+  let c = homeData.cadastre;
+  if (Array.isArray(c)) c = {};
+  if (!c) c = {};
+
+  const images = c.images || [];
+
+  // --- 1. Affichage du texte (Références) ---
+  if (!c.section && !c.numero && !c.commune) {
+    textContainer.innerHTML = `<p style="font-size:12px; color:#77827a; margin:0; text-align:center;">Cliquez sur 📝 Infos pour renseigner la section et le numéro de parcelle.</p>`;
+  } else {
+    const officialLink = `https://www.cadastre.gouv.fr/scpc/rechercherParcelle.do?section=${c.section}&parcelle=${c.numero}&commune=${encodeURIComponent(c.commune)}`;
+
+    textContainer.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="background:#f4f6f5; border-radius:8px; padding:8px 15px;">
+          <div class="eyebrow" style="margin-bottom:2px;">RÉFÉRENCES PARCELLE</div>
+          <strong style="font-size:16px; color:#1d2c33; font-family:monospace; letter-spacing:1px;">
+            ${escapeHTML(c.section).toUpperCase()} ${escapeHTML(c.numero)}
+          </strong>
+        </div>
+        <div style="text-align:right;">
+          <p style="font-size:12px; color:#17211c; margin:0;">Commune : <strong>${escapeHTML(c.commune)}</strong></p>
+          <a href="${officialLink}" target="_blank" style="font-size:11px; color:#4b9b69; text-decoration:underline;">📄 Voir sur cadastre.gouv.fr</a>
+        </div>
+      </div>
+    `;
+  }
+
+  // --- 2. Affichage de la liste verticale (Les Images) ---
+  if (images.length === 0) {
+    galleryContainer.innerHTML = `<p style="font-size:12px; color:#77827a; margin:10px 0; text-align:center;">Aucune image de cadastre (plan, satellite...) ajoutée.</p>`;
     return;
   }
 
-  container.innerHTML = cadastreItems.map((c, index) => {
-    let imgHtml = c.image 
-      ? `<img src="${c.image}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 1px solid #cdd4ce; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="viewDocumentFullscreen('${c.image}', '${escapeHTML(c.name)}')">`
+  galleryContainer.innerHTML = images.map((img, index) => {
+    let imgHtml = img.base64 
+      ? `<img src="${img.base64}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 1px solid #cdd4ce; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="viewDocumentFullscreen('${img.base64}', '${escapeHTML(img.name || "Document Cadastre")}')">`
       : `<div style="width: 50px; height: 50px; border-radius: 8px; background: #f4f6f5; border: 1px dashed #cdd4ce; display: flex; align-items: center; justify-content: center; font-size: 20px;">🗺️</div>`;
 
     return `
@@ -1333,13 +1360,13 @@ function displayCadastre() {
         <div style="display:flex; align-items:center; gap:12px;">
           ${imgHtml}
           <div>
-            <strong style="display:block; color:#17211c; font-size:13px; text-transform:uppercase;">${escapeHTML(c.name)}</strong>
-            <span style="font-size:11px; color:#77827a;">Info : ${escapeHTML(c.info || "Non renseigné")}</span>
+            <strong style="display:block; color:#17211c; font-size:13px; text-transform:uppercase;">${escapeHTML(img.name || "Document Cadastre")}</strong>
+            <span style="font-size:11px; color:#77827a;">Info : ${escapeHTML(img.info || "Non renseigné")}</span>
           </div>
         </div>
         <div style="display:flex; align-items:center; gap:15px;">
-          <span style="font-size:11px; color:#17211c; font-weight:bold;">${escapeHTML(c.date || "")}</span>
-          <button onclick="deleteCadastreItem(${index})" style="background:none; border:none; cursor:pointer; font-size:16px; color:#aab7af; transition:color 0.2s;" onmouseover="this.style.color='#d93025'" onmouseout="this.style.color='#aab7af'">🗑️</button>
+          <span style="font-size:11px; color:#17211c; font-weight:bold;">${escapeHTML(img.date || "")}</span>
+          <button onclick="openEditCadastreModal(${index})" style="background:none; border:none; cursor:pointer; font-size:14px; color:#77827a; transition:0.2s;" onmouseover="this.style.color='#1e362d'" onmouseout="this.style.color='#77827a'">✏️</button>
         </div>
       </div>
     `;
@@ -1391,12 +1418,29 @@ async function submitCadastreText() {
 function openAddCadastreImageModal() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">FONCIER</div>
-    <h2>Ajouter une image</h2>
-    <p style="font-size:13px; color:#59645d; margin-top:5px;">Sélectionnez un plan cadastral, une vue satellite, ou une photo du terrain.</p>
+    <h2>Ajouter un plan</h2>
     <form action="javascript:void(0);" onsubmit="event.preventDefault(); processCadastreImageSubmit(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
       
-      <div style="background:#f4f6f5; padding:20px; border-radius:8px; border:1px dashed #cdd4ce; text-align:center;">
-        <input type="file" id="cad-image-file" accept="image/*" required style="font-size:13px;">
+      <select id="cad-doc-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <option value="Plan Cadastral">Plan Cadastral</option>
+        <option value="Vue Satellite">Vue Satellite</option>
+        <option value="Photo Terrain">Photo Terrain</option>
+        <option value="Plan de Masse">Plan de Masse</option>
+        <option value="Plan de Situation">Plan de Situation</option>
+        <option value="Règlement PLU">Règlement PLU / Foncier</option>
+        <option value="Bornage Géomètre">Bornage Géomètre</option>
+        <option value="Servitudes">Servitudes</option>
+        <option value="Autre Plan">Autre Plan...</option>
+      </select>
+      
+      <div style="display:flex; gap:10px;">
+        <input type="text" id="cad-doc-info" placeholder="Section (ex: AH 123)" required style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="date" id="cad-doc-date" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+      </div>
+
+      <div style="background:#f4f6f5; padding:20px; border-radius:8px; border:1px dashed #cdd4ce; text-align:center; margin-top:5px;">
+        <label style="font-size:12px; font-weight:bold; color:#59645d; display:block; margin-bottom:8px;">📸 Joindre le document (Photo ou capture)</label>
+        <input type="file" id="cad-image-file" accept="image/*" required style="width:100%; font-size:13px;">
       </div>
 
       <button type="submit" class="button primary pointer" style="margin-top:10px;">Uploader l'image</button>
@@ -1405,7 +1449,11 @@ function openAddCadastreImageModal() {
 }
 
 function processCadastreImageSubmit() {
+  const name = document.getElementById("cad-doc-name").value;
+  const info = document.getElementById("cad-doc-info").value;
+  const date = document.getElementById("cad-doc-date").value;
   const fileInput = document.getElementById("cad-image-file");
+
   if (fileInput.files.length > 0) {
     showMessage("⏳ Compression de l'image...");
     const file = fileInput.files[0];
@@ -1413,7 +1461,7 @@ function processCadastreImageSubmit() {
     reader.onload = async function(e) {
       try {
         const compressed = await compressImage(e.target.result);
-        submitNewCadastreImage(compressed);
+        submitNewCadastreImage({ name, info, date, base64: compressed });
       } catch(err) {
         showMessage("Erreur de compression");
       }
@@ -1422,16 +1470,14 @@ function processCadastreImageSubmit() {
   }
 }
 
-async function submitNewCadastreImage(base64Image) {
+async function submitNewCadastreImage(newDoc) {
   let currentCadastre = homeData.cadastre;
   if (Array.isArray(currentCadastre)) currentCadastre = {};
   if (!currentCadastre) currentCadastre = {};
 
   let images = currentCadastre.images || [];
-  images.push({
-    id: "CAD-" + Date.now(),
-    base64: base64Image
-  });
+  newDoc.id = "CAD-" + Date.now();
+  images.push(newDoc);
   
   currentCadastre.images = images;
 
@@ -1440,6 +1486,86 @@ async function submitNewCadastreImage(base64Image) {
     const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: currentCadastre }) });
     if (res.ok) { closeModal(); loadHomeData(); showMessage("Image ajoutée !"); }
   } catch(e) { showMessage("Erreur"); }
+}
+
+function openEditCadastreModal(index) {
+  let currentCadastre = homeData.cadastre;
+  if (Array.isArray(currentCadastre)) currentCadastre = {};
+  if (!currentCadastre || !currentCadastre.images) return;
+  
+  const imgData = currentCadastre.images[index];
+
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">MODIFICATION FONCIER</div>
+    <h2>Modifier ${escapeHTML(imgData.name || 'Document')}</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitEditCadastre(${index}); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      
+      <select id="edit-cad-doc-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <option value="${escapeHTML(imgData.name || '')}" selected>${escapeHTML(imgData.name || 'Plan Cadastral')}</option>
+        <option value="Plan Cadastral">Plan Cadastral</option>
+        <option value="Vue Satellite">Vue Satellite</option>
+        <option value="Photo Terrain">Photo Terrain</option>
+        <option value="Plan de Masse">Plan de Masse</option>
+        <option value="Plan de Situation">Plan de Situation</option>
+        <option value="Règlement PLU">Règlement PLU / Foncier</option>
+        <option value="Bornage Géomètre">Bornage Géomètre</option>
+        <option value="Servitudes">Servitudes</option>
+        <option value="Autre Plan">Autre Plan...</option>
+      </select>
+      
+      <div style="display:flex; gap:10px;">
+        <input type="text" id="edit-cad-doc-info" value="${escapeHTML(imgData.info || '')}" placeholder="Section (ex: AH 123)" required style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="date" id="edit-cad-doc-date" value="${escapeHTML(imgData.date || '')}" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+      </div>
+      
+      <div style="background:#f4f6f5; padding:15px; border-radius:8px; border:1px dashed #cdd4ce; margin-top:5px;">
+        <label style="font-size:12px; font-weight:bold; color:#59645d; display:block; margin-bottom:8px;">📸 Remplacer le document (Laisser vide pour garder l'actuel)</label>
+        <input type="file" id="edit-cad-doc-image" accept="image/*" style="width:100%; font-size:13px;">
+      </div>
+      
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <button type="submit" class="button primary pointer" style="flex:1;">Enregistrer</button>
+        <button type="button" class="button secondary pointer" style="color:#d93025; border:1px solid #fce8e6; background:#fffafa;" onclick="deleteCadastreImage(${index})">🗑️ Supprimer</button>
+      </div>
+    </form>`;
+  openModal();
+}
+
+function submitEditCadastre(index) {
+  const name = document.getElementById("edit-cad-doc-name").value;
+  const info = document.getElementById("edit-cad-doc-info").value;
+  const date = document.getElementById("edit-cad-doc-date").value;
+  const fileInput = document.getElementById("edit-cad-doc-image");
+
+  if (fileInput.files.length > 0) {
+    showMessage("⏳ Compression de l'image...");
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      try {
+        const compressed = await compressImage(e.target.result);
+        updateCadastreData(index, { name, info, date, base64: compressed });
+      } catch(err) { showMessage("Erreur de compression."); }
+    };
+    reader.readAsDataURL(fileInput.files[0]);
+  } else {
+    // Garder l'ancienne image si non modifiée
+    const currentBase64 = homeData.cadastre.images[index].base64;
+    updateCadastreData(index, { name, info, date, base64: currentBase64 });
+  }
+}
+
+async function updateCadastreData(index, updatedDoc) {
+  showMessage("Sauvegarde en cours...");
+  let currentCadastre = homeData.cadastre;
+  
+  // Conserver l'ID existant si possible
+  updatedDoc.id = currentCadastre.images[index].id || "CAD-" + Date.now();
+  currentCadastre.images[index] = updatedDoc;
+
+  try {
+    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: currentCadastre }) });
+    if (res.ok) { closeModal(); loadHomeData(); showMessage("Plan modifié !"); }
+  } catch(e) { showMessage("Erreur réseau"); }
 }
 
 async function deleteCadastreImage(index) {
@@ -1454,6 +1580,7 @@ async function deleteCadastreImage(index) {
   
   try {
     await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: currentCadastre }) });
+    closeModal();
     loadHomeData();
     showMessage("Image supprimée.");
   } catch(e) { showMessage("Erreur"); }
