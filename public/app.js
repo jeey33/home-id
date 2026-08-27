@@ -76,7 +76,8 @@ async function loadHomeData() {
     // Ajoute ces deux lignes ici !
     displayDiagnostics();
     displayCustomWidgets();
-    
+    displayCadastre();
+     
   } catch (error) { showMessage("Impossible de charger les données."); }
 }
 
@@ -1058,6 +1059,155 @@ async function deleteCustomWidget(index) {
   try {
     await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
     loadHomeData();
+  } catch(e) { showMessage("Erreur"); }
+}
+
+/* ============================================================
+   CADASTRE - GESTION MULTI-IMAGES (Mise à jour)
+   ============================================================ */
+function displayCadastre() {
+  const textContainer = document.getElementById("cadastre-text-container");
+  const galleryContainer = document.getElementById("cadastre-gallery");
+  if (!textContainer || !galleryContainer) return;
+
+  const c = homeData.cadastre || {};
+  const images = c.images || [];
+
+  // --- 1. Affichage du texte (Références) ---
+  if (!c.section && !c.numero && !c.commune) {
+    textContainer.innerHTML = `<p style="font-size:12px; color:#77827a; margin:0; text-align:center;">Cliquez sur 📝 Infos pour renseigner la section et le numéro de parcelle.</p>`;
+  } else {
+    // Génération du lien officiel basé sur le code postal de la maison (affiché dans la card principale)
+    const cpHome = homeData.land || ""; // On suppose que le CP est dans un champ land ou surface pour le test
+    const officialLink = `https://www.cadastre.gouv.fr/scpc/rechercherParcelle.do?section=${c.section}&parcelle=${c.numero}&commune=${encodeURIComponent(c.commune)}`;
+
+    textContainer.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="background:#f4f6f5; border-radius:8px; padding:8px 15px;">
+          <div class="eyebrow" style="margin-bottom:2px;">RÉFÉRENCES PARCELLE</div>
+          <strong style="font-size:16px; color:#1d2c33; font-family:monospace; letter-spacing:1px;">
+            ${escapeHTML(c.section).toUpperCase()} ${escapeHTML(c.numero)}
+          </strong>
+        </div>
+        <div style="text-align:right;">
+          <p style="font-size:12px; color:#17211c; margin:0;">Commune : <strong>${escapeHTML(c.commune)}</strong></p>
+          <a href="${officialLink}" target="_blank" style="font-size:11px; color:#4b9b69; text-decoration:underline;">📄 Voir sur cadastre.gouv.fr</a>
+        </div>
+      </div>
+    `;
+  }
+
+  // --- 2. Affichage de la galerie d'images ---
+  if (images.length === 0) {
+    galleryContainer.innerHTML = `<p style="font-size:12px; color:#77827a; margin:10px 0; text-align:center;">Aucune image de cadastre (plan, satellite...) ajoutée.</p>`;
+    return;
+  }
+
+  galleryContainer.innerHTML = images.map((img, index) => `
+    <div class="cadastre-thumbnail">
+      <button onclick="deleteCadastreImage(${index})" style="position:absolute; top:-5px; right:-5px; background:#d93025; color:white; border:none; border-radius:50%; width:20px; height:20px; font-size:12px; cursor:pointer; z-index:10;">×</button>
+      <img src="${img.base64}" class="cadastre-img" alt="Cadastre" onclick="viewDiagFullscreen('${img.base64}', 'Visuel Cadastre n°${index+1}')">
+    </div>
+  `).join("");
+}
+
+// Modal pour éditer les références textes (Section, Numéro...)
+function openEditCadastreTextModal() {
+  const c = homeData.cadastre || {};
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">FONCIER</div>
+    <h2>Références Cadastrales</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitCadastreText(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      
+      <input type="text" id="cad-commune" placeholder="Nom de la commune" required value="${escapeHTML(c.commune||"")}" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+
+      <div style="display:flex; gap:10px;">
+        <input type="text" id="cad-section" placeholder="Section (ex: AH)" required value="${escapeHTML(c.section||"")}" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="text" id="cad-numero" placeholder="Numéro parcelle (ex: 123)" required value="${escapeHTML(c.numero||"")}" style="flex:2; padding:10px; border-radius:8px; border:1px solid #ccc;">
+      </div>
+
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder les références</button>
+    </form>`;
+  openModal();
+}
+
+async function submitCadastreText() {
+  const commune = document.getElementById("cad-commune").value;
+  const section = document.getElementById("cad-section").value;
+  const numero = document.getElementById("cad-numero").value;
+  
+  // On récupère l'objet cadastre existant pour ne pas écraser les images !
+  let currentCadastre = homeData.cadastre || {};
+  currentCadastre.commune = commune;
+  currentCadastre.section = section;
+  currentCadastre.numero = numero;
+
+  showMessage("Sauvegarde...");
+  try {
+    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: currentCadastre }) });
+    if (res.ok) { closeModal(); loadHomeData(); showMessage("Références mises à jour !"); }
+  } catch(e) { showMessage("Erreur"); }
+}
+
+// Modal pour ajouter UNE image à la galerie existante
+function openAddCadastreImageModal() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">FONCIER</div>
+    <h2>Ajouter une image</h2>
+    <p style="font-size:13px; color:#59645d; margin-top:5px;">Sélectionnez un plan cadastral, une vue satellite, ou une photo du terrain.</p>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); processCadastreImageSubmit(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      
+      <div style="background:#f4f6f5; padding:20px; border-radius:8px; border:1px dashed #cdd4ce; text-align:center;">
+        <input type="file" id="cad-image-file" accept="image/*" required style="font-size:13px;">
+      </div>
+
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Uploader l'image</button>
+    </form>`;
+  openModal();
+}
+
+function processCadastreImageSubmit() {
+  const fileInput = document.getElementById("cad-image-file");
+  if (fileInput.files.length > 0) {
+    showMessage("⏳ Compression de l'image...");
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      submitNewCadastreImage(e.target.result);
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+async function submitNewCadastreImage(base64Image) {
+  let currentCadastre = homeData.cadastre || {};
+  let images = currentCadastre.images || [];
+  
+  // On ajoute la nouvelle image au tableau existant
+  images.push({
+    id: "CAD-" + Date.now(),
+    base64: base64Image
+  });
+  
+  currentCadastre.images = images;
+
+  showMessage("Sauvegarde...");
+  try {
+    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: currentCadastre }) });
+    if (res.ok) { closeModal(); loadHomeData(); showMessage("Image ajoutée !"); }
+  } catch(e) { showMessage("Erreur"); }
+}
+
+async function deleteCadastreImage(index) {
+  if(!confirm("Supprimer cette image de cadastre ?")) return;
+  
+  let currentCadastre = homeData.cadastre;
+  currentCadastre.images.splice(index, 1);
+  
+  try {
+    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: currentCadastre }) });
+    loadHomeData();
+    showMessage("Image supprimée.");
   } catch(e) { showMessage("Erreur"); }
 }
 init();
