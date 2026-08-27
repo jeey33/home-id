@@ -14,10 +14,30 @@
   <style>
     .pointer { cursor: pointer; transition: opacity 0.2s; }
     .pointer:hover { opacity: 0.7; }
-    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2c362f; color: white; padding: 12px 24px; border-radius: 30px; display: none; z-index: 1001; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    
+    .toast { 
+      position: fixed; 
+      bottom: 20px; 
+      left: 50%; 
+      transform: translateX(-50%); 
+      background: #2c362f; 
+      color: white; 
+      padding: 12px 24px; 
+      border-radius: 30px; 
+      display: none; 
+      z-index: 1001; 
+      font-size: 14px; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+    }
+    
     .toast.show { display: block; animation: fadein 0.3s; }
     @keyframes fadein { from { bottom: 0; opacity: 0; } to { bottom: 20px; opacity: 1; } }
-    .pro-section-title { font-size: 13px; color: #77827a; text-transform: uppercase; margin-bottom: 10px; margin-top: 15px; font-weight: 700; border-bottom: 1px solid #e3e8e4; padding-bottom: 5px; }
+    
+    .pro-section-title { 
+      font-size: 13px; color: #77827a; text-transform: uppercase; 
+      margin-bottom: 10px; margin-top: 15px; font-weight: 700; 
+      border-bottom: 1px solid #e3e8e4; padding-bottom: 5px; 
+    }
 
     /* Pleine largeur pour les systèmes */
     .systems-card { grid-column: 1 / -1 !important; }
@@ -51,6 +71,7 @@
       align-items: center;
       gap: 10px;
     }
+    
     .topbar .brand-text {
       font-family: 'Montserrat', sans-serif;
       font-size: 22px;
@@ -58,6 +79,7 @@
       letter-spacing: -0.5px;
       margin-top: 2px;
     }
+    
     .home-word { color: #51838d; }
     .id-word { color: #7bd0df; }
 
@@ -76,6 +98,7 @@
       z-index: 2000;
       border: 1px solid #e3e8e4;
     }
+    
     .dropdown-menu.show { display: flex; animation: slideDown 0.2s ease; }
     @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
     
@@ -91,6 +114,7 @@
       gap: 12px;
       transition: background 0.2s;
     }
+    
     .dropdown-menu a:hover { background: #f4f6f5; color: #4b9b69; }
     .dropdown-menu hr { margin: 0; border: none; border-bottom: 1px solid #e3e8e4; }
 
@@ -115,6 +139,7 @@
   <header class="topbar">
     
     <div class="menu-wrapper" id="brand-menu-wrapper">
+      <!-- LE NOUVEAU LOGO CLIQUABLE -->
       <div class="brand pointer" onclick="toggleMainMenu()">
         <svg width="35" height="35" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M 8 45 L 50 12 L 92 45" stroke="#7bd0df" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -130,6 +155,7 @@
         </div>
       </div>
       
+      <!-- LE MENU DÉROULANT -->
       <div id="main-menu" class="dropdown-menu">
         <a href="javascript:void(0)" onclick="openInfoModal('mode_emploi')">📖 Guide d'utilisation</a>
         <a href="javascript:void(0)" onclick="openInfoModal('aide')">❓ Centre d'aide (FAQ)</a>
@@ -186,6 +212,7 @@
     </section>
 
     <div class="dashboard-grid">
+      
       <!-- 1. SYSTÈMES -->
       <section class="card systems-card">
         <div class="card-header">
@@ -198,10 +225,13 @@
         <div id="systems" class="systems"></div>
       </section>
 
-      <!-- 2. DIAGNOSTICS (Nouveau Widget) -->
+      <!-- 2. DIAGNOSTICS (Nouveau) -->
       <section class="card">
         <div class="card-header">
-          <div><div class="eyebrow">RÉGLEMENTATION</div><h2>Diagnostics</h2></div>
+          <div>
+            <div class="eyebrow">RÉGLEMENTATION</div>
+            <h2>Diagnostics</h2>
+          </div>
           <button class="button secondary" style="padding: 4px 8px; font-size: 11px;" onclick="openAddDiagModal()">+ Ajouter</button>
         </div>
         <div id="diagnostics-container">
@@ -212,7 +242,10 @@
       <!-- 3. ENTRETIENS -->
       <section class="card">
         <div class="card-header">
-          <div><div class="eyebrow">À VENIR</div><h2>Entretien</h2></div>
+          <div>
+            <div class="eyebrow">À VENIR</div>
+            <h2>Entretien</h2>
+          </div>
         </div>
         <div id="alerts"></div>
       </section>
@@ -220,37 +253,39 @@
       <!-- 4. ARTISANS -->
       <section class="card">
         <div class="card-header">
-          <div><div class="eyebrow">ACCÈS & RÉSEAU</div><h2>Artisans</h2></div>
+          <div>
+            <div class="eyebrow">ACCÈS & RÉSEAU</div>
+            <h2>Artisans</h2>
+          </div>
           <button class="link-button" onclick="openQrSimulatorModal()">Simuler QR Pro</button>
         </div>
         <div id="professionals"></div>
       </section>
 
-      <!-- 5. LA BIBLIOTHÈQUE INTACTE -->
-      <section class="card documents-card">
+      <!-- 5. BIBLIOTHÈQUE & ESPACES LIBRES -->
+      <section class="card documents-card" style="grid-column: 1 / -1;">
         <div class="card-header">
-          <div><div class="eyebrow">SÉCURITÉ & DOCUMENTS</div><h2>Ma bibliothèque</h2></div>
+          <div>
+            <div class="eyebrow">SÉCURITÉ & DOCUMENTS</div>
+            <h2>Ma bibliothèque</h2>
+          </div>
+          <button class="button secondary" style="padding: 4px 10px; font-size: 11px;" onclick="openAddCustomWidgetModal()">+ Créer un Widget</button>
         </div>
-        <div class="documents">
-          <div class="document" style="background:#fffcf5; border-color:#ffe8a1;" onclick="openVaultCheck()">
+        
+        <div class="documents" style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
+          
+          <!-- Le Coffre-fort reste intact -->
+          <div class="document pointer" style="background:#fffcf5; border-color:#ffe8a1; flex: 1; min-width: 200px;" onclick="openVaultCheck()">
             <div class="document-icon">🔐</div>
             <strong style="color:#856404;">Coffre-fort</strong>
             <span style="color:#b38c23;">Mots de passe</span>
           </div>
-          <div class="document"><div class="document-icon">📐</div><strong>Plans</strong><span id="doc-plans">0 fichiers</span></div>
-          <div class="document"><div class="document-icon">🧾</div><strong>Factures</strong><span>0 fichiers</span></div>
-          <div class="document"><div class="document-icon">📖</div><strong>Notices auto.</strong><span id="doc-notices">0 fichiers</span></div>
-        </div>
-      </section>
-      
-      <!-- 6. WIDGETS LIBRES PERSONNALISÉS (Nouveau Widget) -->
-      <section class="card">
-        <div class="card-header">
-          <div><div class="eyebrow">PERSONNALISÉ</div><h2>Espaces libres</h2></div>
-          <button class="button secondary" style="padding: 4px 10px; font-size: 11px;" onclick="openAddCustomWidgetModal()">+ Créer un Widget</button>
-        </div>
-        <div id="custom-widgets-container" style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
-          <!-- Injecté par JS -->
+          
+          <!-- Conteneur où les widgets libres vont s'ajouter à la suite -->
+          <div id="custom-widgets-container" style="display: contents;">
+            <!-- Les widgets seront injectés ici par JS -->
+          </div>
+
         </div>
       </section>
 
@@ -266,7 +301,7 @@
 
   <div id="toast" class="toast"></div>
 
-  <script src="/app.js?v=33"></script> 
+  <script src="/app.js?v=34"></script> 
 
   <!-- SCRIPT POUR LE MENU DÉROULANT ET LES FENÊTRES D'AIDE -->
   <script>
