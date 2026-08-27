@@ -892,7 +892,7 @@ function togglePlanZoom() {
 }
 
 /* ============================================================
-   DIAGNOSTICS IMMOBILIERS (LISTE VERTICALE)
+   DIAGNOSTICS IMMOBILIERS (LISTE VERTICALE AVEC EDITION)
    ============================================================ */
 function displayDiagnostics() {
   const container = document.getElementById("diagnostics-container");
@@ -911,12 +911,10 @@ function displayDiagnostics() {
   container.innerHTML = diags.map((d, index) => {
     let resultVisual = `<strong>${escapeHTML(d.result)}</strong>`;
     
-    // Si c'est un DPE, on fait un beau badge de couleur (ex: "E" en orange)
     if (d.name && d.name.toUpperCase().includes("DPE") && dpeColors[(d.result || "").toUpperCase()]) {
       resultVisual = `<span style="background:${dpeColors[d.result.toUpperCase()]}; color:white; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:16px;">${d.result.toUpperCase()}</span>`;
     }
 
-    // Vignette de l'image sur la gauche
     let imgHtml = d.image 
       ? `<img src="${d.image}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 1px solid #cdd4ce; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="viewDocumentFullscreen('${d.image}', '${escapeHTML(d.name)}')">`
       : `<div style="width: 50px; height: 50px; border-radius: 8px; background: #f4f6f5; border: 1px dashed #cdd4ce; display: flex; align-items: center; justify-content: center; font-size: 20px;">📄</div>`;
@@ -932,7 +930,7 @@ function displayDiagnostics() {
         </div>
         <div style="display:flex; align-items:center; gap:15px;">
           ${resultVisual}
-          <button onclick="deleteDiagnostic(${index})" style="background:none; border:none; cursor:pointer; font-size:16px; color:#aab7af; transition:color 0.2s;" onmouseover="this.style.color='#d93025'" onmouseout="this.style.color='#aab7af'">🗑️</button>
+          <button onclick="openEditDiagModal(${index})" style="background:none; border:none; cursor:pointer; font-size:14px; color:#77827a; transition:0.2s;" onmouseover="this.style.color='#1e362d'" onmouseout="this.style.color='#77827a'">✏️</button>
         </div>
       </div>
     `;
@@ -944,7 +942,6 @@ function openAddDiagModal() {
     <div class="eyebrow">DIAGNOSTIC</div>
     <h2>Ajouter un document</h2>
     <form action="javascript:void(0);" onsubmit="event.preventDefault(); processDiagSubmit(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      
       <select id="diag-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
         <option value="DPE (Énergie)">DPE (Énergie)</option>
         <option value="GES (Climat)">GES (Climat)</option>
@@ -958,17 +955,14 @@ function openAddDiagModal() {
         <option value="Audit Énergétique">Audit Énergétique</option>
         <option value="Autre Diagnostic">Autre Diagnostic...</option>
       </select>
-      
       <div style="display:flex; gap:10px;">
-        <input type="text" id="diag-result" placeholder="Résultat (Ex: A, B, Présence...)" required style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="text" id="diag-result" placeholder="Résultat (Ex: A, B, Néant...)" required style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
         <input type="date" id="diag-date" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
       </div>
-
       <div style="background:#f4f6f5; padding:15px; border-radius:8px; border:1px dashed #cdd4ce; margin-top:5px;">
         <label style="font-size:12px; font-weight:bold; color:#59645d; display:block; margin-bottom:8px;">📸 Joindre le document (Photo ou capture)</label>
-        <input type="file" id="diag-image" accept="image/*" style="width:100%; font-size:13px;">
+        <input type="file" id="diag-image" accept="image/*" required style="width:100%; font-size:13px;">
       </div>
-
       <button type="submit" class="button primary pointer" style="margin-top:10px;">Enregistrer le diagnostic</button>
     </form>`;
   openModal();
@@ -980,22 +974,16 @@ function processDiagSubmit() {
   const date = document.getElementById("diag-date").value;
   const fileInput = document.getElementById("diag-image");
 
-  if (fileInput.files.length > 0) {
-    showMessage("⏳ Compression de l'image...");
-    const file = fileInput.files[0];
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-      try {
-        const compressed = await compressImage(e.target.result);
-        submitDiagnosticData({ name, result, date, image: compressed });
-      } catch(err) {
-        showMessage("Erreur de compression.");
-      }
-    };
-    reader.readAsDataURL(file);
-  } else {
-    submitDiagnosticData({ name, result, date, image: null });
-  }
+  if (fileInput.files.length === 0) return;
+  showMessage("⏳ Traitement de l'image...");
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const compressed = await compressImage(e.target.result);
+      submitDiagnosticData({ name, result, date, image: compressed });
+    } catch(err) { showMessage("Erreur compression."); }
+  };
+  reader.readAsDataURL(fileInput.files[0]);
 }
 
 async function submitDiagnosticData(newDiag) {
@@ -1006,26 +994,261 @@ async function submitDiagnosticData(newDiag) {
 
   try {
     const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: diags }) });
-    if (res.ok) { 
-      closeModal(); 
-      loadHomeData(); 
-      showMessage("Diagnostic ajouté !");
-    }
+    if (res.ok) { closeModal(); loadHomeData(); showMessage("Diagnostic ajouté !"); }
+  } catch(e) { showMessage("Erreur réseau"); }
+}
+
+function openEditDiagModal(index) {
+  const d = homeData.diagnostics[index];
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">MODIFICATION</div>
+    <h2>Modifier ${escapeHTML(d.name)}</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitEditDiag(${index}); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <select id="edit-diag-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <option value="${escapeHTML(d.name)}" selected>${escapeHTML(d.name)}</option>
+        <option value="DPE (Énergie)">DPE (Énergie)</option>
+        <option value="GES (Climat)">GES (Climat)</option>
+        <option value="Amiante">Amiante</option>
+        <option value="Électricité">Électricité</option>
+        <option value="Plomb">Plomb</option>
+        <option value="Termites">Termites</option>
+        <option value="ERP / Risques">ERP / Risques</option>
+        <option value="Assainissement">Assainissement</option>
+        <option value="Mérule">Mérule</option>
+        <option value="Audit Énergétique">Audit Énergétique</option>
+        <option value="Autre Diagnostic">Autre Diagnostic...</option>
+      </select>
+      <div style="display:flex; gap:10px;">
+        <input type="text" id="edit-diag-result" value="${escapeHTML(d.result)}" required style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="date" id="edit-diag-date" value="${escapeHTML(d.date || '')}" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+      </div>
+      <div style="background:#f4f6f5; padding:15px; border-radius:8px; border:1px dashed #cdd4ce; margin-top:5px;">
+        <label style="font-size:12px; font-weight:bold; color:#59645d; display:block; margin-bottom:8px;">📸 Remplacer le document (Laisser vide pour garder l'actuel)</label>
+        <input type="file" id="edit-diag-image" accept="image/*" style="width:100%; font-size:13px;">
+      </div>
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <button type="submit" class="button primary pointer" style="flex:1;">Enregistrer</button>
+        <button type="button" class="button secondary pointer" style="color:#d93025; border:1px solid #fce8e6; background:#fffafa;" onclick="deleteDiagnostic(${index})">🗑️ Supprimer</button>
+      </div>
+    </form>`;
+  openModal();
+}
+
+function submitEditDiag(index) {
+  const name = document.getElementById("edit-diag-name").value;
+  const result = document.getElementById("edit-diag-result").value;
+  const date = document.getElementById("edit-diag-date").value;
+  const fileInput = document.getElementById("edit-diag-image");
+
+  if (fileInput.files.length > 0) {
+    showMessage("⏳ Compression de l'image...");
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      try {
+        const compressed = await compressImage(e.target.result);
+        updateDiagnosticData(index, { name, result, date, image: compressed });
+      } catch(err) { showMessage("Erreur de compression."); }
+    };
+    reader.readAsDataURL(fileInput.files[0]);
+  } else {
+    // Garder l'ancienne image si non modifiée
+    updateDiagnosticData(index, { name, result, date, image: homeData.diagnostics[index].image });
+  }
+}
+
+async function updateDiagnosticData(index, updatedDiag) {
+  showMessage("Sauvegarde en cours...");
+  homeData.diagnostics[index] = updatedDiag;
+  try {
+    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: homeData.diagnostics }) });
+    if (res.ok) { closeModal(); loadHomeData(); showMessage("Diagnostic modifié !"); }
   } catch(e) { showMessage("Erreur réseau"); }
 }
 
 async function deleteDiagnostic(index) {
-  if(!confirm("Voulez-vous vraiment supprimer ce diagnostic et son image associée ?")) return;
+  if(!confirm("Voulez-vous vraiment supprimer ce diagnostic ?")) return;
   let diags = homeData.diagnostics;
-  if (!Array.isArray(diags)) diags = [];
   diags.splice(index, 1);
   try {
     await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: diags }) });
+    closeModal();
     loadHomeData();
     showMessage("Diagnostic supprimé.");
   } catch(e) { showMessage("Erreur"); }
 }
 
+/* ============================================================
+   CADASTRE - PHILOSOPHIE JUMELLE (LISTE VERTICALE AVEC EDITION)
+   ============================================================ */
+function displayCadastre() {
+  const container = document.getElementById("cadastre-container");
+  if (!container) return;
+  
+  let cadastreItems = homeData.cadastre;
+  if (!Array.isArray(cadastreItems)) cadastreItems = [];
+  
+  if (cadastreItems.length === 0) {
+    container.innerHTML = `<p style="font-size:13px; color:#77827a;">Aucun document cadastral enregistré.</p>`;
+    return;
+  }
+
+  container.innerHTML = cadastreItems.map((c, index) => {
+    let imgHtml = c.image 
+      ? `<img src="${c.image}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 1px solid #cdd4ce; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="viewDocumentFullscreen('${c.image}', '${escapeHTML(c.name)}')">`
+      : `<div style="width: 50px; height: 50px; border-radius: 8px; background: #f4f6f5; border: 1px dashed #cdd4ce; display: flex; align-items: center; justify-content: center; font-size: 20px;">🗺️</div>`;
+
+    return `
+      <div style="background:#ffffff; border:1px solid #e3e8e4; border-radius:10px; padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          ${imgHtml}
+          <div>
+            <strong style="display:block; color:#17211c; font-size:13px; text-transform:uppercase;">${escapeHTML(c.name)}</strong>
+            <span style="font-size:11px; color:#77827a;">Info : ${escapeHTML(c.info || "Non renseigné")}</span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:15px;">
+          <span style="font-size:11px; color:#17211c; font-weight:bold;">${escapeHTML(c.date || "")}</span>
+          <button onclick="openEditCadastreModal(${index})" style="background:none; border:none; cursor:pointer; font-size:14px; color:#77827a; transition:0.2s;" onmouseover="this.style.color='#1e362d'" onmouseout="this.style.color='#77827a'">✏️</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function openAddCadastreModal() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">FONCIER</div>
+    <h2>Ajouter un plan</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); processCadastreSubmit(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <select id="cad-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <option value="Plan Cadastral">Plan Cadastral</option>
+        <option value="Vue Satellite">Vue Satellite</option>
+        <option value="Photo Terrain">Photo Terrain</option>
+        <option value="Plan de Masse">Plan de Masse</option>
+        <option value="Plan de Situation">Plan de Situation</option>
+        <option value="Règlement PLU">Règlement PLU / Foncier</option>
+        <option value="Bornage Géomètre">Bornage Géomètre</option>
+        <option value="Servitudes">Servitudes</option>
+        <option value="Autre Plan">Autre Plan...</option>
+      </select>
+      <div style="display:flex; gap:10px;">
+        <input type="text" id="cad-info" placeholder="Section (ex: AH 123)" required style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="date" id="cad-date" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+      </div>
+      <div style="background:#f4f6f5; padding:15px; border-radius:8px; border:1px dashed #cdd4ce; margin-top:5px;">
+        <label style="font-size:12px; font-weight:bold; color:#59645d; display:block; margin-bottom:8px;">📸 Joindre le document (Photo ou capture)</label>
+        <input type="file" id="cad-image" accept="image/*" required style="width:100%; font-size:13px;">
+      </div>
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder le plan</button>
+    </form>`;
+  openModal();
+}
+
+function processCadastreSubmit() {
+  const name = document.getElementById("cad-name").value;
+  const info = document.getElementById("cad-info").value;
+  const date = document.getElementById("cad-date").value;
+  const fileInput = document.getElementById("cad-image");
+  
+  if (fileInput.files.length === 0) return;
+  showMessage("⏳ Traitement...");
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const compressed = await compressImage(e.target.result);
+      submitCadastreSave({ name, info, date, image: compressed });
+    } catch(err) { showMessage("Erreur compression."); }
+  };
+  reader.readAsDataURL(fileInput.files[0]);
+}
+
+async function submitCadastreSave(newCadItem) {
+  showMessage("Sauvegarde...");
+  let cadastreArray = homeData.cadastre;
+  if (!Array.isArray(cadastreArray)) cadastreArray = [];
+  cadastreArray.push(newCadItem);
+
+  try {
+    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: cadastreArray }) });
+    if (res.ok) { closeModal(); loadHomeData(); showMessage("Plan ajouté !"); }
+  } catch(e) { showMessage("Erreur."); }
+}
+
+function openEditCadastreModal(index) {
+  const c = homeData.cadastre[index];
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">MODIFICATION FONCIER</div>
+    <h2>Modifier ${escapeHTML(c.name)}</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitEditCadastre(${index}); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <select id="edit-cad-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <option value="${escapeHTML(c.name)}" selected>${escapeHTML(c.name)}</option>
+        <option value="Plan Cadastral">Plan Cadastral</option>
+        <option value="Vue Satellite">Vue Satellite</option>
+        <option value="Photo Terrain">Photo Terrain</option>
+        <option value="Plan de Masse">Plan de Masse</option>
+        <option value="Plan de Situation">Plan de Situation</option>
+        <option value="Règlement PLU">Règlement PLU / Foncier</option>
+        <option value="Bornage Géomètre">Bornage Géomètre</option>
+        <option value="Servitudes">Servitudes</option>
+        <option value="Autre Plan">Autre Plan...</option>
+      </select>
+      <div style="display:flex; gap:10px;">
+        <input type="text" id="edit-cad-info" value="${escapeHTML(c.info || '')}" placeholder="Section (ex: AH 123)" required style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="date" id="edit-cad-date" value="${escapeHTML(c.date || '')}" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+      </div>
+      <div style="background:#f4f6f5; padding:15px; border-radius:8px; border:1px dashed #cdd4ce; margin-top:5px;">
+        <label style="font-size:12px; font-weight:bold; color:#59645d; display:block; margin-bottom:8px;">📸 Remplacer le document (Laisser vide pour garder l'actuel)</label>
+        <input type="file" id="edit-cad-image" accept="image/*" style="width:100%; font-size:13px;">
+      </div>
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <button type="submit" class="button primary pointer" style="flex:1;">Enregistrer</button>
+        <button type="button" class="button secondary pointer" style="color:#d93025; border:1px solid #fce8e6; background:#fffafa;" onclick="deleteCadastreItem(${index})">🗑️ Supprimer</button>
+      </div>
+    </form>`;
+  openModal();
+}
+
+function submitEditCadastre(index) {
+  const name = document.getElementById("edit-cad-name").value;
+  const info = document.getElementById("edit-cad-info").value;
+  const date = document.getElementById("edit-cad-date").value;
+  const fileInput = document.getElementById("edit-cad-image");
+
+  if (fileInput.files.length > 0) {
+    showMessage("⏳ Compression de l'image...");
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      try {
+        const compressed = await compressImage(e.target.result);
+        updateCadastreData(index, { name, info, date, image: compressed });
+      } catch(err) { showMessage("Erreur de compression."); }
+    };
+    reader.readAsDataURL(fileInput.files[0]);
+  } else {
+    // Garder l'ancienne image si non modifiée
+    updateCadastreData(index, { name, info, date, image: homeData.cadastre[index].image });
+  }
+}
+
+async function updateCadastreData(index, updatedCad) {
+  showMessage("Sauvegarde en cours...");
+  homeData.cadastre[index] = updatedCad;
+  try {
+    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: homeData.cadastre }) });
+    if (res.ok) { closeModal(); loadHomeData(); showMessage("Plan modifié !"); }
+  } catch(e) { showMessage("Erreur réseau"); }
+}
+
+async function deleteCadastreItem(index) {
+  if(!confirm("Supprimer ce plan cadastral ?")) return;
+  let cadastreArray = homeData.cadastre;
+  cadastreArray.splice(index, 1);
+  try {
+    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: cadastreArray }) });
+    closeModal();
+    loadHomeData();
+  } catch(e) { showMessage("Erreur"); }
+}
 /* ============================================================
    ESPACES PERSONNALISÉS (WIDGETS DANS LA BIBLIOTHÈQUE)
    ============================================================ */
