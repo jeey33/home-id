@@ -1,7 +1,7 @@
 const express = require("express");
 const path = require("path");
 const { Pool } = require("pg");
-const crypto = require("crypto"); // Module de cryptographie pour le coffre-fort
+const crypto = require("crypto"); // NOUVEAU : Module de cryptographie pour le coffre-fort
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,6 +14,7 @@ const pool = new Pool({
 });
 
 // --- SÉCURITÉ COFFRE FORT (AES-256) ---
+// Clé de chiffrement générée à partir d'un secret serveur
 const ENCRYPTION_KEY = crypto.createHash('sha256').update(process.env.VAULT_SECRET || "home-id-ultra-secure-key-2026").digest('base64').substring(0, 32);
 const IV_LENGTH = 16;
 
@@ -57,6 +58,8 @@ async function initDB() {
     await pool.query(`ALTER TABLE alerts ADD COLUMN IF NOT EXISTS is_done BOOLEAN DEFAULT FALSE;`);
     await pool.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;`);
     await pool.query(`ALTER TABLE professionals ADD COLUMN IF NOT EXISTS notes TEXT;`);
+    
+    // Ajout du code PIN du coffre à la maison
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS vault_pin VARCHAR(255);`);
 
     // --- NOUVEAUTÉ : Ajout des colonnes JSON pour Diagnostics, Widgets et CADASTRE ---
