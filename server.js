@@ -1,7 +1,7 @@
 const express = require("express");
 const path = require("path");
 const { Pool } = require("pg");
-const crypto = require("crypto");
+const crypto = require("crypto"); // NOUVEAU : Module de cryptographie pour le coffre-fort
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,6 +14,7 @@ const pool = new Pool({
 });
 
 // --- SÉCURITÉ COFFRE FORT (AES-256) ---
+// Clé de chiffrement générée à partir d'un secret serveur
 const ENCRYPTION_KEY = crypto.createHash('sha256').update(process.env.VAULT_SECRET || "home-id-ultra-secure-key-2026").digest('base64').substring(0, 32);
 const IV_LENGTH = 16;
 
@@ -44,6 +45,8 @@ async function initDB() {
       CREATE TABLE IF NOT EXISTS alerts (id SERIAL PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id) ON DELETE CASCADE, title VARCHAR(255), text TEXT, date VARCHAR(50));
       CREATE TABLE IF NOT EXISTS professionals (id SERIAL PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id) ON DELETE CASCADE, name VARCHAR(100), domain VARCHAR(100), access VARCHAR(50), expires VARCHAR(50));
       CREATE TABLE IF NOT EXISTS documents (id VARCHAR(50) PRIMARY KEY, system_id VARCHAR(50) REFERENCES systems(id) ON DELETE CASCADE, name VARCHAR(255), added VARCHAR(50));
+      
+      -- Tables pour le coffre-fort
       CREATE TABLE IF NOT EXISTS vault_items (id SERIAL PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id) ON DELETE CASCADE, title VARCHAR(100), login VARCHAR(100), encrypted_pwd TEXT);
     `);
 
@@ -55,15 +58,19 @@ async function initDB() {
     await pool.query(`ALTER TABLE alerts ADD COLUMN IF NOT EXISTS is_done BOOLEAN DEFAULT FALSE;`);
     await pool.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;`);
     await pool.query(`ALTER TABLE professionals ADD COLUMN IF NOT EXISTS notes TEXT;`);
+    
+    // Ajout du code PIN du coffre à la maison
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS vault_pin VARCHAR(255);`);
 
-    // Nouvelles colonnes Jsonb
+    // --- NOUVEAUTÉ : Ajout des colonnes JSON pour Diagnostics, Widgets et CADASTRE ---
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS diagnostics JSONB DEFAULT '[]'::jsonb;`);
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS custom_widgets JSONB DEFAULT '[]'::jsonb;`);
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS cadastre JSONB DEFAULT '[]'::jsonb;`);
 
-    console.log("Base de données connectée et à jour !");
-  } catch (error) { console.error("Erreur init DB :", error); }
+    console.log("Base de données connectée, mise à jour et prête !");
+  } catch (error) {
+    console.error("Erreur init DB :", error);
+  }
 }
 initDB();
 
@@ -97,7 +104,9 @@ app.post("/api/setup", async (req, res) => {
       { id: `eau_${id}`, name: "Plomberie & Eau", icon: "💧", status: "À configurer", color: "orange", order: 2 },
       { id: `chauffe_${id}`, name: "Chauffage", icon: "🔥", status: "À configurer", color: "orange", order: 3 },
       { id: `clim_${id}`, name: "Clim & VMC", icon: "❄️", status: "À configurer", color: "orange", order: 4 },
-      { id: `piscine_${id}`, name: "Piscine", icon: "🏊", status: "À configurer", color: "orange", order: 5 }
+      { id: `piscine_${id}`, name: "Piscine", icon: "🏊", status: "À configurer", color: "orange", order: 5 },
+      { id: `ext_${id}`, name: "Extérieur", icon: "🌳", status: "À configurer", color: "orange", order: 6 },
+      { id: `domo_${id}`, name: "Réseau", icon: "📡", status: "À configurer", color: "orange", order: 7 }
     ];
     for (let sys of defaultSystems) { await pool.query(`INSERT INTO systems (id, home_id, name, icon, status, color, display_order) VALUES ($1, $2, $3, $4, 'À configurer', 'orange', 99)`, [sys.id, id, sys.name, sys.icon, sys.status, sys.color, sys.order]); }
     res.json({ ok: true, id: id });
@@ -127,13 +136,14 @@ app.get("/api/home", async (req, res) => {
       surface: homeResult.rows[0].surface, 
       land: homeResult.rows[0].land, 
       plans: homeResult.rows[0].plans || [], 
-      diagnostics: homeResult.rows[0].diagnostics || [], 
-      customWidgets: homeResult.rows[0].custom_widgets || [],
-      cadastre: homeResult.rows[0].cadastre || [],
       role: "owner", 
       systems, 
       alerts, 
-      professionals: pros 
+      professionals: pros,
+      // --- NOUVEAUTÉ : On inclut les diagnostics, Widgets et Cadastre dans la réponse ! ---
+      diagnostics: homeResult.rows[0].diagnostics || [], 
+      customWidgets: homeResult.rows[0].custom_widgets || [],
+      cadastre: homeResult.rows[0].cadastre || []
     });
   } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
 });
@@ -159,24 +169,34 @@ app.post("/api/home/plan", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
 });
 
+// --- NOUVELLE ROUTE UNIFIÉE POUR SAUVEGARDER LES DIAGNOSTICS, WIDGETS ET CADASTRE ---
 app.post("/api/home/update-fields", async (req, res) => {
   const { id, diagnostics, customWidgets, cadastre } = req.body;
   if (!id) return res.status(400).json({ error: "ID manquant" });
+
   try {
-    if (diagnostics !== undefined) await pool.query("UPDATE home SET diagnostics = $1 WHERE id = $2", [JSON.stringify(diagnostics), id]);
-    if (customWidgets !== undefined) await pool.query("UPDATE home SET custom_widgets = $1 WHERE id = $2", [JSON.stringify(customWidgets), id]);
-    if (cadastre !== undefined) await pool.query("UPDATE home SET cadastre = $1 WHERE id = $2", [JSON.stringify(cadastre), id]);
+    if (diagnostics !== undefined) {
+      await pool.query("UPDATE home SET diagnostics = $1 WHERE id = $2", [JSON.stringify(diagnostics), id]);
+    }
+    if (customWidgets !== undefined) {
+      await pool.query("UPDATE home SET custom_widgets = $1 WHERE id = $2", [JSON.stringify(customWidgets), id]);
+    }
+    if (cadastre !== undefined) {
+      await pool.query("UPDATE home SET cadastre = $1 WHERE id = $2", [JSON.stringify(cadastre), id]);
+    }
     res.json({ ok: true });
-  } catch (error) { res.status(500).json({ error: "Erreur serveur" }); }
+  } catch (error) {
+    res.status(500).json({ error: "Erreur serveur lors de la sauvegarde" });
+  }
 });
 
-// --- ROUTES SYSTÈMES ET EQUIPEMENTS ---
+// --- ROUTES SYSTÈMES, EQUIPEMENTS, ALERTES ET ARTISANS ---
 app.get("/api/systems/:id", async (req, res) => {
   try {
     const sysResult = await pool.query(`SELECT * FROM systems WHERE id = $1`, [req.params.id]);
     const equipResult = await pool.query(`SELECT * FROM equipment WHERE system_id = $1 ORDER BY created_at ASC`, [req.params.id]);
     if (sysResult.rows.length === 0) return res.status(404).json({ error: "Introuvable" });
-    res.json({ id: sysResult.rows[0].id, name: sysResult.rows[0].name, icon: sysResult.rows[0].icon, status: sysResult.rows[0].status, equipment: equipResult.rows || [] });
+    res.json({ id: sysResult.rows[0].id, name: sysResult.rows[0].name, icon: sysResult.rows[0].icon, specs: sysResult.rows[0].specs || {}, equipment: equipResult.rows || [] });
   } catch(e) { res.status(500).json({ error: "Erreur" }); }
 });
 
@@ -205,17 +225,44 @@ app.post("/api/systems/delete", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur" }); }
 });
 
+app.post("/api/systems/reorder", async (req, res) => {
+  const { orderData } = req.body;
+  try {
+    for (let item of orderData) {
+      await pool.query(`UPDATE systems SET display_order = $1 WHERE id = $2`, [item.order, item.id]);
+    }
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur de tri" }); }
+});
+
+app.post("/api/systems/config", async (req, res) => {
+  const { systemId, specs } = req.body;
+  try {
+    await pool.query(`UPDATE systems SET specs = $1, status = 'Configuré', color = 'green' WHERE id = $2`, [specs, systemId]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur" }); }
+});
+
 app.post("/api/equipment", async (req, res) => {
-  const { systemId, name, model, artisan, installed } = req.body;
+  const { systemId, name, model, artisan, notice, specs, notes } = req.body;
   const eqId = "EQ-" + Date.now().toString(36).toUpperCase();
+  const installedDate = new Date().toLocaleDateString("fr-FR");
   try {
     await pool.query(
-      `INSERT INTO equipment (id, system_id, name, model, installed, artisan) VALUES ($1, $2, $3, $4, $5, $6)`,
-      [eqId, systemId, name, model || "", installed || new Date().toLocaleDateString("fr-FR"), artisan || null]
+      `INSERT INTO equipment (id, system_id, name, model, installed, notice, artisan, specs, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [eqId, systemId, name, model || "", installedDate, notice || null, artisan || null, specs || {}, notes || ""]
     );
     await pool.query(`UPDATE systems SET status = 'À jour', color = 'green' WHERE id = $1`, [systemId]);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: "Erreur." }); }
+});
+
+app.post("/api/equipment/update", async (req, res) => {
+  const { id, name, model, installed, specs, notes } = req.body;
+  try {
+    await pool.query(`UPDATE equipment SET name = $1, model = $2, installed = $3, specs = $4, notes = $5 WHERE id = $6`, [name, model || "", installed, specs || {}, notes || "", id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur de modification." }); }
 });
 
 app.post("/api/equipment/delete", async (req, res) => {
@@ -223,51 +270,134 @@ app.post("/api/equipment/delete", async (req, res) => {
   try {
     await pool.query(`DELETE FROM equipment WHERE id = $1`, [id]);
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: "Erreur" }); }
+  } catch (err) { res.status(500).json({ error: "Erreur de suppression." }); }
 });
 
-// --- ALERTES ET ARTISANS ---
 app.post("/api/alerts/add", async (req, res) => {
   const { homeId, title, date, text } = req.body;
-  try { await pool.query(`INSERT INTO alerts (home_id, title, date, text) VALUES ($1, $2, $3, $4)`, [homeId, title, date, text || ""]); res.json({ ok: true }); } catch (err) { res.status(500).json({ error: "Erreur." }); }
-});
-app.post("/api/alerts/delete", async (req, res) => {
-  try { await pool.query(`DELETE FROM alerts WHERE id = $1`, [req.body.id]); res.json({ ok: true }); } catch (err) { res.status(500).json({ error: "Erreur." }); }
-});
-app.post("/api/professionals/add", async (req, res) => {
-  const { homeId, name, domain, phone } = req.body;
-  try { await pool.query(`INSERT INTO professionals (home_id, name, domain, phone, access) VALUES ($1, $2, $3, $4, 'Intervenu')`, [homeId, name, domain, phone || null]); res.json({ ok: true }); } catch (err) { res.status(500).json({ error: "Erreur." }); }
-});
-app.post("/api/professionals/delete", async (req, res) => {
-  try { await pool.query(`DELETE FROM professionals WHERE id = $1`, [req.body.id]); res.json({ ok: true }); } catch (err) { res.status(500).json({ error: "Erreur." }); }
+  try {
+    await pool.query(`INSERT INTO alerts (home_id, title, date, text) VALUES ($1, $2, $3, $4)`, [homeId, title, date, text || ""]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur." }); }
 });
 
-// --- COFFRE-FORT ---
+app.post("/api/alerts/toggle", async (req, res) => {
+  const { id, is_done } = req.body;
+  try {
+    await pool.query(`UPDATE alerts SET is_done = $1 WHERE id = $2`, [is_done, id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur." }); }
+});
+
+app.post("/api/alerts/update", async (req, res) => {
+  const { id, title, date, text } = req.body;
+  try {
+    await pool.query(`UPDATE alerts SET title = $1, date = $2, text = $3 WHERE id = $4`, [title, date, text || "", id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur de modification." }); }
+});
+
+app.post("/api/alerts/delete", async (req, res) => {
+  const { id } = req.body;
+  try {
+    await pool.query(`DELETE FROM alerts WHERE id = $1`, [id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur de suppression." }); }
+});
+
+app.post("/api/professionals/add", async (req, res) => {
+  const { homeId, name, domain, phone, email, notes } = req.body;
+  try {
+    await pool.query(`INSERT INTO professionals (home_id, name, domain, phone, email, notes, access) VALUES ($1, $2, $3, $4, $5, $6, 'Intervenu')`, [homeId, name, domain, phone || null, email || null, notes || ""]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur." }); }
+});
+
+app.post("/api/professionals/update", async (req, res) => {
+  const { id, name, domain, phone, email, notes } = req.body;
+  try {
+    await pool.query(`UPDATE professionals SET name = $1, domain = $2, phone = $3, email = $4, notes = $5 WHERE id = $6`, [name, domain, phone || null, email || null, notes || "", id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur." }); }
+});
+
+app.post("/api/professionals/delete", async (req, res) => {
+  const { id } = req.body;
+  try {
+    await pool.query(`DELETE FROM professionals WHERE id = $1`, [id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur." }); }
+});
+
+// --- NOUVELLES ROUTES : COFFRE-FORT DE MOTS DE PASSE ---
+
 app.post("/api/vault/check", async (req, res) => {
-  try { const home = await pool.query(`SELECT vault_pin FROM home WHERE id = $1`, [req.body.homeId]); res.json({ isSetup: !!home.rows[0].vault_pin }); } catch (err) { res.status(500).json({ error: "Erreur" }); }
+  const { homeId } = req.body;
+  try {
+    const home = await pool.query(`SELECT vault_pin FROM home WHERE id = $1`, [homeId]);
+    if (home.rows.length === 0) return res.status(404).json({ error: "Maison introuvable" });
+    res.json({ isSetup: !!home.rows[0].vault_pin });
+  } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
 });
+
 app.post("/api/vault/setup", async (req, res) => {
-  try { const hashedPin = crypto.createHash('sha256').update(req.body.pin).digest('hex'); await pool.query(`UPDATE home SET vault_pin = $1 WHERE id = $2`, [hashedPin, req.body.homeId]); res.json({ ok: true }); } catch (err) { res.status(500).json({ error: "Erreur" }); }
+  const { homeId, pin } = req.body;
+  try {
+    const hashedPin = crypto.createHash('sha256').update(pin).digest('hex');
+    await pool.query(`UPDATE home SET vault_pin = $1 WHERE id = $2`, [hashedPin, homeId]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
 });
+
 app.post("/api/vault/unlock", async (req, res) => {
+  const { homeId, pin } = req.body;
   try {
-    const home = await pool.query(`SELECT vault_pin FROM home WHERE id = $1`, [req.body.homeId]);
-    const hashedPin = crypto.createHash('sha256').update(req.body.pin).digest('hex');
-    if (home.rows[0].vault_pin !== hashedPin) return res.status(401).json({ error: "Code PIN incorrect" });
-    const items = await pool.query(`SELECT * FROM vault_items WHERE home_id = $1`, [req.body.homeId]);
-    const decryptedItems = items.rows.map(item => ({ id: item.id, title: item.title, login: item.login, password: decryptPassword(item.encrypted_pwd) }));
+    const home = await pool.query(`SELECT vault_pin FROM home WHERE id = $1`, [homeId]);
+    const hashedPin = crypto.createHash('sha256').update(pin).digest('hex');
+    
+    if (home.rows[0].vault_pin !== hashedPin) {
+      return res.status(401).json({ error: "Code PIN incorrect" });
+    }
+
+    const items = await pool.query(`SELECT * FROM vault_items WHERE home_id = $1`, [homeId]);
+    const decryptedItems = items.rows.map(item => ({
+      id: item.id,
+      title: item.title,
+      login: item.login,
+      password: decryptPassword(item.encrypted_pwd)
+    }));
+
     res.json({ ok: true, items: decryptedItems });
-  } catch (err) { res.status(500).json({ error: "Erreur" }); }
+  } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
 });
+
 app.post("/api/vault/add", async (req, res) => {
+  const { homeId, pin, title, login, password } = req.body;
   try {
-    const encryptedPwd = encryptPassword(req.body.password);
-    await pool.query(`INSERT INTO vault_items (home_id, title, login, encrypted_pwd) VALUES ($1, $2, $3, $4)`, [req.body.homeId, req.body.title, req.body.login || "", encryptedPwd]);
+    const home = await pool.query(`SELECT vault_pin FROM home WHERE id = $1`, [homeId]);
+    const hashedPin = crypto.createHash('sha256').update(pin).digest('hex');
+    if (home.rows[0].vault_pin !== hashedPin) return res.status(401).json({ error: "Accès refusé" });
+
+    const encryptedPwd = encryptPassword(password);
+    
+    await pool.query(
+      `INSERT INTO vault_items (home_id, title, login, encrypted_pwd) VALUES ($1, $2, $3, $4)`,
+      [homeId, title, login || "", encryptedPwd]
+    );
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
+});
+
+app.post("/api/vault/delete", async (req, res) => {
+  const { homeId, pin, itemId } = req.body;
+  try {
+    const home = await pool.query(`SELECT vault_pin FROM home WHERE id = $1`, [homeId]);
+    const hashedPin = crypto.createHash('sha256').update(pin).digest('hex');
+    if (home.rows[0].vault_pin !== hashedPin) return res.status(401).json({ error: "Accès refusé" });
+
+    await pool.query(`DELETE FROM vault_items WHERE id = $1`, [itemId]);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: "Erreur" }); }
-});
-app.post("/api/vault/delete", async (req, res) => {
-  try { await pool.query(`DELETE FROM vault_items WHERE id = $1`, [req.body.itemId]); res.json({ ok: true }); } catch (err) { res.status(500).json({ error: "Erreur" }); }
 });
 
 app.listen(PORT, () => console.log(`Serveur prêt sur port ${PORT}`));
