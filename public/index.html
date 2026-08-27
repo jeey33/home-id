@@ -45,12 +45,12 @@
     .system { flex: 1 1 140px !important; min-width: 140px; margin: 0 !important; transition: opacity 0.2s, transform 0.2s; }
     .system.dragging { opacity: 0.4; border: 2px dashed #4b9b69; transform: scale(0.98); }
 
-    /* Galerie de plans */
-    .plans-container { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: thin; }
-    .plan-thumbnail { flex: 0 0 80px; cursor: pointer; text-align: center; transition: transform 0.2s; }
-    .plan-thumbnail:hover { transform: scale(1.05); }
-    .plan-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid #cdd4ce; }
-    .plan-name { font-size: 10px; color: #59645d; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold; }
+    /* Galerie de plans, cadastre et diagnostics */
+    .plans-container, .cadastre-container, .diags-container { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: thin; }
+    .plan-thumbnail, .cadastre-thumbnail, .diag-thumbnail { flex: 0 0 80px; cursor: pointer; text-align: center; transition: transform 0.2s; position: relative; }
+    .plan-thumbnail:hover, .cadastre-thumbnail:hover, .diag-thumbnail:hover { transform: scale(1.05); }
+    .plan-img, .cadastre-img, .diag-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid #cdd4ce; }
+    .plan-name, .cadastre-name, .diag-name { font-size: 10px; color: #59645d; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold; }
 
     /* ============================================
        TOPBAR & MENU DÉROULANT
@@ -225,30 +225,21 @@
         <div id="systems" class="systems"></div>
       </section>
 
-      <!-- 2. CADASTRE MULTI-IMAGES (Mise à jour) -->
+      <!-- 2. CADASTRE MULTI-IMAGES (Mise à jour: Philosophie Jumelle) -->
       <section class="card">
         <div class="card-header">
-          <div><div class="eyebrow">FONCIER</div><h2>Cadastre</h2></div>
-          <div style="display:flex; gap:5px;">
-            <button class="button secondary" style="padding: 4px 8px; font-size: 11px;" onclick="openEditCadastreTextModal()">📝 Infos</button>
-            <button class="button primary" style="padding: 4px 8px; font-size: 11px;" onclick="openAddCadastreImageModal()">+ Image</button>
+          <div>
+            <div class="eyebrow">FONCIER</div>
+            <h2>Cadastre</h2>
           </div>
+          <button class="button secondary" style="padding: 4px 8px; font-size: 11px;" onclick="openAddCadastreModal()">+ Ajouter</button>
         </div>
-        
-        <!-- Zone Texte -->
-        <div id="cadastre-text-container" style="margin-bottom:15px; border-bottom:1px solid #e3e8e4; padding-bottom:15px;">
+        <div id="cadastre-container" class="cadastre-container">
           <!-- Injecté par JS -->
-        </div>
-
-        <!-- Zone Galerie Photos -->
-        <div style="margin-top: 10px;">
-          <div id="cadastre-gallery" class="cadastre-container">
-            <!-- Vignettes injectées ici -->
-          </div>
         </div>
       </section>
       
-      <!-- 2. DIAGNOSTICS (Nouveau) -->
+      <!-- 3. DIAGNOSTICS -->
       <section class="card">
         <div class="card-header">
           <div>
@@ -257,12 +248,12 @@
           </div>
           <button class="button secondary" style="padding: 4px 8px; font-size: 11px;" onclick="openAddDiagModal()">+ Ajouter</button>
         </div>
-        <div id="diagnostics-container">
+        <div id="diagnostics-container" class="diags-container">
           <!-- Injecté par JS -->
         </div>
       </section>
 
-      <!-- 3. ENTRETIENS -->
+      <!-- 4. ENTRETIENS -->
       <section class="card">
         <div class="card-header">
           <div>
@@ -273,7 +264,7 @@
         <div id="alerts"></div>
       </section>
 
-      <!-- 4. ARTISANS -->
+      <!-- 5. ARTISANS -->
       <section class="card">
         <div class="card-header">
           <div>
@@ -285,7 +276,7 @@
         <div id="professionals"></div>
       </section>
 
-      <!-- 5. BIBLIOTHÈQUE & ESPACES LIBRES -->
+      <!-- 6. BIBLIOTHÈQUE & ESPACES LIBRES -->
       <section class="card documents-card" style="grid-column: 1 / -1;">
         <div class="card-header">
           <div>
