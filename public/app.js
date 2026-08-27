@@ -861,7 +861,7 @@ function escapeHTML(str) { return String(str ?? "").replace(/&/g, "&amp;").repla
 function openQrSimulatorModal() { window.open(`/scan/${currentHomeId}`, "_blank"); }
 
 /* ============================================================
-   DIAGNOSTICS IMMOBILIERS
+   DIAGNOSTICS IMMOBILIERS (Avec Images / Preuves visuelles)
    ============================================================ */
 function displayDiagnostics() {
   const container = document.getElementById("diagnostics-container");
@@ -879,31 +879,55 @@ function displayDiagnostics() {
   container.innerHTML = diags.map((d, index) => {
     let resultVisual = `<strong>${escapeHTML(d.result)}</strong>`;
     
-    // Si c'est un DPE, on fait un beau badge de couleur !
+    // Si c'est un DPE, on fait un beau badge de couleur
     if (d.name.toUpperCase().includes("DPE") && dpeColors[d.result.toUpperCase()]) {
       resultVisual = `<span style="background:${dpeColors[d.result.toUpperCase()]}; color:white; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:16px;">${d.result.toUpperCase()}</span>`;
     }
 
+    // Gestion de la vignette visuelle (Si une image a été uploadée)
+    let imgHtml = d.image 
+      ? `<img src="${d.image}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 1px solid #cdd4ce; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="viewDiagFullscreen('${d.image}', '${escapeHTML(d.name)}')">`
+      : `<div style="width: 50px; height: 50px; border-radius: 8px; background: #f4f6f5; border: 1px dashed #cdd4ce; display: flex; align-items: center; justify-content: center; font-size: 20px;">📄</div>`;
+
     return `
       <div style="background:#ffffff; border:1px solid #e3e8e4; border-radius:10px; padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-        <div>
-          <strong style="display:block; color:#17211c; font-size:13px; text-transform:uppercase;">${escapeHTML(d.name)}</strong>
-          <span style="font-size:11px; color:#77827a;">Fait le : ${escapeHTML(d.date || "Inconnue")}</span>
+        <div style="display:flex; align-items:center; gap:12px;">
+          ${imgHtml}
+          <div>
+            <strong style="display:block; color:#17211c; font-size:13px; text-transform:uppercase;">${escapeHTML(d.name)}</strong>
+            <span style="font-size:11px; color:#77827a;">Fait le : ${escapeHTML(d.date || "Inconnue")}</span>
+          </div>
         </div>
         <div style="display:flex; align-items:center; gap:15px;">
           ${resultVisual}
-          <button onclick="deleteDiagnostic(${index})" style="background:none; border:none; cursor:pointer; font-size:12px; color:#d93025;">🗑️</button>
+          <button onclick="deleteDiagnostic(${index})" style="background:none; border:none; cursor:pointer; font-size:12px; color:#d93025; padding:5px;">🗑️</button>
         </div>
       </div>
     `;
   }).join("");
 }
 
+// Ouvre le document en plein écran (Réutilise la logique de zoom des plans)
+function viewDiagFullscreen(imageSrc, diagName) {
+  document.getElementById("modal-content").innerHTML = `
+    <div style="display:flex; flex-direction:column; height: 75vh;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+        <h2 style="margin:0; font-size:18px;">Résultat : ${escapeHTML(diagName)}</h2>
+        <button class="button secondary pointer" style="padding:4px 10px; font-size:11px;" onclick="togglePlanZoom()">🔍 Zoomer</button>
+      </div>
+      <div style="flex:1; overflow:auto; background:#f4f6f5; border-radius:8px; border:1px solid #e3e8e4; text-align:center;">
+        <img id="fullscreen-plan-img" src="${imageSrc}" style="max-width:100%; height:auto; transition: width 0.3s ease; cursor: zoom-in;" onclick="togglePlanZoom()">
+      </div>
+    </div>`;
+  openModal();
+}
+
 function openAddDiagModal() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">DIAGNOSTIC</div>
     <h2>Ajouter un document</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitDiagnostic(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); processDiagSubmit(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      
       <select id="diag-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
         <option value="DPE (Énergie)">DPE (Énergie)</option>
         <option value="GES (Climat)">GES (Climat)</option>
@@ -911,40 +935,70 @@ function openAddDiagModal() {
         <option value="Électricité">Électricité</option>
         <option value="Plomb">Plomb</option>
         <option value="Termites">Termites</option>
+        <option value="Autre Diagnostic">Autre Diagnostic...</option>
       </select>
-      <input type="text" id="diag-result" placeholder="Résultat (Ex: A, B, Présence, Anomalie...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="date" id="diag-date" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Enregistrer</button>
+      
+      <div style="display:flex; gap:10px;">
+        <input type="text" id="diag-result" placeholder="Résultat (Ex: A, B, Présence...)" required style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="date" id="diag-date" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+      </div>
+
+      <div style="background:#f4f6f5; padding:15px; border-radius:8px; border:1px dashed #cdd4ce; margin-top:5px;">
+        <label style="font-size:12px; font-weight:bold; color:#59645d; display:block; margin-bottom:8px;">📸 Joindre le document (Photo ou capture)</label>
+        <input type="file" id="diag-image" accept="image/*" style="width:100%; font-size:13px;">
+      </div>
+
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Enregistrer le diagnostic</button>
     </form>`;
   openModal();
 }
 
-async function submitDiagnostic() {
-  const newDiag = {
-    name: document.getElementById("diag-name").value,
-    result: document.getElementById("diag-result").value,
-    date: document.getElementById("diag-date").value
-  };
-  
+function processDiagSubmit() {
+  const name = document.getElementById("diag-name").value;
+  const result = document.getElementById("diag-result").value;
+  const date = document.getElementById("diag-date").value;
+  const fileInput = document.getElementById("diag-image");
+
+  if (fileInput.files.length > 0) {
+    // Si une image est sélectionnée, on la lit d'abord en Base64
+    showMessage("⏳ Traitement de l'image...");
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      submitDiagnosticData({ name, result, date, image: e.target.result });
+    };
+    reader.readAsDataURL(file);
+  } else {
+    // S'il n'y a pas d'image, on sauvegarde juste le texte
+    submitDiagnosticData({ name, result, date, image: null });
+  }
+}
+
+async function submitDiagnosticData(newDiag) {
+  showMessage("Sauvegarde en cours...");
   const diags = homeData.diagnostics || [];
   diags.push(newDiag);
 
   try {
     const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: diags }) });
-    if (res.ok) { closeModal(); loadHomeData(); }
+    if (res.ok) { 
+      closeModal(); 
+      loadHomeData(); 
+      showMessage("Diagnostic ajouté !");
+    }
   } catch(e) { showMessage("Erreur réseau"); }
 }
 
 async function deleteDiagnostic(index) {
-  if(!confirm("Supprimer ce diagnostic ?")) return;
+  if(!confirm("Voulez-vous vraiment supprimer ce diagnostic et son image associée ?")) return;
   const diags = homeData.diagnostics;
   diags.splice(index, 1);
   try {
     await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: diags }) });
     loadHomeData();
+    showMessage("Diagnostic supprimé.");
   } catch(e) { showMessage("Erreur"); }
 }
-
 
 /* ============================================================
    ESPACES PERSONNALISÉS (WIDGETS DANS LA BIBLIOTHÈQUE)
