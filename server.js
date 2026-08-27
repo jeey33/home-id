@@ -62,9 +62,10 @@ async function initDB() {
     // Ajout du code PIN du coffre à la maison
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS vault_pin VARCHAR(255);`);
 
-    // --- NOUVEAUTÉ : Ajout des colonnes pour les Diagnostics et les Widgets Libres ---
+    // --- NOUVEAUTÉ : Ajout des colonnes pour les Diagnostics, Widgets et CADASTRE ---
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS diagnostics JSONB DEFAULT '[]'::jsonb;`);
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS custom_widgets JSONB DEFAULT '[]'::jsonb;`);
+    await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS cadastre JSONB DEFAULT '[]'::jsonb;`); // Ici DEFAULT '[]' car on va stocker un tableau d'objets (Multi-images + infos)
 
     console.log("Base de données connectée, mise à jour et prête !");
   } catch (error) {
@@ -128,7 +129,6 @@ app.get("/api/home", async (req, res) => {
     const alerts = (await pool.query(`SELECT * FROM alerts WHERE home_id = $1 ORDER BY id DESC`, [homeId])).rows;
     const pros = (await pool.query(`SELECT * FROM professionals WHERE home_id = $1 ORDER BY id DESC`, [homeId])).rows;
 
-    // --- NOUVEAUTÉ : On inclut les diagnostics et customWidgets dans la réponse ! ---
     res.json({ 
       id: homeResult.rows[0].id, 
       name: homeResult.rows[0].name, 
@@ -136,12 +136,14 @@ app.get("/api/home", async (req, res) => {
       surface: homeResult.rows[0].surface, 
       land: homeResult.rows[0].land, 
       plans: homeResult.rows[0].plans || [], 
-      diagnostics: homeResult.rows[0].diagnostics || [], 
-      customWidgets: homeResult.rows[0].custom_widgets || [], 
       role: "owner", 
       systems, 
       alerts, 
-      professionals: pros 
+      professionals: pros,
+      // --- NOUVEAUTÉ : On inclut les diagnostics, Widgets et Cadastre dans la réponse ! ---
+      diagnostics: homeResult.rows[0].diagnostics || [], 
+      customWidgets: homeResult.rows[0].custom_widgets || [],
+      cadastre: homeResult.rows[0].cadastre || []
     });
   } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
 });
@@ -167,49 +169,23 @@ app.post("/api/home/plan", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
 });
 
-// --- NOUVELLE ROUTE AMÉLIORÉE AVEC LOGS POUR SAUVEGARDER LES DIAGNOSTICS, WIDGETS ET CADASTRE ---
+// --- NOUVELLE ROUTE UNIFIÉE POUR SAUVEGARDER LES DIAGNOSTICS, WIDGETS ET CADASTRE ---
 app.post("/api/home/update-fields", async (req, res) => {
   const { id, diagnostics, customWidgets, cadastre } = req.body;
-  
-  // LOG : Tentative de mise à jour pour la maison
-  console.log(`[DEBUG] Tentative de MAJ pour la maison ${id}`);
-
-  if (!id) {
-    console.error("[ERREUR] ID maison manquant dans la requête");
-    return res.status(400).json({ error: "ID manquant" });
-  }
+  if (!id) return res.status(400).json({ error: "ID manquant" });
 
   try {
-    // Sauvegarde Diagnostics
     if (diagnostics !== undefined) {
-      console.log(`[DEBUG] Sauvegarde de ${diagnostics.length} diagnostics`);
       await pool.query("UPDATE home SET diagnostics = $1 WHERE id = $2", [JSON.stringify(diagnostics), id]);
     }
-    
-    // Sauvegarde Widgets
     if (customWidgets !== undefined) {
-      console.log(`[DEBUG] Sauvegarde de ${customWidgets.length} widgets libres`);
       await pool.query("UPDATE home SET custom_widgets = $1 WHERE id = $2", [JSON.stringify(customWidgets), id]);
     }
-    
-    // --- NOUVEAUTÉ CADASTRE : Sauvegarde des infos cadastrales ---
     if (cadastre !== undefined) {
-      // LOG : On logue le début de la chaîne base64 pour vérifier sa présence
-      console.log("[DEBUG] Sauvegarde Cadastre demandée.");
-      if(cadastre.images) {
-        console.log(`[DEBUG] Nombre d'images cadastre à uploader : ${cadastre.images.length}`);
-        // Log partiel de la première image (si présente) pour débugger
-        if(cadastre.images[0]) console.log(`[DEBUG] Base64 Image 1 (partiel) : ${cadastre.images[0].base64.substring(0, 50)}...`);
-      }
-
       await pool.query("UPDATE home SET cadastre = $1 WHERE id = $2", [JSON.stringify(cadastre), id]);
-      console.log("[DEBUG] UPDATE cadastre réussi en base.");
     }
-    
     res.json({ ok: true });
   } catch (error) {
-    // LOG : Grosse erreur serveur
-    console.error("[ERREUR SERVEUR] /api/home/update-fields:", error);
     res.status(500).json({ error: "Erreur serveur lors de la sauvegarde" });
   }
 });
