@@ -1250,7 +1250,7 @@ function viewDocumentFullscreen(imageSrc, docName) {
 }
 
 /* ============================================================
-   1. DIAGNOSTICS - PHILOSOPHIE "ARRAY"
+   1. DIAGNOSTICS - PHILOSOPHIE "ARRAY" ( Twin #1 )
    ============================================================ */
 function displayDiagnostics() {
   const container = document.getElementById("diagnostics-container");
@@ -1265,7 +1265,7 @@ function displayDiagnostics() {
   container.innerHTML = diags.map((d, index) => `
     <div class="diag-thumbnail">
       <button onclick="deleteDiagnostic(${index})" style="position:absolute; top:-5px; right:-5px; background:#d93025; color:white; border:none; border-radius:50%; width:20px; height:20px; font-size:12px; cursor:pointer; z-index:10; padding:0;">×</button>
-      <img src="${d.image}" class="diag-img" onclick="viewDocumentFullscreen('${d.image}', '${escapeHTML(d.name)} Result: ${escapeHTML(d.result)}')">
+      <img src="${d.image}" class="diag-img" onclick="viewDocumentFullscreen('${d.image}', '${escapeHTML(d.name)} - ${escapeHTML(d.date)}')">
       <div class="diag-name">${escapeHTML(d.name)} (${escapeHTML(d.result)})</div>
     </div>
   `).join("");
@@ -1276,7 +1276,19 @@ function openAddDiagModal() {
     <div class="eyebrow">DIAGNOSTIC</div>
     <h2>Ajouter</h2>
     <form action="javascript:void(0);" onsubmit="event.preventDefault(); processDiagSubmit();" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="diag-name" placeholder="Nom (ex: DPE, Amiante...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <select id="diag-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <option value="DPE (Énergie)">DPE (Énergie)</option>
+        <option value="GES (Climat)">GES (Climat)</option>
+        <option value="Amiante">Amiante</option>
+        <option value="Électricité">Électricité</option>
+        <option value="Plomb">Plomb</option>
+        <option value="Termites">Termites</option>
+        <option value="ERP / Risques">ERP / Risques</option>
+        <option value="Assainissement">Assainissement</option>
+        <option value="Mérule">Mérule</option>
+        <option value="Audit Énergétique">Audit Énergétique</option>
+        <option value="Autre Diagnostic">Autre Diagnostic...</option>
+      </select>
       <input type="text" id="diag-result" placeholder="Résultat (ex: A, B, Présence...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
       <input type="date" id="diag-date" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
       <input type="file" id="diag-image" accept="image/*" required style="font-size:13px; margin-top:5px;">
@@ -1324,7 +1336,7 @@ async function deleteDiagnostic(index) {
 }
 
 /* ============================================================
-   2. CADASTRE - PHILOSOPHIE JUMELLE
+   2. CADASTRE - PHILOSOPHIE "ARRAY" ( Twin #2 - JUMEAU PARFAIT )
    ============================================================ */
 function displayCadastre() {
   const container = document.getElementById("cadastre-container");
@@ -1339,8 +1351,8 @@ function displayCadastre() {
   container.innerHTML = cadastreItems.map((c, index) => `
     <div class="cadastre-thumbnail">
       <button onclick="deleteCadastreItem(${index})" style="position:absolute; top:-5px; right:-5px; background:#d93025; color:white; border:none; border-radius:50%; width:20px; height:20px; font-size:12px; cursor:pointer; z-index:10; padding:0;">×</button>
-      <img src="${c.image}" class="cadastre-img" onclick="viewDocumentFullscreen('${c.image}', 'Cadastre: ${escapeHTML(c.name)} Sect: ${escapeHTML(c.section)}')">
-      <div class="cadastre-name">${escapeHTML(c.name)} (${escapeHTML(c.section)})</div>
+      <img src="${c.image}" class="cadastre-img" onclick="viewDocumentFullscreen('${c.image}', 'Cadastre: ${escapeHTML(c.name)} - ${escapeHTML(c.date)}')">
+      <div class="cadastre-name">${escapeHTML(c.name)} (${escapeHTML(c.date)})</div>
     </div>
   `).join("");
 }
@@ -1350,8 +1362,19 @@ function openAddCadastreModal() {
     <div class="eyebrow">FONCIER</div>
     <h2>Ajouter un plan</h2>
     <form action="javascript:void(0);" onsubmit="event.preventDefault(); processCadastreSubmit();" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="cad-name" placeholder="Nom (ex: Plan masse, Satellite...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="text" id="cad-section" placeholder="Section / Parcelle (ex: AH 123)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <select id="cad-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <option value="Plan Cadastral">Plan Cadastral</option>
+        <option value="Vue Satellite">Vue Satellite</option>
+        <option value="Photo Terrain">Photo Terrain</option>
+        <option value="Plan de Masse">Plan de Masse</option>
+        <option value="Plan de Situation">Plan de Situation</option>
+        <option value="Règlement PLU">Règlement PLU / Foncier</option>
+        <option value="Bornage Géomètre">Bornage Géomètre</option>
+        <option value="Servitudes">Servitudes</option>
+        <option value="Autre Plan">Autre Plan...</option>
+      </select>
+      <input type="text" id="cad-info" placeholder="Section / Parcelle (ex: AH 123)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="date" id="cad-date" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
       <input type="file" id="cad-image" accept="image/*" required style="font-size:13px; margin-top:5px;">
       <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder le plan</button>
     </form>`;
@@ -1360,7 +1383,8 @@ function openAddCadastreModal() {
 
 function processCadastreSubmit() {
   const name = document.getElementById("cad-name").value;
-  const section = document.getElementById("cad-section").value;
+  const info = document.getElementById("cad-info").value;
+  const date = document.getElementById("cad-date").value;
   const fileInput = document.getElementById("cad-image");
   
   if (fileInput.files.length === 0) return;
@@ -1368,8 +1392,9 @@ function processCadastreSubmit() {
   const reader = new FileReader();
   reader.onload = async (e) => {
     try {
+      // ON COMPRESSE (Même philosophie)
       const compressed = await compressImage(e.target.result);
-      submitCadastreSave({ name, section, image: compressed });
+      submitCadastreSave({ name, info, date, image: compressed });
     } catch(err) { showMessage("Erreur compression."); }
   };
   reader.readAsDataURL(fileInput.files[0]);
@@ -1378,7 +1403,7 @@ function processCadastreSubmit() {
 async function submitCadastreSave(newCadItem) {
   showMessage("Sauvegarde...");
   const cadastreArray = homeData.cadastre || [];
-  cadastreArray.push(newCadItem);
+  cadastreArray.push(newCadItem); // Ajout au tableau
 
   try {
     const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: cadastreArray }) });
@@ -1397,58 +1422,32 @@ async function deleteCadastreItem(index) {
 }
 
 /* ============================================================
-   3. ESPACES LIBRES (WIDGETS PERSONNALISÉS)
+   3. ESPACES LIBRES (WIDGETS PERSONNALISÉS) (Ton code existant)
    ============================================================ */
 function displayCustomWidgets() {
   const container = document.getElementById("custom-widgets-container");
   if (!container) return;
   const widgets = homeData.customWidgets || [];
-
   container.innerHTML = widgets.map((w, index) => {
     const textFormatted = escapeHTML(w.content).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#4b9b69; text-decoration:underline; font-weight:bold;">Ouvrir le lien 🔗</a>');
-
-    return `
-      <div class="document" style="flex: 1; min-width: 200px; position: relative;">
-        <button onclick="deleteCustomWidget(${index})" style="position:absolute; right:10px; top:10px; background:none; border:none; cursor:pointer; font-size:12px; color:#d93025; padding:5px;">🗑️</button>
-        <div class="document-icon">📌</div>
-        <strong>${escapeHTML(w.title)}</strong>
-        <span style="font-size:11px; margin-top:5px; white-space:pre-wrap; color:#59645d;">${textFormatted}</span>
-      </div>
-    `;
+    return `<div class="document" style="flex: 1; min-width: 200px; position: relative;"><button onclick="deleteCustomWidget(${index})" style="position:absolute; right:10px; top:10px; background:none; border:none; cursor:pointer; font-size:12px; color:#d93025; padding:5px;">🗑️</button><div class="document-icon">📌</div><strong>${escapeHTML(w.title)}</strong><span style="font-size:11px; margin-top:5px; white-space:pre-wrap; color:#59645d;">${textFormatted}</span></div>`;
   }).join("");
 }
-
 function openAddCustomWidgetModal() {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">BIBLIOTHÈQUE</div>
-    <h2>Créer un Widget</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitCustomWidget(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="widget-title" placeholder="Titre (ex: Lien Google Drive, Portail...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <textarea id="widget-content" placeholder="Collez un lien internet, ou tapez votre texte ici..." required style="padding:10px; border-radius:8px; border:1px solid #ccc; min-height:80px; resize:vertical;"></textarea>
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Ajouter le widget</button>
-    </form>`;
+  document.getElementById("modal-content").innerHTML = `<div class="eyebrow">BIBLIOTHÈQUE</div><h2>Créer un Widget</h2><form action="javascript:void(0);" onsubmit="event.preventDefault(); submitCustomWidget(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;"><input type="text" id="widget-title" placeholder="Titre (ex: Drive, Portail...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;"><textarea id="widget-content" placeholder="Collez un lien ou tapez votre texte..." required style="padding:10px; border-radius:8px; border:1px solid #ccc; min-height:80px; resize:vertical;"></textarea><button type="submit" class="button primary pointer" style="margin-top:10px;">Ajouter</button></form>`;
   openModal();
 }
-
 async function submitCustomWidget() {
-  const newWidget = {
-    title: document.getElementById("widget-title").value,
-    content: document.getElementById("widget-content").value
-  };
-  
-  const widgets = homeData.customWidgets || [];
-  widgets.push(newWidget);
-
+  const newWidget = { title: document.getElementById("widget-title").value, content: document.getElementById("widget-content").value };
+  const widgets = homeData.customWidgets || []; widgets.push(newWidget);
   try {
     const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
     if (res.ok) { closeModal(); loadHomeData(); }
   } catch(e) { showMessage("Erreur réseau"); }
 }
-
 async function deleteCustomWidget(index) {
   if(!confirm("Supprimer ce widget ?")) return;
-  const widgets = homeData.customWidgets;
-  widgets.splice(index, 1);
+  const widgets = homeData.customWidgets; widgets.splice(index, 1);
   try {
     await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
     loadHomeData();
