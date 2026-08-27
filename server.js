@@ -1,7 +1,7 @@
 const express = require("express");
 const path = require("path");
 const { Pool } = require("pg");
-const crypto = require("crypto"); // NOUVEAU : Module de cryptographie pour le coffre-fort
+const crypto = require("crypto"); // Module de cryptographie pour le coffre-fort
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,7 +46,7 @@ async function initDB() {
       CREATE TABLE IF NOT EXISTS professionals (id SERIAL PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id) ON DELETE CASCADE, name VARCHAR(100), domain VARCHAR(100), access VARCHAR(50), expires VARCHAR(50));
       CREATE TABLE IF NOT EXISTS documents (id VARCHAR(50) PRIMARY KEY, system_id VARCHAR(50) REFERENCES systems(id) ON DELETE CASCADE, name VARCHAR(255), added VARCHAR(50));
       
-      -- NOUVEAU : Tables pour le coffre-fort
+      -- Tables pour le coffre-fort
       CREATE TABLE IF NOT EXISTS vault_items (id SERIAL PRIMARY KEY, home_id VARCHAR(50) REFERENCES home(id) ON DELETE CASCADE, title VARCHAR(100), login VARCHAR(100), encrypted_pwd TEXT);
     `);
 
@@ -61,6 +61,10 @@ async function initDB() {
     
     // Ajout du code PIN du coffre à la maison
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS vault_pin VARCHAR(255);`);
+
+    // --- NOUVEAUTÉ : Ajout des colonnes pour les Diagnostics et les Widgets Libres ---
+    await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS diagnostics JSONB DEFAULT '[]'::jsonb;`);
+    await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS custom_widgets JSONB DEFAULT '[]'::jsonb;`);
 
     console.log("Base de données connectée, mise à jour et prête !");
   } catch (error) {
@@ -124,7 +128,21 @@ app.get("/api/home", async (req, res) => {
     const alerts = (await pool.query(`SELECT * FROM alerts WHERE home_id = $1 ORDER BY id DESC`, [homeId])).rows;
     const pros = (await pool.query(`SELECT * FROM professionals WHERE home_id = $1 ORDER BY id DESC`, [homeId])).rows;
 
-    res.json({ id: homeResult.rows[0].id, name: homeResult.rows[0].name, year: homeResult.rows[0].year, surface: homeResult.rows[0].surface, land: homeResult.rows[0].land, plans: homeResult.rows[0].plans || [], role: "owner", systems, alerts, professionals: pros });
+    // --- NOUVEAUTÉ : On inclut les diagnostics et customWidgets dans la réponse ! ---
+    res.json({ 
+      id: homeResult.rows[0].id, 
+      name: homeResult.rows[0].name, 
+      year: homeResult.rows[0].year, 
+      surface: homeResult.rows[0].surface, 
+      land: homeResult.rows[0].land, 
+      plans: homeResult.rows[0].plans || [], 
+      diagnostics: homeResult.rows[0].diagnostics || [], 
+      customWidgets: homeResult.rows[0].custom_widgets || [], 
+      role: "owner", 
+      systems, 
+      alerts, 
+      professionals: pros 
+    });
   } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
 });
 
@@ -147,6 +165,24 @@ app.post("/api/home/plan", async (req, res) => {
     await pool.query(`UPDATE home SET plans = $1 WHERE id = $2`, [JSON.stringify(plans), id]);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
+});
+
+// --- NOUVELLE ROUTE POUR SAUVEGARDER LES DIAGNOSTICS ET WIDGETS ---
+app.post("/api/home/update-fields", async (req, res) => {
+  const { id, diagnostics, customWidgets } = req.body;
+  if (!id) return res.status(400).json({ error: "ID manquant" });
+
+  try {
+    if (diagnostics !== undefined) {
+      await pool.query("UPDATE home SET diagnostics = $1 WHERE id = $2", [JSON.stringify(diagnostics), id]);
+    }
+    if (customWidgets !== undefined) {
+      await pool.query("UPDATE home SET custom_widgets = $1 WHERE id = $2", [JSON.stringify(customWidgets), id]);
+    }
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: "Erreur serveur lors de la sauvegarde" });
+  }
 });
 
 // --- ROUTES SYSTÈMES, EQUIPEMENTS, ALERTES ET ARTISANS ---
@@ -290,7 +326,6 @@ app.post("/api/professionals/delete", async (req, res) => {
 
 // --- NOUVELLES ROUTES : COFFRE-FORT DE MOTS DE PASSE ---
 
-// 1. Vérifier si un PIN existe ou l'initialiser
 app.post("/api/vault/check", async (req, res) => {
   const { homeId } = req.body;
   try {
@@ -303,14 +338,12 @@ app.post("/api/vault/check", async (req, res) => {
 app.post("/api/vault/setup", async (req, res) => {
   const { homeId, pin } = req.body;
   try {
-    // On hache le PIN pour ne pas l'avoir en clair dans la DB
     const hashedPin = crypto.createHash('sha256').update(pin).digest('hex');
     await pool.query(`UPDATE home SET vault_pin = $1 WHERE id = $2`, [hashedPin, homeId]);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
 });
 
-// 2. Déverrouiller et récupérer les mots de passe
 app.post("/api/vault/unlock", async (req, res) => {
   const { homeId, pin } = req.body;
   try {
@@ -321,29 +354,25 @@ app.post("/api/vault/unlock", async (req, res) => {
       return res.status(401).json({ error: "Code PIN incorrect" });
     }
 
-    // PIN valide = on décrypte les mots de passe
     const items = await pool.query(`SELECT * FROM vault_items WHERE home_id = $1`, [homeId]);
     const decryptedItems = items.rows.map(item => ({
       id: item.id,
       title: item.title,
       login: item.login,
-      password: decryptPassword(item.encrypted_pwd) // On déchiffre à la volée !
+      password: decryptPassword(item.encrypted_pwd)
     }));
 
     res.json({ ok: true, items: decryptedItems });
   } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
 });
 
-// 3. Ajouter un mot de passe (Chiffrement)
 app.post("/api/vault/add", async (req, res) => {
   const { homeId, pin, title, login, password } = req.body;
   try {
-    // Vérification de sécurité avant d'ajouter
     const home = await pool.query(`SELECT vault_pin FROM home WHERE id = $1`, [homeId]);
     const hashedPin = crypto.createHash('sha256').update(pin).digest('hex');
     if (home.rows[0].vault_pin !== hashedPin) return res.status(401).json({ error: "Accès refusé" });
 
-    // Chiffrement du mot de passe
     const encryptedPwd = encryptPassword(password);
     
     await pool.query(
@@ -354,7 +383,6 @@ app.post("/api/vault/add", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
 });
 
-// 4. Supprimer un mot de passe
 app.post("/api/vault/delete", async (req, res) => {
   const { homeId, pin, itemId } = req.body;
   try {
