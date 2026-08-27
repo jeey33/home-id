@@ -277,13 +277,18 @@
       </section>
 
       <!-- 6. BIBLIOTHÈQUE & ESPACES LIBRES -->
+     <!-- 6. BIBLIOTHÈQUE & ESPACES LIBRES -->
       <section class="card documents-card" style="grid-column: 1 / -1;">
         <div class="card-header">
           <div>
             <div class="eyebrow">SÉCURITÉ & DOCUMENTS</div>
             <h2>Ma bibliothèque</h2>
+            <p style="font-size:11px; color:#77827a; margin:4px 0 0 0;">Glissez pour organiser</p>
           </div>
-          <button class="button secondary" style="padding: 4px 10px; font-size: 11px;" onclick="openAddCustomWidgetModal()">+ Créer un Widget</button>
+          <div style="display:flex; gap:5px;">
+            <button class="button secondary" style="padding: 4px 8px; font-size: 11px;" onclick="toggleHiddenWidgets()" id="btn-toggle-hidden">👁️ Masqués</button>
+            <button class="button secondary" style="padding: 4px 8px; font-size: 11px;" onclick="openAddCustomWidgetModal()">+ Ajouter</button>
+          </div>
         </div>
         
         <div class="documents" style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px;">
