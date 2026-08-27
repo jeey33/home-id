@@ -225,6 +225,29 @@
         <div id="systems" class="systems"></div>
       </section>
 
+      <!-- 2. CADASTRE MULTI-IMAGES (Mise à jour) -->
+      <section class="card">
+        <div class="card-header">
+          <div><div class="eyebrow">FONCIER</div><h2>Cadastre</h2></div>
+          <div style="display:flex; gap:5px;">
+            <button class="button secondary" style="padding: 4px 8px; font-size: 11px;" onclick="openEditCadastreTextModal()">📝 Infos</button>
+            <button class="button primary" style="padding: 4px 8px; font-size: 11px;" onclick="openAddCadastreImageModal()">+ Image</button>
+          </div>
+        </div>
+        
+        <!-- Zone Texte -->
+        <div id="cadastre-text-container" style="margin-bottom:15px; border-bottom:1px solid #e3e8e4; padding-bottom:15px;">
+          <!-- Injecté par JS -->
+        </div>
+
+        <!-- Zone Galerie Photos -->
+        <div style="margin-top: 10px;">
+          <div id="cadastre-gallery" class="cadastre-container">
+            <!-- Vignettes injectées ici -->
+          </div>
+        </div>
+      </section>
+      
       <!-- 2. DIAGNOSTICS (Nouveau) -->
       <section class="card">
         <div class="card-header">
