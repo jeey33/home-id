@@ -73,7 +73,6 @@ async function loadHomeData() {
     displayAlerts();
     displayProfessionals();
     
-    // Ajoute ces deux lignes ici !
     displayDiagnostics();
     displayCustomWidgets();
     displayCadastre();
@@ -570,7 +569,7 @@ async function openSystem(systemId) {
       <div class="eyebrow">${system.icon || "🏠"} SYSTÈME</div>
       <div style="display:flex; justify-content:space-between; align-items:center;"><h2 style="margin:0;">${escapeHTML(system.name)}</h2><div style="display:flex; gap:5px;"><button class="button secondary pointer" style="padding:6px 8px; font-size:12px;" onclick="openEditSystemModal('${system.id}', '${escapeHTML(system.name)}', '${escapeHTML(system.icon)}')">✏️</button><button class="button secondary pointer" style="padding:6px 8px; font-size:12px; color:#d93025; background:#fffafa; border-color:#fce8e6;" onclick="deleteSystem('${system.id}')">🗑️</button><button class="button secondary pointer" style="padding:6px 12px; font-size:12px;" onclick="openConfigSystemModal('${system.id}', '${escapeHTML(system.name)}')">⚙️ Config.</button></div></div>
       ${generalSpecsHTML}
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:30px; border-bottom:1px solid #e3e8e4; padding-bottom:10px;"><h3 style="margin:0;">Équipements</h3><button class="button secondary pointer" style="padding:4px 10px; font-size:12px;" onclick="openAddEquipmentModal('${system.id}')">+ Ajouter</button></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:30px; border-bottom:1px solid #e3e8e4; padding-bottom:10px;"><h3 style="margin:0;">Équipements</h3><button class="button secondary pointer" style="padding:4px 10px; font-size:12px;" onclick="openAddEqModal('${system.id}')">+ Ajouter</button></div>
       <div style="margin-top:15px;">${equipmentHTML}</div>
     `;
     openModal();
@@ -583,7 +582,7 @@ function openAddMenu() {
     <h2>Que voulez-vous ajouter ?</h2>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px;">
       <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddSystemModal()"><span style="font-size:24px;">⚙️</span><strong>Nouveau<br>Système</strong></button>
-      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddEquipmentModal()"><span style="font-size:24px;">🔌</span><strong>Nouvel<br>Équipement</strong></button>
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddEqModal()"><span style="font-size:24px;">🔌</span><strong>Nouvel<br>Équipement</strong></button>
       <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddAlertModal()"><span style="font-size:24px;">📅</span><strong>Rappel<br>d'Entretien</strong></button>
       <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddProModal()"><span style="font-size:24px;">👷</span><strong>Nouvel<br>Artisan</strong></button>
     </div>`;
@@ -600,6 +599,7 @@ function openAddSystemModal() {
     </form>`;
   openModal();
 }
+
 async function submitNewSystem(event) {
   const payload = { homeId: currentHomeId, name: document.getElementById("add-sys-name").value, icon: document.getElementById("add-sys-icon").value };
   try {
@@ -617,6 +617,7 @@ function openEditSystemModal(id, currentName, currentIcon) {
       <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder</button>
     </form>`;
 }
+
 async function submitEditSystem(event, id) {
   const payload = { id, name: document.getElementById("edit-sys-name").value, icon: document.getElementById("edit-sys-icon").value };
   try {
@@ -641,6 +642,7 @@ function openConfigSystemModal(systemId, systemName) {
       <button type="submit" class="button primary pointer" style="width:100%; margin-top:20px;">Enregistrer</button>
     </form>`;
 }
+
 async function submitSystemConfig(event, systemId) {
   const specs = {};
   document.querySelectorAll(".sys-spec-input").forEach(input => { if (input.value) specs[input.getAttribute("data-key")] = input.value; });
@@ -650,7 +652,7 @@ async function submitSystemConfig(event, systemId) {
   } catch (e) { showMessage("Erreur réseau"); }
 }
 
-function openAddEquipmentModal(preselectedSystem = "") {
+function openAddEqModal(preselectedSystem = "") {
   const systemOptions = (homeData.systems || []).map(sys => `<option value="${escapeHTML(sys.id)}" ${sys.id === preselectedSystem ? "selected" : ""}>${escapeHTML(sys.name)}</option>`).join("");
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">NOUVEL ÉQUIPEMENT</div><h2>Ajouter un équipement</h2>
@@ -757,26 +759,6 @@ function handlePlanUpload(event) {
   reader.readAsDataURL(file);
 }
 
-function viewPlanFullscreen(imageSrc, planName) {
-  document.getElementById("modal-content").innerHTML = `
-    <div style="display:flex; flex-direction:column; height: 75vh;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-        <h2 style="margin:0; font-size:18px;">Plan : ${escapeHTML(planName)}</h2>
-        <button class="button secondary pointer" style="padding:4px 10px; font-size:11px;" onclick="togglePlanZoom()">🔍 Zoomer</button>
-      </div>
-      <div style="flex:1; overflow:auto; background:#f4f6f5; border-radius:8px; border:1px solid #e3e8e4; text-align:center;">
-        <img id="fullscreen-plan-img" src="${imageSrc}" style="max-width:100%; height:auto; transition: width 0.3s ease; cursor: zoom-in;" onclick="togglePlanZoom()">
-      </div>
-    </div>`;
-  openModal();
-}
-
-function togglePlanZoom() {
-  const img = document.getElementById("fullscreen-plan-img");
-  if (img.style.maxWidth === "100%") { img.style.maxWidth = "none"; img.style.width = "200%"; img.style.cursor = "zoom-out"; } 
-  else { img.style.maxWidth = "100%"; img.style.width = "auto"; img.style.cursor = "zoom-in"; }
-}
-
 /* ============================================================
    PROFIL ET GÉNÉRATION DE PLAQUE
    ============================================================ */
@@ -862,32 +844,80 @@ function escapeHTML(str) { return String(str ?? "").replace(/&/g, "&amp;").repla
 function openQrSimulatorModal() { window.open(`/scan/${currentHomeId}`, "_blank"); }
 
 /* ============================================================
-   DIAGNOSTICS IMMOBILIERS (Avec Images / Preuves visuelles)
+   OUTILS DE COMPRESSION ET AFFICHAGE PLEIN ECRAN
+   ============================================================ */
+function compressImage(base64Str, maxWidth = 1200, maxHeight = 1200) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
+      } else {
+        if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
+      }
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", 0.7)); 
+    };
+  });
+}
+
+function viewPlanFullscreen(imageSrc, planName) {
+  document.getElementById("modal-content").innerHTML = `
+    <div style="display:flex; flex-direction:column; height: 75vh;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+        <h2 style="margin:0; font-size:18px;">Plan : ${escapeHTML(planName)}</h2>
+        <button class="button secondary pointer" style="padding:4px 10px; font-size:11px;" onclick="togglePlanZoom()">🔍 Zoomer</button>
+      </div>
+      <div style="flex:1; overflow:auto; background:#f4f6f5; border-radius:8px; border:1px solid #e3e8e4; text-align:center;">
+        <img id="fullscreen-plan-img" src="${imageSrc}" style="max-width:100%; height:auto; transition: width 0.3s ease; cursor: zoom-in;" onclick="togglePlanZoom()">
+      </div>
+    </div>`;
+  openModal();
+}
+
+function viewDocumentFullscreen(imageSrc, docName) {
+  viewPlanFullscreen(imageSrc, docName);
+}
+
+function togglePlanZoom() {
+  const img = document.getElementById("fullscreen-plan-img");
+  if (img.style.maxWidth === "100%") { img.style.maxWidth = "none"; img.style.width = "200%"; img.style.cursor = "zoom-out"; } 
+  else { img.style.maxWidth = "100%"; img.style.width = "auto"; img.style.cursor = "zoom-in"; }
+}
+
+/* ============================================================
+   DIAGNOSTICS IMMOBILIERS (LISTE VERTICALE)
    ============================================================ */
 function displayDiagnostics() {
   const container = document.getElementById("diagnostics-container");
   if (!container) return;
-  const diags = homeData.diagnostics || [];
+  
+  // Sécurité pour gérer les données de la BDD
+  let diags = homeData.diagnostics;
+  if (!Array.isArray(diags)) diags = [];
   
   if (diags.length === 0) {
     container.innerHTML = `<p style="font-size:13px; color:#77827a;">Aucun diagnostic enregistré.</p>`;
     return;
   }
 
-  // Couleurs officielles du DPE
   const dpeColors = { 'A':'#009c6d', 'B':'#52b153', 'C':'#a5cc74', 'D':'#f4d35e', 'E':'#f0ac4c', 'F':'#eb8235', 'G':'#d7352b' };
 
   container.innerHTML = diags.map((d, index) => {
     let resultVisual = `<strong>${escapeHTML(d.result)}</strong>`;
     
-    // Si c'est un DPE, on fait un beau badge de couleur
-    if (d.name.toUpperCase().includes("DPE") && dpeColors[d.result.toUpperCase()]) {
+    if (d.name && d.name.toUpperCase().includes("DPE") && dpeColors[(d.result || "").toUpperCase()]) {
       resultVisual = `<span style="background:${dpeColors[d.result.toUpperCase()]}; color:white; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:16px;">${d.result.toUpperCase()}</span>`;
     }
 
-    // Gestion de la vignette visuelle (Si une image a été uploadée)
     let imgHtml = d.image 
-      ? `<img src="${d.image}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 1px solid #cdd4ce; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="viewDiagFullscreen('${d.image}', '${escapeHTML(d.name)}')">`
+      ? `<img src="${d.image}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 1px solid #cdd4ce; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="viewDocumentFullscreen('${d.image}', '${escapeHTML(d.name)}')">`
       : `<div style="width: 50px; height: 50px; border-radius: 8px; background: #f4f6f5; border: 1px dashed #cdd4ce; display: flex; align-items: center; justify-content: center; font-size: 20px;">📄</div>`;
 
     return `
@@ -908,21 +938,6 @@ function displayDiagnostics() {
   }).join("");
 }
 
-// Ouvre le document en plein écran (Réutilise la logique de zoom des plans)
-function viewDiagFullscreen(imageSrc, diagName) {
-  document.getElementById("modal-content").innerHTML = `
-    <div style="display:flex; flex-direction:column; height: 75vh;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-        <h2 style="margin:0; font-size:18px;">Résultat : ${escapeHTML(diagName)}</h2>
-        <button class="button secondary pointer" style="padding:4px 10px; font-size:11px;" onclick="togglePlanZoom()">🔍 Zoomer</button>
-      </div>
-      <div style="flex:1; overflow:auto; background:#f4f6f5; border-radius:8px; border:1px solid #e3e8e4; text-align:center;">
-        <img id="fullscreen-plan-img" src="${imageSrc}" style="max-width:100%; height:auto; transition: width 0.3s ease; cursor: zoom-in;" onclick="togglePlanZoom()">
-      </div>
-    </div>`;
-  openModal();
-}
-
 function openAddDiagModal() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">DIAGNOSTIC</div>
@@ -936,6 +951,10 @@ function openAddDiagModal() {
         <option value="Électricité">Électricité</option>
         <option value="Plomb">Plomb</option>
         <option value="Termites">Termites</option>
+        <option value="ERP / Risques">ERP / Risques</option>
+        <option value="Assainissement">Assainissement</option>
+        <option value="Mérule">Mérule</option>
+        <option value="Audit Énergétique">Audit Énergétique</option>
         <option value="Autre Diagnostic">Autre Diagnostic...</option>
       </select>
       
@@ -961,23 +980,27 @@ function processDiagSubmit() {
   const fileInput = document.getElementById("diag-image");
 
   if (fileInput.files.length > 0) {
-    // Si une image est sélectionnée, on la lit d'abord en Base64
-    showMessage("⏳ Traitement de l'image...");
+    showMessage("⏳ Compression de l'image...");
     const file = fileInput.files[0];
     const reader = new FileReader();
-    reader.onload = function(e) {
-      submitDiagnosticData({ name, result, date, image: e.target.result });
+    reader.onload = async function(e) {
+      try {
+        const compressed = await compressImage(e.target.result);
+        submitDiagnosticData({ name, result, date, image: compressed });
+      } catch(err) {
+        showMessage("Erreur de compression.");
+      }
     };
     reader.readAsDataURL(file);
   } else {
-    // S'il n'y a pas d'image, on sauvegarde juste le texte
     submitDiagnosticData({ name, result, date, image: null });
   }
 }
 
 async function submitDiagnosticData(newDiag) {
   showMessage("Sauvegarde en cours...");
-  const diags = homeData.diagnostics || [];
+  let diags = homeData.diagnostics;
+  if (!Array.isArray(diags)) diags = [];
   diags.push(newDiag);
 
   try {
@@ -992,7 +1015,8 @@ async function submitDiagnosticData(newDiag) {
 
 async function deleteDiagnostic(index) {
   if(!confirm("Voulez-vous vraiment supprimer ce diagnostic et son image associée ?")) return;
-  const diags = homeData.diagnostics;
+  let diags = homeData.diagnostics;
+  if (!Array.isArray(diags)) diags = [];
   diags.splice(index, 1);
   try {
     await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: diags }) });
@@ -1010,10 +1034,8 @@ function displayCustomWidgets() {
   const widgets = homeData.customWidgets || [];
 
   container.innerHTML = widgets.map((w, index) => {
-    // Rend les liens cliquables s'il y a un "http"
     const textFormatted = escapeHTML(w.content).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#4b9b69; text-decoration:underline; font-weight:bold;">Ouvrir le lien 🔗</a>');
 
-    // Design repris de l'ancienne bibliothèque !
     return `
       <div class="document" style="flex: 1; min-width: 200px; position: relative;">
         <button onclick="deleteCustomWidget(${index})" style="position:absolute; right:10px; top:10px; background:none; border:none; cursor:pointer; font-size:12px; color:#d93025; padding:5px;">🗑️</button>
@@ -1063,22 +1085,25 @@ async function deleteCustomWidget(index) {
 }
 
 /* ============================================================
-   CADASTRE - GESTION MULTI-IMAGES (Mise à jour)
+   CADASTRE - GESTION MULTI-IMAGES
    ============================================================ */
 function displayCadastre() {
   const textContainer = document.getElementById("cadastre-text-container");
   const galleryContainer = document.getElementById("cadastre-gallery");
   if (!textContainer || !galleryContainer) return;
 
-  const c = homeData.cadastre || {};
+  // Sécurité anti-crash
+  let c = homeData.cadastre;
+  if (Array.isArray(c)) c = {};
+  if (!c) c = {};
+
   const images = c.images || [];
 
   // --- 1. Affichage du texte (Références) ---
   if (!c.section && !c.numero && !c.commune) {
     textContainer.innerHTML = `<p style="font-size:12px; color:#77827a; margin:0; text-align:center;">Cliquez sur 📝 Infos pour renseigner la section et le numéro de parcelle.</p>`;
   } else {
-    // Génération du lien officiel basé sur le code postal de la maison (affiché dans la card principale)
-    const cpHome = homeData.land || ""; // On suppose que le CP est dans un champ land ou surface pour le test
+    const cpHome = homeData.land || ""; 
     const officialLink = `https://www.cadastre.gouv.fr/scpc/rechercherParcelle.do?section=${c.section}&parcelle=${c.numero}&commune=${encodeURIComponent(c.commune)}`;
 
     textContainer.innerHTML = `
@@ -1106,14 +1131,16 @@ function displayCadastre() {
   galleryContainer.innerHTML = images.map((img, index) => `
     <div class="cadastre-thumbnail">
       <button onclick="deleteCadastreImage(${index})" style="position:absolute; top:-5px; right:-5px; background:#d93025; color:white; border:none; border-radius:50%; width:20px; height:20px; font-size:12px; cursor:pointer; z-index:10;">×</button>
-      <img src="${img.base64}" class="cadastre-img" alt="Cadastre" onclick="viewDiagFullscreen('${img.base64}', 'Visuel Cadastre n°${index+1}')">
+      <img src="${img.base64}" class="cadastre-img" alt="Cadastre" onclick="viewDocumentFullscreen('${img.base64}', 'Visuel Cadastre n°${index+1}')">
     </div>
   `).join("");
 }
 
-// Modal pour éditer les références textes (Section, Numéro...)
 function openEditCadastreTextModal() {
-  const c = homeData.cadastre || {};
+  let c = homeData.cadastre;
+  if (Array.isArray(c)) c = {};
+  if (!c) c = {};
+
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">FONCIER</div>
     <h2>Références Cadastrales</h2>
@@ -1136,8 +1163,10 @@ async function submitCadastreText() {
   const section = document.getElementById("cad-section").value;
   const numero = document.getElementById("cad-numero").value;
   
-  // On récupère l'objet cadastre existant pour ne pas écraser les images !
-  let currentCadastre = homeData.cadastre || {};
+  let currentCadastre = homeData.cadastre;
+  if (Array.isArray(currentCadastre)) currentCadastre = {};
+  if (!currentCadastre) currentCadastre = {};
+
   currentCadastre.commune = commune;
   currentCadastre.section = section;
   currentCadastre.numero = numero;
@@ -1149,7 +1178,6 @@ async function submitCadastreText() {
   } catch(e) { showMessage("Erreur"); }
 }
 
-// Modal pour ajouter UNE image à la galerie existante
 function openAddCadastreImageModal() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">FONCIER</div>
@@ -1172,18 +1200,24 @@ function processCadastreImageSubmit() {
     showMessage("⏳ Compression de l'image...");
     const file = fileInput.files[0];
     const reader = new FileReader();
-    reader.onload = function(e) {
-      submitNewCadastreImage(e.target.result);
+    reader.onload = async function(e) {
+      try {
+        const compressed = await compressImage(e.target.result);
+        submitNewCadastreImage(compressed);
+      } catch(err) {
+        showMessage("Erreur de compression");
+      }
     };
     reader.readAsDataURL(file);
   }
 }
 
 async function submitNewCadastreImage(base64Image) {
-  let currentCadastre = homeData.cadastre || {};
+  let currentCadastre = homeData.cadastre;
+  if (Array.isArray(currentCadastre)) currentCadastre = {};
+  if (!currentCadastre) currentCadastre = {};
+
   let images = currentCadastre.images || [];
-  
-  // On ajoute la nouvelle image au tableau existant
   images.push({
     id: "CAD-" + Date.now(),
     base64: base64Image
@@ -1202,7 +1236,11 @@ async function deleteCadastreImage(index) {
   if(!confirm("Supprimer cette image de cadastre ?")) return;
   
   let currentCadastre = homeData.cadastre;
-  currentCadastre.images.splice(index, 1);
+  if (Array.isArray(currentCadastre)) currentCadastre = {};
+  
+  if (currentCadastre.images) {
+    currentCadastre.images.splice(index, 1);
+  }
   
   try {
     await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: currentCadastre }) });
@@ -1211,246 +1249,4 @@ async function deleteCadastreImage(index) {
   } catch(e) { showMessage("Erreur"); }
 }
 
-/* ============================================================
-   OUTILS DE COMPRESSION ET AFFICHAGE PLEIN ECRAN
-   ============================================================ */
-function compressImage(base64Str, maxWidth = 1200, maxHeight = 1200) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = base64Str;
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      let width = img.width;
-      let height = img.height;
-      if (width > height) {
-        if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
-      } else {
-        if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
-      }
-      canvas.width = width; canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL("image/jpeg", 0.7)); 
-    };
-  });
-}
-
-function viewDocumentFullscreen(imageSrc, docName) {
-  document.getElementById("modal-content").innerHTML = `
-    <div style="display:flex; flex-direction:column; height: 75vh;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-        <h2 style="margin:0; font-size:18px;">${escapeHTML(docName)}</h2>
-        <button class="button secondary pointer" style="padding:4px 10px; font-size:11px;" onclick="togglePlanZoom()">🔍 Zoomer</button>
-      </div>
-      <div style="flex:1; overflow:auto; background:#f4f6f5; border-radius:8px; border:1px solid #e3e8e4; text-align:center;">
-        <img id="fullscreen-plan-img" src="${imageSrc}" style="max-width:100%; height:auto; transition: width 0.3s ease; cursor: zoom-in;" onclick="togglePlanZoom()">
-      </div>
-    </div>`;
-  openModal();
-}
-
-/* ============================================================
-   1. DIAGNOSTICS - PHILOSOPHIE "ARRAY" ( Twin #1 )
-   ============================================================ */
-function displayDiagnostics() {
-  const container = document.getElementById("diagnostics-container");
-  if (!container) return;
-  const diags = homeData.diagnostics || [];
-  
-  if (diags.length === 0) {
-    container.innerHTML = `<p style="font-size:12px; color:#77827a; margin:10px 0; text-align:center;">Aucun diagnostic.</p>`;
-    return;
-  }
-
-  container.innerHTML = diags.map((d, index) => `
-    <div class="diag-thumbnail">
-      <button onclick="deleteDiagnostic(${index})" style="position:absolute; top:-5px; right:-5px; background:#d93025; color:white; border:none; border-radius:50%; width:20px; height:20px; font-size:12px; cursor:pointer; z-index:10; padding:0;">×</button>
-      <img src="${d.image}" class="diag-img" onclick="viewDocumentFullscreen('${d.image}', '${escapeHTML(d.name)} - ${escapeHTML(d.date)}')">
-      <div class="diag-name">${escapeHTML(d.name)} (${escapeHTML(d.result)})</div>
-    </div>
-  `).join("");
-}
-
-function openAddDiagModal() {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">DIAGNOSTIC</div>
-    <h2>Ajouter</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); processDiagSubmit();" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <select id="diag-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-        <option value="DPE (Énergie)">DPE (Énergie)</option>
-        <option value="GES (Climat)">GES (Climat)</option>
-        <option value="Amiante">Amiante</option>
-        <option value="Électricité">Électricité</option>
-        <option value="Plomb">Plomb</option>
-        <option value="Termites">Termites</option>
-        <option value="ERP / Risques">ERP / Risques</option>
-        <option value="Assainissement">Assainissement</option>
-        <option value="Mérule">Mérule</option>
-        <option value="Audit Énergétique">Audit Énergétique</option>
-        <option value="Autre Diagnostic">Autre Diagnostic...</option>
-      </select>
-      <input type="text" id="diag-result" placeholder="Résultat (ex: A, B, Présence...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="date" id="diag-date" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="file" id="diag-image" accept="image/*" required style="font-size:13px; margin-top:5px;">
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder</button>
-    </form>`;
-  openModal();
-}
-
-function processDiagSubmit() {
-  const name = document.getElementById("diag-name").value;
-  const result = document.getElementById("diag-result").value;
-  const date = document.getElementById("diag-date").value;
-  const fileInput = document.getElementById("diag-image");
-  
-  if (fileInput.files.length === 0) return;
-  showMessage("⏳ Traitement...");
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    try {
-      const compressed = await compressImage(e.target.result);
-      submitDiagSave({ name, result, date, image: compressed });
-    } catch(err) { showMessage("Erreur compression."); }
-  };
-  reader.readAsDataURL(fileInput.files[0]);
-}
-
-async function submitDiagSave(newDiag) {
-  showMessage("Sauvegarde...");
-  const diags = homeData.diagnostics || [];
-  diags.push(newDiag);
-  try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: diags }) });
-    if (res.ok) { closeModal(); loadHomeData(); showMessage("Ajouté !"); }
-  } catch(e) { showMessage("Erreur."); }
-}
-
-async function deleteDiagnostic(index) {
-  if(!confirm("Supprimer ce diagnostic ?")) return;
-  const diags = homeData.diagnostics;
-  diags.splice(index, 1);
-  try {
-    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: diags }) });
-    loadHomeData();
-  } catch(e) { showMessage("Erreur"); }
-}
-
-/* ============================================================
-   2. CADASTRE - PHILOSOPHIE "ARRAY" ( Twin #2 - JUMEAU PARFAIT )
-   ============================================================ */
-function displayCadastre() {
-  const container = document.getElementById("cadastre-container");
-  if (!container) return;
-  const cadastreItems = homeData.cadastre || [];
-  
-  if (cadastreItems.length === 0) {
-    container.innerHTML = `<p style="font-size:12px; color:#77827a; margin:10px 0; text-align:center;">Aucun document cadastral.</p>`;
-    return;
-  }
-
-  container.innerHTML = cadastreItems.map((c, index) => `
-    <div class="cadastre-thumbnail">
-      <button onclick="deleteCadastreItem(${index})" style="position:absolute; top:-5px; right:-5px; background:#d93025; color:white; border:none; border-radius:50%; width:20px; height:20px; font-size:12px; cursor:pointer; z-index:10; padding:0;">×</button>
-      <img src="${c.image}" class="cadastre-img" onclick="viewDocumentFullscreen('${c.image}', 'Cadastre: ${escapeHTML(c.name)} - ${escapeHTML(c.date)}')">
-      <div class="cadastre-name">${escapeHTML(c.name)} (${escapeHTML(c.date)})</div>
-    </div>
-  `).join("");
-}
-
-function openAddCadastreModal() {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">FONCIER</div>
-    <h2>Ajouter un plan</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); processCadastreSubmit();" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <select id="cad-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-        <option value="Plan Cadastral">Plan Cadastral</option>
-        <option value="Vue Satellite">Vue Satellite</option>
-        <option value="Photo Terrain">Photo Terrain</option>
-        <option value="Plan de Masse">Plan de Masse</option>
-        <option value="Plan de Situation">Plan de Situation</option>
-        <option value="Règlement PLU">Règlement PLU / Foncier</option>
-        <option value="Bornage Géomètre">Bornage Géomètre</option>
-        <option value="Servitudes">Servitudes</option>
-        <option value="Autre Plan">Autre Plan...</option>
-      </select>
-      <input type="text" id="cad-info" placeholder="Section / Parcelle (ex: AH 123)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="date" id="cad-date" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="file" id="cad-image" accept="image/*" required style="font-size:13px; margin-top:5px;">
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder le plan</button>
-    </form>`;
-  openModal();
-}
-
-function processCadastreSubmit() {
-  const name = document.getElementById("cad-name").value;
-  const info = document.getElementById("cad-info").value;
-  const date = document.getElementById("cad-date").value;
-  const fileInput = document.getElementById("cad-image");
-  
-  if (fileInput.files.length === 0) return;
-  showMessage("⏳ Traitement...");
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    try {
-      // ON COMPRESSE (Même philosophie)
-      const compressed = await compressImage(e.target.result);
-      submitCadastreSave({ name, info, date, image: compressed });
-    } catch(err) { showMessage("Erreur compression."); }
-  };
-  reader.readAsDataURL(fileInput.files[0]);
-}
-
-async function submitCadastreSave(newCadItem) {
-  showMessage("Sauvegarde...");
-  const cadastreArray = homeData.cadastre || [];
-  cadastreArray.push(newCadItem); // Ajout au tableau
-
-  try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: cadastreArray }) });
-    if (res.ok) { closeModal(); loadHomeData(); showMessage("Plan ajouté !"); }
-  } catch(e) { showMessage("Erreur."); }
-}
-
-async function deleteCadastreItem(index) {
-  if(!confirm("Supprimer ce plan cadastral ?")) return;
-  const cadastreArray = homeData.cadastre;
-  cadastreArray.splice(index, 1);
-  try {
-    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: cadastreArray }) });
-    loadHomeData();
-  } catch(e) { showMessage("Erreur"); }
-}
-
-/* ============================================================
-   3. ESPACES LIBRES (WIDGETS PERSONNALISÉS) (Ton code existant)
-   ============================================================ */
-function displayCustomWidgets() {
-  const container = document.getElementById("custom-widgets-container");
-  if (!container) return;
-  const widgets = homeData.customWidgets || [];
-  container.innerHTML = widgets.map((w, index) => {
-    const textFormatted = escapeHTML(w.content).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#4b9b69; text-decoration:underline; font-weight:bold;">Ouvrir le lien 🔗</a>');
-    return `<div class="document" style="flex: 1; min-width: 200px; position: relative;"><button onclick="deleteCustomWidget(${index})" style="position:absolute; right:10px; top:10px; background:none; border:none; cursor:pointer; font-size:12px; color:#d93025; padding:5px;">🗑️</button><div class="document-icon">📌</div><strong>${escapeHTML(w.title)}</strong><span style="font-size:11px; margin-top:5px; white-space:pre-wrap; color:#59645d;">${textFormatted}</span></div>`;
-  }).join("");
-}
-function openAddCustomWidgetModal() {
-  document.getElementById("modal-content").innerHTML = `<div class="eyebrow">BIBLIOTHÈQUE</div><h2>Créer un Widget</h2><form action="javascript:void(0);" onsubmit="event.preventDefault(); submitCustomWidget(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;"><input type="text" id="widget-title" placeholder="Titre (ex: Drive, Portail...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;"><textarea id="widget-content" placeholder="Collez un lien ou tapez votre texte..." required style="padding:10px; border-radius:8px; border:1px solid #ccc; min-height:80px; resize:vertical;"></textarea><button type="submit" class="button primary pointer" style="margin-top:10px;">Ajouter</button></form>`;
-  openModal();
-}
-async function submitCustomWidget() {
-  const newWidget = { title: document.getElementById("widget-title").value, content: document.getElementById("widget-content").value };
-  const widgets = homeData.customWidgets || []; widgets.push(newWidget);
-  try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
-    if (res.ok) { closeModal(); loadHomeData(); }
-  } catch(e) { showMessage("Erreur réseau"); }
-}
-async function deleteCustomWidget(index) {
-  if(!confirm("Supprimer ce widget ?")) return;
-  const widgets = homeData.customWidgets; widgets.splice(index, 1);
-  try {
-    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
-    loadHomeData();
-  } catch(e) { showMessage("Erreur"); }
-}
 init();
