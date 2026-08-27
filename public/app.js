@@ -1249,26 +1249,99 @@ async function deleteCadastreItem(index) {
     loadHomeData();
   } catch(e) { showMessage("Erreur"); }
 }
+
 /* ============================================================
    ESPACES PERSONNALISÉS (WIDGETS DANS LA BIBLIOTHÈQUE)
    ============================================================ */
+window.showingHiddenWidgets = false;
+
+function toggleHiddenWidgets() {
+  window.showingHiddenWidgets = !window.showingHiddenWidgets;
+  const btn = document.getElementById("btn-toggle-hidden");
+  if (btn) {
+    btn.innerHTML = window.showingHiddenWidgets ? "🙈 Cacher" : "👁️ Masqués";
+  }
+  displayCustomWidgets();
+}
+
 function displayCustomWidgets() {
   const container = document.getElementById("custom-widgets-container");
   if (!container) return;
   const widgets = homeData.customWidgets || [];
 
+  // 1. Affichage des widgets
   container.innerHTML = widgets.map((w, index) => {
+    // Si le widget est masqué et qu'on n'a pas cliqué sur "Voir masqués", on l'ignore
+    if (w.isHidden && !window.showingHiddenWidgets) return "";
+
     const textFormatted = escapeHTML(w.content).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#4b9b69; text-decoration:underline; font-weight:bold;">Ouvrir le lien 🔗</a>');
+    
+    // Style visuel si le widget est masqué (légèrement transparent)
+    const opacityStyle = w.isHidden ? "opacity:0.5; filter:grayscale(1);" : "";
+    const iconEye = w.isHidden ? "👁️" : "🙈";
 
     return `
-      <div class="document" style="flex: 1; min-width: 200px; position: relative;">
-        <button onclick="deleteCustomWidget(${index})" style="position:absolute; right:10px; top:10px; background:none; border:none; cursor:pointer; font-size:12px; color:#d93025; padding:5px;">🗑️</button>
+      <div class="document widget-item" draggable="true" data-index="${index}" style="flex: 1; min-width: 200px; position: relative; cursor: grab; ${opacityStyle}">
+        <div style="position:absolute; right:5px; top:5px; display:flex; gap:5px; background:rgba(255,255,255,0.9); border-radius:8px; padding:2px;">
+          <button onclick="toggleWidgetVisibility(${index})" style="background:none; border:none; cursor:pointer; font-size:12px; padding:5px;" title="Masquer/Afficher ce widget">${iconEye}</button>
+          <button onclick="deleteCustomWidget(${index})" style="background:none; border:none; cursor:pointer; font-size:12px; color:#d93025; padding:5px;" title="Supprimer">🗑️</button>
+        </div>
         <div class="document-icon">📌</div>
         <strong>${escapeHTML(w.title)}</strong>
         <span style="font-size:11px; margin-top:5px; white-space:pre-wrap; color:#59645d;">${textFormatted}</span>
       </div>
     `;
   }).join("");
+
+  // 2. Logique de Drag & Drop (Glisser-Déposer)
+  let draggedWidgetIndex = null;
+  const draggables = container.querySelectorAll('.widget-item');
+  
+  draggables.forEach(item => {
+    item.addEventListener('dragstart', function(e) {
+      draggedWidgetIndex = parseInt(this.getAttribute('data-index'));
+      setTimeout(() => this.classList.add('dragging'), 0);
+    });
+    
+    item.addEventListener('dragend', function() {
+      this.classList.remove('dragging');
+      draggedWidgetIndex = null;
+    });
+    
+    item.addEventListener('dragover', function(e) {
+      e.preventDefault(); // Nécessaire pour autoriser le "lâcher"
+    });
+    
+    item.addEventListener('drop', async function(e) {
+      e.preventDefault();
+      const targetIndex = parseInt(this.getAttribute('data-index'));
+      
+      // Si on a bien déposé sur un autre élément
+      if (draggedWidgetIndex !== null && draggedWidgetIndex !== targetIndex) {
+        const widgetsArray = homeData.customWidgets;
+        
+        // On intervertit l'ordre dans le tableau
+        const movedItem = widgetsArray.splice(draggedWidgetIndex, 1)[0];
+        widgetsArray.splice(targetIndex, 0, movedItem);
+        
+        try {
+          // On sauvegarde la nouvelle position sur le serveur
+          await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgetsArray }) });
+          loadHomeData();
+        } catch(err) { showMessage("Erreur de sauvegarde de l'ordre."); }
+      }
+    });
+  });
+}
+
+// Fonction pour Masquer / Afficher un widget spécifique
+async function toggleWidgetVisibility(index) {
+  const widgets = homeData.customWidgets;
+  widgets[index].isHidden = !widgets[index].isHidden; // Inverse l'état (true/false)
+  try {
+    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
+    loadHomeData();
+  } catch(e) { showMessage("Erreur réseau"); }
 }
 
 function openAddCustomWidgetModal() {
@@ -1286,7 +1359,8 @@ function openAddCustomWidgetModal() {
 async function submitCustomWidget() {
   const newWidget = {
     title: document.getElementById("widget-title").value,
-    content: document.getElementById("widget-content").value
+    content: document.getElementById("widget-content").value,
+    isHidden: false // Par défaut, un nouveau widget est visible
   };
   
   const widgets = homeData.customWidgets || [];
@@ -1303,8 +1377,8 @@ async function deleteCustomWidget(index) {
   const widgets = homeData.customWidgets;
   widgets.splice(index, 1);
   try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
-    if(res.ok) { loadHomeData(); }
+    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
+    loadHomeData();
   } catch(e) { showMessage("Erreur"); }
 }
 
