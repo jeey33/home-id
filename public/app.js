@@ -1309,50 +1309,33 @@ async function deleteCustomWidget(index) {
 }
 
 /* ============================================================
-   CADASTRE - GESTION MULTI-IMAGES
+   CADASTRE - PHILOSOPHIE JUMELLE (LISTE VERTICALE AVEC EDITION)
    ============================================================ */
 function displayCadastre() {
-  const textContainer = document.getElementById("cadastre-text-container");
-  const galleryContainer = document.getElementById("cadastre-gallery");
-  if (!textContainer || !galleryContainer) return;
+  const container = document.getElementById("cadastre-container");
+  if (!container) return;
   
-  let c = homeData.cadastre;
-  if (Array.isArray(c)) c = {};
-  if (!c) c = {};
-
-  const images = c.images || [];
-
-  // --- 1. Affichage du texte (Références) ---
-  if (!c.section && !c.numero && !c.commune) {
-    textContainer.innerHTML = `<p style="font-size:12px; color:#77827a; margin:0; text-align:center;">Cliquez sur 📝 Infos pour renseigner la section et le numéro de parcelle.</p>`;
-  } else {
-    const officialLink = `https://www.cadastre.gouv.fr/scpc/rechercherParcelle.do?section=${c.section}&parcelle=${c.numero}&commune=${encodeURIComponent(c.commune)}`;
-
-    textContainer.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="background:#f4f6f5; border-radius:8px; padding:8px 15px;">
-          <div class="eyebrow" style="margin-bottom:2px;">RÉFÉRENCES PARCELLE</div>
-          <strong style="font-size:16px; color:#1d2c33; font-family:monospace; letter-spacing:1px;">
-            ${escapeHTML(c.section).toUpperCase()} ${escapeHTML(c.numero)}
-          </strong>
-        </div>
-        <div style="text-align:right;">
-          <p style="font-size:12px; color:#17211c; margin:0;">Commune : <strong>${escapeHTML(c.commune)}</strong></p>
-          <a href="${officialLink}" target="_blank" style="font-size:11px; color:#4b9b69; text-decoration:underline;">📄 Voir sur cadastre.gouv.fr</a>
-        </div>
-      </div>
-    `;
+  let cadastreItems = homeData.cadastre;
+  
+  // Sécurité : si le cadastre était sauvegardé sous l'ancien format (objet), on le transforme en tableau
+  if (!Array.isArray(cadastreItems)) {
+    if (cadastreItems && Array.isArray(cadastreItems.images)) {
+      cadastreItems = cadastreItems.images.map(img => ({ name: 'Document Cadastre', info: '', date: '', image: img.base64 }));
+    } else {
+      cadastreItems = [];
+    }
   }
-
-  // --- 2. Affichage de la liste verticale (Les Images) ---
-  if (images.length === 0) {
-    galleryContainer.innerHTML = `<p style="font-size:12px; color:#77827a; margin:10px 0; text-align:center;">Aucune image de cadastre (plan, satellite...) ajoutée.</p>`;
+  
+  if (cadastreItems.length === 0) {
+    container.innerHTML = `<p style="font-size:13px; color:#77827a;">Aucun document cadastral enregistré.</p>`;
     return;
   }
 
-  galleryContainer.innerHTML = images.map((img, index) => {
-    let imgHtml = img.base64 
-      ? `<img src="${img.base64}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 1px solid #cdd4ce; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="viewDocumentFullscreen('${img.base64}', '${escapeHTML(img.name || "Document Cadastre")}')">`
+  container.innerHTML = cadastreItems.map((c, index) => {
+    // Gestion de l'ancienne clé "base64" ou de la nouvelle clé "image"
+    let imgSrc = c.image || c.base64;
+    let imgHtml = imgSrc 
+      ? `<img src="${imgSrc}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 1px solid #cdd4ce; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="viewDocumentFullscreen('${imgSrc}', '${escapeHTML(c.name || 'Plan')}')">`
       : `<div style="width: 50px; height: 50px; border-radius: 8px; background: #f4f6f5; border: 1px dashed #cdd4ce; display: flex; align-items: center; justify-content: center; font-size: 20px;">🗺️</div>`;
 
     return `
@@ -1360,12 +1343,12 @@ function displayCadastre() {
         <div style="display:flex; align-items:center; gap:12px;">
           ${imgHtml}
           <div>
-            <strong style="display:block; color:#17211c; font-size:13px; text-transform:uppercase;">${escapeHTML(img.name || "Document Cadastre")}</strong>
-            <span style="font-size:11px; color:#77827a;">Info : ${escapeHTML(img.info || "Non renseigné")}</span>
+            <strong style="display:block; color:#17211c; font-size:13px; text-transform:uppercase;">${escapeHTML(c.name || 'Plan')}</strong>
+            <span style="font-size:11px; color:#77827a;">Info : ${escapeHTML(c.info || "Non renseigné")}</span>
           </div>
         </div>
         <div style="display:flex; align-items:center; gap:15px;">
-          <span style="font-size:11px; color:#17211c; font-weight:bold;">${escapeHTML(img.date || "")}</span>
+          <span style="font-size:11px; color:#17211c; font-weight:bold;">${escapeHTML(c.date || "")}</span>
           <button onclick="openEditCadastreModal(${index})" style="background:none; border:none; cursor:pointer; font-size:14px; color:#77827a; transition:0.2s;" onmouseover="this.style.color='#1e362d'" onmouseout="this.style.color='#77827a'">✏️</button>
         </div>
       </div>
@@ -1373,55 +1356,12 @@ function displayCadastre() {
   }).join("");
 }
 
-function openEditCadastreTextModal() {
-  let c = homeData.cadastre;
-  if (Array.isArray(c)) c = {};
-  if (!c) c = {};
-
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">FONCIER</div>
-    <h2>Références Cadastrales</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitCadastreText(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      
-      <input type="text" id="cad-commune" placeholder="Nom de la commune" required value="${escapeHTML(c.commune||"")}" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-
-      <div style="display:flex; gap:10px;">
-        <input type="text" id="cad-section" placeholder="Section (ex: AH)" required value="${escapeHTML(c.section||"")}" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
-        <input type="text" id="cad-numero" placeholder="Numéro parcelle (ex: 123)" required value="${escapeHTML(c.numero||"")}" style="flex:2; padding:10px; border-radius:8px; border:1px solid #ccc;">
-      </div>
-
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder les références</button>
-    </form>`;
-  openModal();
-}
-
-async function submitCadastreText() {
-  const commune = document.getElementById("cad-commune").value;
-  const section = document.getElementById("cad-section").value;
-  const numero = document.getElementById("cad-numero").value;
-  
-  let currentCadastre = homeData.cadastre;
-  if (Array.isArray(currentCadastre)) currentCadastre = {};
-  if (!currentCadastre) currentCadastre = {};
-
-  currentCadastre.commune = commune;
-  currentCadastre.section = section;
-  currentCadastre.numero = numero;
-
-  showMessage("Sauvegarde...");
-  try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: currentCadastre }) });
-    if (res.ok) { closeModal(); loadHomeData(); showMessage("Références mises à jour !"); }
-  } catch(e) { showMessage("Erreur"); }
-}
-
-function openAddCadastreImageModal() {
+function openAddCadastreModal() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">FONCIER</div>
     <h2>Ajouter un plan</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); processCadastreImageSubmit(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      
-      <select id="cad-doc-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); processCadastreSubmit(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <select id="cad-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
         <option value="Plan Cadastral">Plan Cadastral</option>
         <option value="Vue Satellite">Vue Satellite</option>
         <option value="Photo Terrain">Photo Terrain</option>
@@ -1432,76 +1372,61 @@ function openAddCadastreImageModal() {
         <option value="Servitudes">Servitudes</option>
         <option value="Autre Plan">Autre Plan...</option>
       </select>
-      
       <div style="display:flex; gap:10px;">
-        <input type="text" id="cad-doc-info" placeholder="Section (ex: AH 123)" required style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
-        <input type="date" id="cad-doc-date" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="text" id="cad-info" placeholder="Section (ex: AH 123)" required style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="date" id="cad-date" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
       </div>
-
-      <div style="background:#f4f6f5; padding:20px; border-radius:8px; border:1px dashed #cdd4ce; text-align:center; margin-top:5px;">
+      <div style="background:#f4f6f5; padding:15px; border-radius:8px; border:1px dashed #cdd4ce; margin-top:5px;">
         <label style="font-size:12px; font-weight:bold; color:#59645d; display:block; margin-bottom:8px;">📸 Joindre le document (Photo ou capture)</label>
-        <input type="file" id="cad-image-file" accept="image/*" required style="width:100%; font-size:13px;">
+        <input type="file" id="cad-image" accept="image/*" required style="width:100%; font-size:13px;">
       </div>
-
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Uploader l'image</button>
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder le plan</button>
     </form>`;
   openModal();
 }
 
-function processCadastreImageSubmit() {
-  const name = document.getElementById("cad-doc-name").value;
-  const info = document.getElementById("cad-doc-info").value;
-  const date = document.getElementById("cad-doc-date").value;
-  const fileInput = document.getElementById("cad-image-file");
-
-  if (fileInput.files.length > 0) {
-    showMessage("⏳ Compression de l'image...");
-    const file = fileInput.files[0];
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-      try {
-        const compressed = await compressImage(e.target.result);
-        submitNewCadastreImage({ name, info, date, base64: compressed });
-      } catch(err) {
-        showMessage("Erreur de compression");
-      }
-    };
-    reader.readAsDataURL(file);
-  }
+function processCadastreSubmit() {
+  const name = document.getElementById("cad-name").value;
+  const info = document.getElementById("cad-info").value;
+  const date = document.getElementById("cad-date").value;
+  const fileInput = document.getElementById("cad-image");
+  
+  if (fileInput.files.length === 0) return;
+  showMessage("⏳ Traitement...");
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const compressed = await compressImage(e.target.result);
+      submitCadastreSave({ name, info, date, image: compressed });
+    } catch(err) { showMessage("Erreur compression."); }
+  };
+  reader.readAsDataURL(fileInput.files[0]);
 }
 
-async function submitNewCadastreImage(newDoc) {
-  let currentCadastre = homeData.cadastre;
-  if (Array.isArray(currentCadastre)) currentCadastre = {};
-  if (!currentCadastre) currentCadastre = {};
-
-  let images = currentCadastre.images || [];
-  newDoc.id = "CAD-" + Date.now();
-  images.push(newDoc);
-  
-  currentCadastre.images = images;
-
+async function submitCadastreSave(newCadItem) {
   showMessage("Sauvegarde...");
+  let cadastreArray = homeData.cadastre;
+  if (!Array.isArray(cadastreArray)) cadastreArray = [];
+  cadastreArray.push(newCadItem);
+
   try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: currentCadastre }) });
-    if (res.ok) { closeModal(); loadHomeData(); showMessage("Image ajoutée !"); }
-  } catch(e) { showMessage("Erreur"); }
+    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: cadastreArray }) });
+    if (res.ok) { closeModal(); loadHomeData(); showMessage("Plan ajouté !"); }
+  } catch(e) { showMessage("Erreur."); }
 }
 
 function openEditCadastreModal(index) {
-  let currentCadastre = homeData.cadastre;
-  if (Array.isArray(currentCadastre)) currentCadastre = {};
-  if (!currentCadastre || !currentCadastre.images) return;
-  
-  const imgData = currentCadastre.images[index];
+  let cadastreArray = homeData.cadastre;
+  if (!Array.isArray(cadastreArray)) return;
+  const c = cadastreArray[index];
+  if(!c) return;
 
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">MODIFICATION FONCIER</div>
-    <h2>Modifier ${escapeHTML(imgData.name || 'Document')}</h2>
+    <h2>Modifier ${escapeHTML(c.name || 'Document')}</h2>
     <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitEditCadastre(${index}); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      
-      <select id="edit-cad-doc-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-        <option value="${escapeHTML(imgData.name || '')}" selected>${escapeHTML(imgData.name || 'Plan Cadastral')}</option>
+      <select id="edit-cad-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <option value="${escapeHTML(c.name || '')}" selected>${escapeHTML(c.name || 'Plan Cadastral')}</option>
         <option value="Plan Cadastral">Plan Cadastral</option>
         <option value="Vue Satellite">Vue Satellite</option>
         <option value="Photo Terrain">Photo Terrain</option>
@@ -1512,30 +1437,27 @@ function openEditCadastreModal(index) {
         <option value="Servitudes">Servitudes</option>
         <option value="Autre Plan">Autre Plan...</option>
       </select>
-      
       <div style="display:flex; gap:10px;">
-        <input type="text" id="edit-cad-doc-info" value="${escapeHTML(imgData.info || '')}" placeholder="Section (ex: AH 123)" required style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
-        <input type="date" id="edit-cad-doc-date" value="${escapeHTML(imgData.date || '')}" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="text" id="edit-cad-info" value="${escapeHTML(c.info || '')}" placeholder="Section (ex: AH 123)" required style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="date" id="edit-cad-date" value="${escapeHTML(c.date || '')}" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
       </div>
-      
       <div style="background:#f4f6f5; padding:15px; border-radius:8px; border:1px dashed #cdd4ce; margin-top:5px;">
         <label style="font-size:12px; font-weight:bold; color:#59645d; display:block; margin-bottom:8px;">📸 Remplacer le document (Laisser vide pour garder l'actuel)</label>
-        <input type="file" id="edit-cad-doc-image" accept="image/*" style="width:100%; font-size:13px;">
+        <input type="file" id="edit-cad-image" accept="image/*" style="width:100%; font-size:13px;">
       </div>
-      
       <div style="display:flex; gap:10px; margin-top:10px;">
         <button type="submit" class="button primary pointer" style="flex:1;">Enregistrer</button>
-        <button type="button" class="button secondary pointer" style="color:#d93025; border:1px solid #fce8e6; background:#fffafa;" onclick="deleteCadastreImage(${index})">🗑️ Supprimer</button>
+        <button type="button" class="button secondary pointer" style="color:#d93025; border:1px solid #fce8e6; background:#fffafa;" onclick="deleteCadastreItem(${index})">🗑️ Supprimer</button>
       </div>
     </form>`;
   openModal();
 }
 
 function submitEditCadastre(index) {
-  const name = document.getElementById("edit-cad-doc-name").value;
-  const info = document.getElementById("edit-cad-doc-info").value;
-  const date = document.getElementById("edit-cad-doc-date").value;
-  const fileInput = document.getElementById("edit-cad-doc-image");
+  const name = document.getElementById("edit-cad-name").value;
+  const info = document.getElementById("edit-cad-info").value;
+  const date = document.getElementById("edit-cad-date").value;
+  const fileInput = document.getElementById("edit-cad-image");
 
   if (fileInput.files.length > 0) {
     showMessage("⏳ Compression de l'image...");
@@ -1543,46 +1465,35 @@ function submitEditCadastre(index) {
     reader.onload = async function(e) {
       try {
         const compressed = await compressImage(e.target.result);
-        updateCadastreData(index, { name, info, date, base64: compressed });
+        updateCadastreData(index, { name, info, date, image: compressed });
       } catch(err) { showMessage("Erreur de compression."); }
     };
     reader.readAsDataURL(fileInput.files[0]);
   } else {
     // Garder l'ancienne image si non modifiée
-    const currentBase64 = homeData.cadastre.images[index].base64;
-    updateCadastreData(index, { name, info, date, base64: currentBase64 });
+    let oldImg = homeData.cadastre[index].image || homeData.cadastre[index].base64;
+    updateCadastreData(index, { name, info, date, image: oldImg });
   }
 }
 
-async function updateCadastreData(index, updatedDoc) {
+async function updateCadastreData(index, updatedCad) {
   showMessage("Sauvegarde en cours...");
-  let currentCadastre = homeData.cadastre;
-  
-  // Conserver l'ID existant si possible
-  updatedDoc.id = currentCadastre.images[index].id || "CAD-" + Date.now();
-  currentCadastre.images[index] = updatedDoc;
-
+  homeData.cadastre[index] = updatedCad;
   try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: currentCadastre }) });
+    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: homeData.cadastre }) });
     if (res.ok) { closeModal(); loadHomeData(); showMessage("Plan modifié !"); }
   } catch(e) { showMessage("Erreur réseau"); }
 }
 
-async function deleteCadastreImage(index) {
-  if(!confirm("Supprimer cette image de cadastre ?")) return;
-  
-  let currentCadastre = homeData.cadastre;
-  if (Array.isArray(currentCadastre)) currentCadastre = {};
-  
-  if (currentCadastre.images) {
-    currentCadastre.images.splice(index, 1);
-  }
-  
+async function deleteCadastreItem(index) {
+  if(!confirm("Voulez-vous vraiment supprimer ce plan cadastral ?")) return;
+  let cadastreArray = homeData.cadastre;
+  cadastreArray.splice(index, 1);
   try {
-    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: currentCadastre }) });
+    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: cadastreArray }) });
     closeModal();
     loadHomeData();
-    showMessage("Image supprimée.");
+    showMessage("Plan supprimé.");
   } catch(e) { showMessage("Erreur"); }
 }
 
