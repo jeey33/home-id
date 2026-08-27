@@ -6,6 +6,7 @@
   <title>HOME ID — Tableau de bord</title>
   <link rel="stylesheet" href="/style.css">
   
+  <!-- Police d'écriture pour le nouveau logo -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&display=swap" rel="stylesheet">
@@ -16,37 +17,103 @@
     .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2c362f; color: white; padding: 12px 24px; border-radius: 30px; display: none; z-index: 1001; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
     .toast.show { display: block; animation: fadein 0.3s; }
     @keyframes fadein { from { bottom: 0; opacity: 0; } to { bottom: 20px; opacity: 1; } }
+    .pro-section-title { font-size: 13px; color: #77827a; text-transform: uppercase; margin-bottom: 10px; margin-top: 15px; font-weight: 700; border-bottom: 1px solid #e3e8e4; padding-bottom: 5px; }
 
+    /* Pleine largeur pour les systèmes */
     .systems-card { grid-column: 1 / -1 !important; }
     .systems { display: flex !important; flex-wrap: wrap; gap: 15px; }
     .system { flex: 1 1 140px !important; min-width: 140px; margin: 0 !important; transition: opacity 0.2s, transform 0.2s; }
     .system.dragging { opacity: 0.4; border: 2px dashed #4b9b69; transform: scale(0.98); }
 
+    /* Galerie de plans */
     .plans-container { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: thin; }
     .plan-thumbnail { flex: 0 0 80px; cursor: pointer; text-align: center; transition: transform 0.2s; }
     .plan-thumbnail:hover { transform: scale(1.05); }
     .plan-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid #cdd4ce; }
     .plan-name { font-size: 10px; color: #59645d; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold; }
 
-    .topbar { background: #1d2c33; border-bottom: 3px solid #7bd0df; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+    /* ============================================
+       TOPBAR & MENU DÉROULANT
+       ============================================ */
+    .topbar {
+      background: #1d2c33; 
+      border-bottom: 3px solid #7bd0df;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
     .menu-wrapper { position: relative; }
-    .topbar .brand { display: flex; align-items: center; gap: 10px; }
-    .topbar .brand-text { font-family: 'Montserrat', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; margin-top: 2px; }
-    .home-word { color: #51838d; } .id-word { color: #7bd0df; }
+    
+    .topbar .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .topbar .brand-text {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-top: 2px;
+    }
+    .home-word { color: #51838d; }
+    .id-word { color: #7bd0df; }
 
-    .dropdown-menu { position: absolute; top: 100%; left: 0; margin-top: 15px; background: #ffffff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); width: 260px; display: none; flex-direction: column; overflow: hidden; z-index: 2000; border: 1px solid #e3e8e4; }
+    /* Le style du menu déroulant */
+    .dropdown-menu {
+      position: absolute;
+      top: 100%; left: 0;
+      margin-top: 15px;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      width: 260px;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 2000;
+      border: 1px solid #e3e8e4;
+    }
     .dropdown-menu.show { display: flex; animation: slideDown 0.2s ease; }
     @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-    .dropdown-menu a { padding: 16px 20px; text-decoration: none; color: #17211c; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 12px; transition: background 0.2s; }
+    
+    .dropdown-menu a {
+      padding: 16px 20px;
+      text-decoration: none;
+      color: #17211c;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: background 0.2s;
+    }
     .dropdown-menu a:hover { background: #f4f6f5; color: #4b9b69; }
     .dropdown-menu hr { margin: 0; border: none; border-bottom: 1px solid #e3e8e4; }
 
-    .house-image { display: flex; justify-content: center; align-items: center; background: #1d2c33; width: 60px; height: 60px; border-radius: 16px; box-shadow: 0 4px 10px rgba(29, 44, 51, 0.2); }
+    /* ============================================
+       NOUVELLE PASTILLE MAISON (Dashboard)
+       ============================================ */
+    .house-image {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #1d2c33; 
+      width: 60px;
+      height: 60px;
+      border-radius: 16px;
+      box-shadow: 0 4px 10px rgba(29, 44, 51, 0.2);
+    }
   </style>
 </head>
 <body>
 
+  <!-- TOPBAR AVEC LE MENU -->
   <header class="topbar">
+    
     <div class="menu-wrapper" id="brand-menu-wrapper">
       <div class="brand pointer" onclick="toggleMainMenu()">
         <svg width="35" height="35" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -85,10 +152,10 @@
         <h1 id="display-house-name">Chargement...</h1>
         <p>Toute la mémoire technique de votre maison, au même endroit.</p>
       </div>
-      <!-- Le bouton + Ajouter principal -->
       <button class="button primary" onclick="openAddMenu()">+ Ajouter</button>
     </section>
 
+    <!-- SECTION MA MAISON -->
     <section class="house-card">
       <div class="house-info">
         <div class="house-image">
@@ -122,12 +189,16 @@
       <!-- 1. SYSTÈMES -->
       <section class="card systems-card">
         <div class="card-header">
-          <div><div class="eyebrow">INSTALLATIONS</div><h2>Mes systèmes</h2></div>
+          <div>
+            <div class="eyebrow">INSTALLATIONS</div>
+            <h2>Mes systèmes</h2>
+            <p style="font-size:11px; color:#77827a; margin:4px 0 0 0;">Maintenez et glissez pour organiser</p>
+          </div>
         </div>
         <div id="systems" class="systems"></div>
       </section>
 
-      <!-- 2. DIAGNOSTICS IMMOBILIERS (Nouveau) -->
+      <!-- 2. DIAGNOSTICS (Nouveau Widget) -->
       <section class="card">
         <div class="card-header">
           <div><div class="eyebrow">RÉGLEMENTATION</div><h2>Diagnostics</h2></div>
@@ -138,15 +209,7 @@
         </div>
       </section>
 
-      <!-- 3. ARTISANS -->
-      <section class="card">
-        <div class="card-header">
-          <div><div class="eyebrow">RÉSEAU</div><h2>Artisans</h2></div>
-        </div>
-        <div id="professionals"></div>
-      </section>
-
-      <!-- 4. ENTRETIEN -->
+      <!-- 3. ENTRETIENS -->
       <section class="card">
         <div class="card-header">
           <div><div class="eyebrow">À VENIR</div><h2>Entretien</h2></div>
@@ -154,27 +217,40 @@
         <div id="alerts"></div>
       </section>
 
-      <!-- 5. ESPACE SÉCURISÉ ET WIDGETS LIBRES -->
-      <section class="card systems-card" style="grid-column: 1 / -1;">
+      <!-- 4. ARTISANS -->
+      <section class="card">
         <div class="card-header">
-          <div><div class="eyebrow">PERSONNALISÉ</div><h2>Coffre & Espaces libres</h2></div>
+          <div><div class="eyebrow">ACCÈS & RÉSEAU</div><h2>Artisans</h2></div>
+          <button class="link-button" onclick="openQrSimulatorModal()">Simuler QR Pro</button>
+        </div>
+        <div id="professionals"></div>
+      </section>
+
+      <!-- 5. LA BIBLIOTHÈQUE INTACTE -->
+      <section class="card documents-card">
+        <div class="card-header">
+          <div><div class="eyebrow">SÉCURITÉ & DOCUMENTS</div><h2>Ma bibliothèque</h2></div>
+        </div>
+        <div class="documents">
+          <div class="document" style="background:#fffcf5; border-color:#ffe8a1;" onclick="openVaultCheck()">
+            <div class="document-icon">🔐</div>
+            <strong style="color:#856404;">Coffre-fort</strong>
+            <span style="color:#b38c23;">Mots de passe</span>
+          </div>
+          <div class="document"><div class="document-icon">📐</div><strong>Plans</strong><span id="doc-plans">0 fichiers</span></div>
+          <div class="document"><div class="document-icon">🧾</div><strong>Factures</strong><span>0 fichiers</span></div>
+          <div class="document"><div class="document-icon">📖</div><strong>Notices auto.</strong><span id="doc-notices">0 fichiers</span></div>
+        </div>
+      </section>
+      
+      <!-- 6. WIDGETS LIBRES PERSONNALISÉS (Nouveau Widget) -->
+      <section class="card">
+        <div class="card-header">
+          <div><div class="eyebrow">PERSONNALISÉ</div><h2>Espaces libres</h2></div>
           <button class="button secondary" style="padding: 4px 10px; font-size: 11px;" onclick="openAddCustomWidgetModal()">+ Créer un Widget</button>
         </div>
-        
-        <div style="display:flex; flex-wrap:wrap; gap:15px; margin-top:10px;">
-          <!-- LE COFFRE FORT RESTE ICI -->
-          <div class="document pointer" style="background:#fffcf5; border-color:#ffe8a1; flex:1; min-width:250px; display:flex; gap:15px; padding:15px; align-items:center;" onclick="openVaultCheck()">
-            <div class="document-icon" style="font-size:24px;">🔐</div>
-            <div>
-              <strong style="color:#856404; display:block; font-size:16px;">Coffre-fort</strong>
-              <span style="color:#b38c23; font-size:12px;">Mots de passe sécurisés</span>
-            </div>
-          </div>
-
-          <!-- CONTENEUR DES WIDGETS PERSONNALISÉS -->
-          <div id="custom-widgets-container" style="flex:2; min-width:250px; display:flex; flex-direction:column; gap:10px;">
-            <!-- Injecté par JS -->
-          </div>
+        <div id="custom-widgets-container" style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
+          <!-- Injecté par JS -->
         </div>
       </section>
 
@@ -190,27 +266,92 @@
 
   <div id="toast" class="toast"></div>
 
-  <script src="/app.js?v=32"></script> 
-  
-  <script>
-    function toggleMainMenu() { document.getElementById('main-menu').classList.toggle('show'); }
-    document.addEventListener('click', function(event) { const wrapper = document.getElementById('brand-menu-wrapper'); if (wrapper && !wrapper.contains(event.target)) { document.getElementById('main-menu').classList.remove('show'); } });
+  <script src="/app.js?v=33"></script> 
 
+  <!-- SCRIPT POUR LE MENU DÉROULANT ET LES FENÊTRES D'AIDE -->
+  <script>
+    function toggleMainMenu() {
+      document.getElementById('main-menu').classList.toggle('show');
+    }
+    
+    // Ferme le menu si on clique n'importe où ailleurs sur la page
+    document.addEventListener('click', function(event) {
+      const wrapper = document.getElementById('brand-menu-wrapper');
+      if (wrapper && !wrapper.contains(event.target)) {
+        document.getElementById('main-menu').classList.remove('show');
+      }
+    });
+
+    // Gestion de l'affichage des rubriques du menu dans la fenêtre modale
     function openInfoModal(type) {
-      document.getElementById('main-menu').classList.remove('show'); 
+      document.getElementById('main-menu').classList.remove('show'); // On referme le menu
       const modal = document.getElementById('modal');
       const content = document.getElementById('modal-content');
       
       if(type === 'mode_emploi') {
-        content.innerHTML = `<div class="eyebrow">GUIDE</div><h2>Mode d'emploi</h2><div style="font-size:14px; color:#59645d; line-height:1.6; margin-top:15px;"><p><strong>1. Le Tableau de bord :</strong> Retrouvez toutes les informations de votre maison.</p><p><strong>2. Diagnostics :</strong> Entrez les résultats de votre DPE pour l'avoir toujours sous la main.</p><p><strong>3. Espaces Libres :</strong> Créez des widgets pour stocker des liens vers votre Google Drive, des codes de portail, etc.</p><p><strong>4. Le Coffre-fort :</strong> Stockez vos mots de passe sensibles.</p></div>`;
+        content.innerHTML = `
+          <div class="eyebrow">GUIDE</div><h2>Mode d'emploi</h2>
+          <div style="font-size:14px; color:#59645d; line-height:1.6; margin-top:15px; font-family:'Inter', sans-serif;">
+            <p><strong>1. Le Tableau de bord :</strong> Retrouvez en un clin d'œil toutes les informations vitales de votre maison.</p>
+            <p><strong>2. Les Systèmes :</strong> Classez vos équipements par catégorie (Électricité, Eau, Chauffage...). Vous pouvez les déplacer en maintenant le clic.</p>
+            <p><strong>3. Le Coffre-fort :</strong> Stockez vos mots de passe sensibles (Wi-Fi, alarmes) avec une sécurité renforcée de type bancaire.</p>
+            <p><strong>4. Entretiens :</strong> Programmez des rappels pour ne plus jamais oublier la révision de la chaudière ou le nettoyage des filtres.</p>
+          </div>
+        `;
       } else if(type === 'aide') {
-        content.innerHTML = `<div class="eyebrow">ASSISTANCE</div><h2>Centre d'aide</h2><div style="font-size:14px; color:#59645d; line-height:1.6; margin-top:15px;"><p><strong>Où sont stockées mes données ?</strong><br>Sur des serveurs Cloud sécurisés.</p><p style="margin-top:15px;"><strong>Comment modifier un équipement ?</strong><br>Ouvrez la catégorie, puis cliquez sur ✏️ Éditer.</p></div>`;
+        content.innerHTML = `
+          <div class="eyebrow">ASSISTANCE</div><h2>Centre d'aide (FAQ)</h2>
+          <div style="font-size:14px; color:#59645d; line-height:1.6; margin-top:15px; font-family:'Inter', sans-serif;">
+            <p style="margin-bottom:5px;"><strong>Où sont stockées mes données ?</strong></p>
+            <p style="margin-top:0;">Vos données sont protégées et stockées sur des serveurs Cloud sécurisés.</p>
+            
+            <p style="margin-bottom:5px; margin-top:15px;"><strong>Un artisan peut-il tout modifier ?</strong></p>
+            <p style="margin-top:0;">Non. Toute personne scannant votre QR code physique pourra consulter la mémoire de la maison, mais le mot de passe Propriétaire sera requis pour modifier ou effacer des données.</p>
+            
+            <p style="margin-bottom:5px; margin-top:15px;"><strong>Comment modifier un équipement ?</strong></p>
+            <p style="margin-top:0;">Ouvrez la catégorie correspondante (ex: Chauffage), puis cliquez sur le bouton (✏️ Éditer) à côté de l'équipement.</p>
+          </div>
+        `;
       } else if(type === 'contact') {
-        content.innerHTML = `<div class="eyebrow">SUPPORT</div><h2>Nous contacter</h2><div style="font-size:14px; color:#59645d; line-height:1.6; margin-top:15px;"><div style="background:#f4f6f5; padding:20px; border-radius:12px; text-align:center; border: 1px dashed #cdd4ce;"><strong style="color:#1d2c33; display:block; margin-bottom:5px;">✉️ Email :</strong> <a href="mailto:support@home-id.fr" style="color:#4b9b69; text-decoration:none; font-weight:bold;">support@home-id.fr</a></div></div>`;
+        content.innerHTML = `
+          <div class="eyebrow">SUPPORT</div><h2>Nous contacter</h2>
+          <div style="font-size:14px; color:#59645d; line-height:1.6; margin-top:15px; font-family:'Inter', sans-serif;">
+            <p>Vous rencontrez un problème technique, vous avez perdu votre plaque ou vous avez une suggestion d'amélioration ? L'équipe HOME ID est là pour vous.</p>
+            <div style="background:#f4f6f5; padding:20px; border-radius:12px; margin-top:20px; text-align:center; border: 1px dashed #cdd4ce;">
+              <strong style="color:#1d2c33; display:block; margin-bottom:5px;">✉️ Par Email :</strong> 
+              <a href="mailto:support@home-id.fr" style="color:#4b9b69; text-decoration:none; font-weight:bold;">support@home-id.fr</a>
+              <br><br>
+              <strong style="color:#1d2c33; display:block; margin-bottom:5px;">📞 Par Téléphone :</strong> 
+              <span style="color:#59645d;">01 23 45 67 89</span><br>
+              <span style="font-size:11px;">(Du lundi au vendredi, de 9h à 18h)</span>
+            </div>
+          </div>
+        `;
       } else if(type === 'a_propos') {
-        content.innerHTML = `<div class="eyebrow">À PROPOS</div><h2>HOME ID</h2><div style="font-size:14px; color:#59645d; line-height:1.6; margin-top:25px; text-align:center;"><p style="font-size:16px; color:#1d2c33;"><strong>Le carnet d'entretien numérique du 21e siècle.</strong></p><p style="margin-top:20px;">L'outil indispensable pour valoriser votre patrimoine.</p><div style="margin-top:30px; font-size:11px; color:#aab7af; border-top:1px solid #e3e8e4; padding-top:15px;">Version 2.0.0<br>© 2026 HOME ID.</div></div>`;
+        content.innerHTML = `
+          <div class="eyebrow">À PROPOS</div><h2>HOME ID</h2>
+          <div style="font-size:14px; color:#59645d; line-height:1.6; margin-top:25px; text-align:center; font-family:'Inter', sans-serif;">
+            <svg width="70" height="70" viewBox="0 0 100 100" fill="none" style="margin-bottom:15px;">
+              <path d="M 8 45 L 50 12 L 92 45" stroke="#7bd0df" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M 22 35 V 80 Q 22 88 30 88 H 70 Q 78 88 78 80 V 35" stroke="#7bd0df" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="36" y="44" width="8" height="8" fill="#7bd0df"/>
+              <rect x="48" y="44" width="16" height="8" fill="#7bd0df"/>
+              <rect x="36" y="56" width="16" height="16" fill="#7bd0df"/>
+              <rect x="56" y="56" width="8" height="8" fill="#7bd0df"/>
+              <rect x="56" y="68" width="8" height="4" fill="#7bd0df"/>
+            </svg>
+            <p style="font-size:16px; color:#1d2c33;"><strong>Le carnet d'entretien numérique du 21e siècle.</strong></p>
+            <p style="margin-top:20px;">L'outil indispensable pour valoriser votre patrimoine, centraliser vos informations techniques et simplifier la transmission de votre bien immobilier.</p>
+            <div style="margin-top:30px; font-size:11px; color:#aab7af; border-top:1px solid #e3e8e4; padding-top:15px;">
+              Version 1.0.0<br>© 2026 HOME ID. Tous droits réservés.
+            </div>
+          </div>
+        `;
       }
+      
       modal.classList.remove('hidden');
+      const closeBtn = document.querySelector('.close');
+      if (closeBtn) closeBtn.style.display = 'block'; 
     }
   </script>
 </body>
