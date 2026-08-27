@@ -14,7 +14,6 @@ const pool = new Pool({
 });
 
 // --- SÉCURITÉ COFFRE FORT (AES-256) ---
-// Clé de chiffrement générée à partir d'un secret serveur
 const ENCRYPTION_KEY = crypto.createHash('sha256').update(process.env.VAULT_SECRET || "home-id-ultra-secure-key-2026").digest('base64').substring(0, 32);
 const IV_LENGTH = 16;
 
@@ -58,14 +57,12 @@ async function initDB() {
     await pool.query(`ALTER TABLE alerts ADD COLUMN IF NOT EXISTS is_done BOOLEAN DEFAULT FALSE;`);
     await pool.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS display_order INT DEFAULT 0;`);
     await pool.query(`ALTER TABLE professionals ADD COLUMN IF NOT EXISTS notes TEXT;`);
-    
-    // Ajout du code PIN du coffre à la maison
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS vault_pin VARCHAR(255);`);
 
-    // --- NOUVEAUTÉ : Ajout des colonnes pour les Diagnostics, Widgets et CADASTRE ---
+    // --- NOUVEAUTÉ : Ajout des colonnes JSON pour Diagnostics, Widgets et CADASTRE ---
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS diagnostics JSONB DEFAULT '[]'::jsonb;`);
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS custom_widgets JSONB DEFAULT '[]'::jsonb;`);
-    await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS cadastre JSONB DEFAULT '[]'::jsonb;`); // Ici DEFAULT '[]' car on va stocker un tableau d'objets (Multi-images + infos)
+    await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS cadastre JSONB DEFAULT '[]'::jsonb;`);
 
     console.log("Base de données connectée, mise à jour et prête !");
   } catch (error) {
@@ -108,7 +105,7 @@ app.post("/api/setup", async (req, res) => {
       { id: `ext_${id}`, name: "Extérieur", icon: "🌳", status: "À configurer", color: "orange", order: 6 },
       { id: `domo_${id}`, name: "Réseau", icon: "📡", status: "À configurer", color: "orange", order: 7 }
     ];
-    for (let sys of defaultSystems) { await pool.query(`INSERT INTO systems (id, home_id, name, icon, status, color, display_order) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [sys.id, id, sys.name, sys.icon, sys.status, sys.color, sys.order]); }
+    for (let sys of defaultSystems) { await pool.query(`INSERT INTO systems (id, home_id, name, icon, status, color, display_order) VALUES ($1, $2, $3, $4, 'À configurer', 'orange', 99)`, [sys.id, id, sys.name, sys.icon, sys.status, sys.color, sys.order]); }
     res.json({ ok: true, id: id });
   } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
 });
