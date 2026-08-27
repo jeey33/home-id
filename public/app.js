@@ -72,6 +72,11 @@ async function loadHomeData() {
     displaySystems();
     displayAlerts();
     displayProfessionals();
+    
+    // Ajoute ces deux lignes ici !
+    displayDiagnostics();
+    displayCustomWidgets();
+    
   } catch (error) { showMessage("Impossible de charger les données."); }
 }
 
@@ -855,4 +860,150 @@ function showMessage(msg) { const t = document.getElementById("toast"); if(!t) r
 function escapeHTML(str) { return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 function openQrSimulatorModal() { window.open(`/scan/${currentHomeId}`, "_blank"); }
 
+/* ============================================================
+   DIAGNOSTICS IMMOBILIERS
+   ============================================================ */
+function displayDiagnostics() {
+  const container = document.getElementById("diagnostics-container");
+  if (!container) return;
+  const diags = homeData.diagnostics || [];
+  
+  if (diags.length === 0) {
+    container.innerHTML = `<p style="font-size:13px; color:#77827a;">Aucun diagnostic enregistré.</p>`;
+    return;
+  }
+
+  // Couleurs officielles du DPE
+  const dpeColors = { 'A':'#009c6d', 'B':'#52b153', 'C':'#a5cc74', 'D':'#f4d35e', 'E':'#f0ac4c', 'F':'#eb8235', 'G':'#d7352b' };
+
+  container.innerHTML = diags.map((d, index) => {
+    let resultVisual = `<strong>${escapeHTML(d.result)}</strong>`;
+    
+    // Si c'est un DPE, on fait un beau badge de couleur !
+    if (d.name.toUpperCase().includes("DPE") && dpeColors[d.result.toUpperCase()]) {
+      resultVisual = `<span style="background:${dpeColors[d.result.toUpperCase()]}; color:white; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:16px;">${d.result.toUpperCase()}</span>`;
+    }
+
+    return `
+      <div style="background:#ffffff; border:1px solid #e3e8e4; border-radius:10px; padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <strong style="display:block; color:#17211c; font-size:13px; text-transform:uppercase;">${escapeHTML(d.name)}</strong>
+          <span style="font-size:11px; color:#77827a;">Fait le : ${escapeHTML(d.date || "Inconnue")}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:15px;">
+          ${resultVisual}
+          <button onclick="deleteDiagnostic(${index})" style="background:none; border:none; cursor:pointer; font-size:12px; color:#d93025;">🗑️</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function openAddDiagModal() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">DIAGNOSTIC</div>
+    <h2>Ajouter un document</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitDiagnostic(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <select id="diag-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <option value="DPE (Énergie)">DPE (Énergie)</option>
+        <option value="GES (Climat)">GES (Climat)</option>
+        <option value="Amiante">Amiante</option>
+        <option value="Électricité">Électricité</option>
+        <option value="Plomb">Plomb</option>
+        <option value="Termites">Termites</option>
+      </select>
+      <input type="text" id="diag-result" placeholder="Résultat (Ex: A, B, Présence, Anomalie...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="date" id="diag-date" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Enregistrer</button>
+    </form>`;
+  openModal();
+}
+
+async function submitDiagnostic() {
+  const newDiag = {
+    name: document.getElementById("diag-name").value,
+    result: document.getElementById("diag-result").value,
+    date: document.getElementById("diag-date").value
+  };
+  
+  const diags = homeData.diagnostics || [];
+  diags.push(newDiag);
+
+  try {
+    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: diags }) });
+    if (res.ok) { closeModal(); loadHomeData(); }
+  } catch(e) { showMessage("Erreur réseau"); }
+}
+
+async function deleteDiagnostic(index) {
+  if(!confirm("Supprimer ce diagnostic ?")) return;
+  const diags = homeData.diagnostics;
+  diags.splice(index, 1);
+  try {
+    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: diags }) });
+    loadHomeData();
+  } catch(e) { showMessage("Erreur"); }
+}
+
+
+/* ============================================================
+   ESPACES PERSONNALISÉS (WIDGETS DANS LA BIBLIOTHÈQUE)
+   ============================================================ */
+function displayCustomWidgets() {
+  const container = document.getElementById("custom-widgets-container");
+  if (!container) return;
+  const widgets = homeData.customWidgets || [];
+
+  container.innerHTML = widgets.map((w, index) => {
+    // Rend les liens cliquables s'il y a un "http"
+    const textFormatted = escapeHTML(w.content).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#4b9b69; text-decoration:underline; font-weight:bold;">Ouvrir le lien 🔗</a>');
+
+    // Design repris de l'ancienne bibliothèque !
+    return `
+      <div class="document" style="flex: 1; min-width: 200px; position: relative;">
+        <button onclick="deleteCustomWidget(${index})" style="position:absolute; right:10px; top:10px; background:none; border:none; cursor:pointer; font-size:12px; color:#d93025; padding:5px;">🗑️</button>
+        <div class="document-icon">📌</div>
+        <strong>${escapeHTML(w.title)}</strong>
+        <span style="font-size:11px; margin-top:5px; white-space:pre-wrap; color:#59645d;">${textFormatted}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+function openAddCustomWidgetModal() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">BIBLIOTHÈQUE</div>
+    <h2>Créer un Widget</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitCustomWidget(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <input type="text" id="widget-title" placeholder="Titre (ex: Lien Google Drive, Portail...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <textarea id="widget-content" placeholder="Collez un lien internet, ou tapez votre texte ici..." required style="padding:10px; border-radius:8px; border:1px solid #ccc; min-height:80px; resize:vertical;"></textarea>
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Ajouter le widget</button>
+    </form>`;
+  openModal();
+}
+
+async function submitCustomWidget() {
+  const newWidget = {
+    title: document.getElementById("widget-title").value,
+    content: document.getElementById("widget-content").value
+  };
+  
+  const widgets = homeData.customWidgets || [];
+  widgets.push(newWidget);
+
+  try {
+    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
+    if (res.ok) { closeModal(); loadHomeData(); }
+  } catch(e) { showMessage("Erreur réseau"); }
+}
+
+async function deleteCustomWidget(index) {
+  if(!confirm("Supprimer ce widget ?")) return;
+  const widgets = homeData.customWidgets;
+  widgets.splice(index, 1);
+  try {
+    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
+    loadHomeData();
+  } catch(e) { showMessage("Erreur"); }
+}
 init();
