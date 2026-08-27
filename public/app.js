@@ -898,7 +898,6 @@ function displayDiagnostics() {
   const container = document.getElementById("diagnostics-container");
   if (!container) return;
   
-  // Sécurité pour gérer les données de la BDD
   let diags = homeData.diagnostics;
   if (!Array.isArray(diags)) diags = [];
   
@@ -912,10 +911,12 @@ function displayDiagnostics() {
   container.innerHTML = diags.map((d, index) => {
     let resultVisual = `<strong>${escapeHTML(d.result)}</strong>`;
     
+    // Si c'est un DPE, on fait un beau badge de couleur (ex: "E" en orange)
     if (d.name && d.name.toUpperCase().includes("DPE") && dpeColors[(d.result || "").toUpperCase()]) {
       resultVisual = `<span style="background:${dpeColors[d.result.toUpperCase()]}; color:white; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:16px;">${d.result.toUpperCase()}</span>`;
     }
 
+    // Vignette de l'image sur la gauche
     let imgHtml = d.image 
       ? `<img src="${d.image}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 1px solid #cdd4ce; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="viewDocumentFullscreen('${d.image}', '${escapeHTML(d.name)}')">`
       : `<div style="width: 50px; height: 50px; border-radius: 8px; background: #f4f6f5; border: 1px dashed #cdd4ce; display: flex; align-items: center; justify-content: center; font-size: 20px;">📄</div>`;
@@ -931,7 +932,7 @@ function displayDiagnostics() {
         </div>
         <div style="display:flex; align-items:center; gap:15px;">
           ${resultVisual}
-          <button onclick="deleteDiagnostic(${index})" style="background:none; border:none; cursor:pointer; font-size:12px; color:#d93025; padding:5px;">🗑️</button>
+          <button onclick="deleteDiagnostic(${index})" style="background:none; border:none; cursor:pointer; font-size:16px; color:#aab7af; transition:color 0.2s;" onmouseover="this.style.color='#d93025'" onmouseout="this.style.color='#aab7af'">🗑️</button>
         </div>
       </div>
     `;
@@ -1088,52 +1089,38 @@ async function deleteCustomWidget(index) {
    CADASTRE - GESTION MULTI-IMAGES
    ============================================================ */
 function displayCadastre() {
-  const textContainer = document.getElementById("cadastre-text-container");
-  const galleryContainer = document.getElementById("cadastre-gallery");
-  if (!textContainer || !galleryContainer) return;
-
-  // Sécurité anti-crash
-  let c = homeData.cadastre;
-  if (Array.isArray(c)) c = {};
-  if (!c) c = {};
-
-  const images = c.images || [];
-
-  // --- 1. Affichage du texte (Références) ---
-  if (!c.section && !c.numero && !c.commune) {
-    textContainer.innerHTML = `<p style="font-size:12px; color:#77827a; margin:0; text-align:center;">Cliquez sur 📝 Infos pour renseigner la section et le numéro de parcelle.</p>`;
-  } else {
-    const cpHome = homeData.land || ""; 
-    const officialLink = `https://www.cadastre.gouv.fr/scpc/rechercherParcelle.do?section=${c.section}&parcelle=${c.numero}&commune=${encodeURIComponent(c.commune)}`;
-
-    textContainer.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="background:#f4f6f5; border-radius:8px; padding:8px 15px;">
-          <div class="eyebrow" style="margin-bottom:2px;">RÉFÉRENCES PARCELLE</div>
-          <strong style="font-size:16px; color:#1d2c33; font-family:monospace; letter-spacing:1px;">
-            ${escapeHTML(c.section).toUpperCase()} ${escapeHTML(c.numero)}
-          </strong>
-        </div>
-        <div style="text-align:right;">
-          <p style="font-size:12px; color:#17211c; margin:0;">Commune : <strong>${escapeHTML(c.commune)}</strong></p>
-          <a href="${officialLink}" target="_blank" style="font-size:11px; color:#4b9b69; text-decoration:underline;">📄 Voir sur cadastre.gouv.fr</a>
-        </div>
-      </div>
-    `;
-  }
-
-  // --- 2. Affichage de la galerie d'images ---
-  if (images.length === 0) {
-    galleryContainer.innerHTML = `<p style="font-size:12px; color:#77827a; margin:10px 0; text-align:center;">Aucune image de cadastre (plan, satellite...) ajoutée.</p>`;
+  const container = document.getElementById("cadastre-container");
+  if (!container) return;
+  
+  let cadastreItems = homeData.cadastre;
+  if (!Array.isArray(cadastreItems)) cadastreItems = [];
+  
+  if (cadastreItems.length === 0) {
+    container.innerHTML = `<p style="font-size:13px; color:#77827a;">Aucun document cadastral enregistré.</p>`;
     return;
   }
 
-  galleryContainer.innerHTML = images.map((img, index) => `
-    <div class="cadastre-thumbnail">
-      <button onclick="deleteCadastreImage(${index})" style="position:absolute; top:-5px; right:-5px; background:#d93025; color:white; border:none; border-radius:50%; width:20px; height:20px; font-size:12px; cursor:pointer; z-index:10;">×</button>
-      <img src="${img.base64}" class="cadastre-img" alt="Cadastre" onclick="viewDocumentFullscreen('${img.base64}', 'Visuel Cadastre n°${index+1}')">
-    </div>
-  `).join("");
+  container.innerHTML = cadastreItems.map((c, index) => {
+    let imgHtml = c.image 
+      ? `<img src="${c.image}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 1px solid #cdd4ce; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="viewDocumentFullscreen('${c.image}', '${escapeHTML(c.name)}')">`
+      : `<div style="width: 50px; height: 50px; border-radius: 8px; background: #f4f6f5; border: 1px dashed #cdd4ce; display: flex; align-items: center; justify-content: center; font-size: 20px;">🗺️</div>`;
+
+    return `
+      <div style="background:#ffffff; border:1px solid #e3e8e4; border-radius:10px; padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          ${imgHtml}
+          <div>
+            <strong style="display:block; color:#17211c; font-size:13px; text-transform:uppercase;">${escapeHTML(c.name)}</strong>
+            <span style="font-size:11px; color:#77827a;">Info : ${escapeHTML(c.info || "Non renseigné")}</span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:15px;">
+          <span style="font-size:11px; color:#17211c; font-weight:bold;">${escapeHTML(c.date || "")}</span>
+          <button onclick="deleteCadastreItem(${index})" style="background:none; border:none; cursor:pointer; font-size:16px; color:#aab7af; transition:color 0.2s;" onmouseover="this.style.color='#d93025'" onmouseout="this.style.color='#aab7af'">🗑️</button>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
 function openEditCadastreTextModal() {
