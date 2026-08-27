@@ -1210,4 +1210,248 @@ async function deleteCadastreImage(index) {
     showMessage("Image supprimée.");
   } catch(e) { showMessage("Erreur"); }
 }
+
+/* ============================================================
+   OUTILS DE COMPRESSION ET AFFICHAGE PLEIN ECRAN
+   ============================================================ */
+function compressImage(base64Str, maxWidth = 1200, maxHeight = 1200) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
+      } else {
+        if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
+      }
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", 0.7)); 
+    };
+  });
+}
+
+function viewDocumentFullscreen(imageSrc, docName) {
+  document.getElementById("modal-content").innerHTML = `
+    <div style="display:flex; flex-direction:column; height: 75vh;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+        <h2 style="margin:0; font-size:18px;">${escapeHTML(docName)}</h2>
+        <button class="button secondary pointer" style="padding:4px 10px; font-size:11px;" onclick="togglePlanZoom()">🔍 Zoomer</button>
+      </div>
+      <div style="flex:1; overflow:auto; background:#f4f6f5; border-radius:8px; border:1px solid #e3e8e4; text-align:center;">
+        <img id="fullscreen-plan-img" src="${imageSrc}" style="max-width:100%; height:auto; transition: width 0.3s ease; cursor: zoom-in;" onclick="togglePlanZoom()">
+      </div>
+    </div>`;
+  openModal();
+}
+
+/* ============================================================
+   1. DIAGNOSTICS - PHILOSOPHIE "ARRAY"
+   ============================================================ */
+function displayDiagnostics() {
+  const container = document.getElementById("diagnostics-container");
+  if (!container) return;
+  const diags = homeData.diagnostics || [];
+  
+  if (diags.length === 0) {
+    container.innerHTML = `<p style="font-size:12px; color:#77827a; margin:10px 0; text-align:center;">Aucun diagnostic.</p>`;
+    return;
+  }
+
+  container.innerHTML = diags.map((d, index) => `
+    <div class="diag-thumbnail">
+      <button onclick="deleteDiagnostic(${index})" style="position:absolute; top:-5px; right:-5px; background:#d93025; color:white; border:none; border-radius:50%; width:20px; height:20px; font-size:12px; cursor:pointer; z-index:10; padding:0;">×</button>
+      <img src="${d.image}" class="diag-img" onclick="viewDocumentFullscreen('${d.image}', '${escapeHTML(d.name)} Result: ${escapeHTML(d.result)}')">
+      <div class="diag-name">${escapeHTML(d.name)} (${escapeHTML(d.result)})</div>
+    </div>
+  `).join("");
+}
+
+function openAddDiagModal() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">DIAGNOSTIC</div>
+    <h2>Ajouter</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); processDiagSubmit();" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <input type="text" id="diag-name" placeholder="Nom (ex: DPE, Amiante...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="diag-result" placeholder="Résultat (ex: A, B, Présence...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="date" id="diag-date" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="file" id="diag-image" accept="image/*" required style="font-size:13px; margin-top:5px;">
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder</button>
+    </form>`;
+  openModal();
+}
+
+function processDiagSubmit() {
+  const name = document.getElementById("diag-name").value;
+  const result = document.getElementById("diag-result").value;
+  const date = document.getElementById("diag-date").value;
+  const fileInput = document.getElementById("diag-image");
+  
+  if (fileInput.files.length === 0) return;
+  showMessage("⏳ Traitement...");
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const compressed = await compressImage(e.target.result);
+      submitDiagSave({ name, result, date, image: compressed });
+    } catch(err) { showMessage("Erreur compression."); }
+  };
+  reader.readAsDataURL(fileInput.files[0]);
+}
+
+async function submitDiagSave(newDiag) {
+  showMessage("Sauvegarde...");
+  const diags = homeData.diagnostics || [];
+  diags.push(newDiag);
+  try {
+    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: diags }) });
+    if (res.ok) { closeModal(); loadHomeData(); showMessage("Ajouté !"); }
+  } catch(e) { showMessage("Erreur."); }
+}
+
+async function deleteDiagnostic(index) {
+  if(!confirm("Supprimer ce diagnostic ?")) return;
+  const diags = homeData.diagnostics;
+  diags.splice(index, 1);
+  try {
+    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: diags }) });
+    loadHomeData();
+  } catch(e) { showMessage("Erreur"); }
+}
+
+/* ============================================================
+   2. CADASTRE - PHILOSOPHIE JUMELLE
+   ============================================================ */
+function displayCadastre() {
+  const container = document.getElementById("cadastre-container");
+  if (!container) return;
+  const cadastreItems = homeData.cadastre || [];
+  
+  if (cadastreItems.length === 0) {
+    container.innerHTML = `<p style="font-size:12px; color:#77827a; margin:10px 0; text-align:center;">Aucun document cadastral.</p>`;
+    return;
+  }
+
+  container.innerHTML = cadastreItems.map((c, index) => `
+    <div class="cadastre-thumbnail">
+      <button onclick="deleteCadastreItem(${index})" style="position:absolute; top:-5px; right:-5px; background:#d93025; color:white; border:none; border-radius:50%; width:20px; height:20px; font-size:12px; cursor:pointer; z-index:10; padding:0;">×</button>
+      <img src="${c.image}" class="cadastre-img" onclick="viewDocumentFullscreen('${c.image}', 'Cadastre: ${escapeHTML(c.name)} Sect: ${escapeHTML(c.section)}')">
+      <div class="cadastre-name">${escapeHTML(c.name)} (${escapeHTML(c.section)})</div>
+    </div>
+  `).join("");
+}
+
+function openAddCadastreModal() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">FONCIER</div>
+    <h2>Ajouter un plan</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); processCadastreSubmit();" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <input type="text" id="cad-name" placeholder="Nom (ex: Plan masse, Satellite...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="cad-section" placeholder="Section / Parcelle (ex: AH 123)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="file" id="cad-image" accept="image/*" required style="font-size:13px; margin-top:5px;">
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder le plan</button>
+    </form>`;
+  openModal();
+}
+
+function processCadastreSubmit() {
+  const name = document.getElementById("cad-name").value;
+  const section = document.getElementById("cad-section").value;
+  const fileInput = document.getElementById("cad-image");
+  
+  if (fileInput.files.length === 0) return;
+  showMessage("⏳ Traitement...");
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const compressed = await compressImage(e.target.result);
+      submitCadastreSave({ name, section, image: compressed });
+    } catch(err) { showMessage("Erreur compression."); }
+  };
+  reader.readAsDataURL(fileInput.files[0]);
+}
+
+async function submitCadastreSave(newCadItem) {
+  showMessage("Sauvegarde...");
+  const cadastreArray = homeData.cadastre || [];
+  cadastreArray.push(newCadItem);
+
+  try {
+    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: cadastreArray }) });
+    if (res.ok) { closeModal(); loadHomeData(); showMessage("Plan ajouté !"); }
+  } catch(e) { showMessage("Erreur."); }
+}
+
+async function deleteCadastreItem(index) {
+  if(!confirm("Supprimer ce plan cadastral ?")) return;
+  const cadastreArray = homeData.cadastre;
+  cadastreArray.splice(index, 1);
+  try {
+    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: cadastreArray }) });
+    loadHomeData();
+  } catch(e) { showMessage("Erreur"); }
+}
+
+/* ============================================================
+   3. ESPACES LIBRES (WIDGETS PERSONNALISÉS)
+   ============================================================ */
+function displayCustomWidgets() {
+  const container = document.getElementById("custom-widgets-container");
+  if (!container) return;
+  const widgets = homeData.customWidgets || [];
+
+  container.innerHTML = widgets.map((w, index) => {
+    const textFormatted = escapeHTML(w.content).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#4b9b69; text-decoration:underline; font-weight:bold;">Ouvrir le lien 🔗</a>');
+
+    return `
+      <div class="document" style="flex: 1; min-width: 200px; position: relative;">
+        <button onclick="deleteCustomWidget(${index})" style="position:absolute; right:10px; top:10px; background:none; border:none; cursor:pointer; font-size:12px; color:#d93025; padding:5px;">🗑️</button>
+        <div class="document-icon">📌</div>
+        <strong>${escapeHTML(w.title)}</strong>
+        <span style="font-size:11px; margin-top:5px; white-space:pre-wrap; color:#59645d;">${textFormatted}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+function openAddCustomWidgetModal() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">BIBLIOTHÈQUE</div>
+    <h2>Créer un Widget</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitCustomWidget(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <input type="text" id="widget-title" placeholder="Titre (ex: Lien Google Drive, Portail...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <textarea id="widget-content" placeholder="Collez un lien internet, ou tapez votre texte ici..." required style="padding:10px; border-radius:8px; border:1px solid #ccc; min-height:80px; resize:vertical;"></textarea>
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Ajouter le widget</button>
+    </form>`;
+  openModal();
+}
+
+async function submitCustomWidget() {
+  const newWidget = {
+    title: document.getElementById("widget-title").value,
+    content: document.getElementById("widget-content").value
+  };
+  
+  const widgets = homeData.customWidgets || [];
+  widgets.push(newWidget);
+
+  try {
+    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
+    if (res.ok) { closeModal(); loadHomeData(); }
+  } catch(e) { showMessage("Erreur réseau"); }
+}
+
+async function deleteCustomWidget(index) {
+  if(!confirm("Supprimer ce widget ?")) return;
+  const widgets = homeData.customWidgets;
+  widgets.splice(index, 1);
+  try {
+    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
+    loadHomeData();
+  } catch(e) { showMessage("Erreur"); }
+}
 init();
