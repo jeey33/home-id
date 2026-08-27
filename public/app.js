@@ -73,7 +73,7 @@ async function loadHomeData() {
     displayAlerts();
     displayProfessionals();
     
-    // Ajoute ces deux lignes ici !
+    // NOUVEAUTÉS
     displayDiagnostics();
     displayCustomWidgets();
     displayCadastre();
@@ -98,7 +98,7 @@ function populateHouseInfo() {
       gallery.innerHTML = `<p style="font-size:12px; color:#77827a; margin: 10px 0;">Aucun plan enregistré pour le moment.</p>`;
     } else {
       gallery.innerHTML = plans.map(p => `
-        <div class="plan-thumbnail" onclick="viewPlanFullscreen('${p.image}', '${escapeHTML(p.name)}')">
+        <div class="plan-thumbnail" onclick="viewDocumentFullscreen('${p.image}', '${escapeHTML(p.name)}')">
           <img src="${p.image}" class="plan-img" alt="Plan ${escapeHTML(p.name)}">
           <div class="plan-name">${escapeHTML(p.name)}</div>
         </div>
@@ -277,10 +277,10 @@ function displaySystems() {
     const equipmentCount = Number(system.equipment || 0);
     const equipmentHTML = equipmentCount > 0 ? `<div style="font-size:11px; color:#77827a; margin-top:4px;">${equipmentCount} équipement(s)</div>` : `<div style="font-size:11px; color:#a26b28; margin-top:4px;">À configurer</div>`;
     return `
-      <div class="system pointer" draggable="true" data-id="${system.id}" onclick="if(!window.isDragging) openSystem('${system.id}')">
-        <div class="system-icon">${system.icon || "🏠"}</div>
-        <div class="system-name">${escapeHTML(system.name)}</div>
-        <div class="status ${system.color || "orange"}"><span class="dot"></span>${escapeHTML(system.status || "À configurer")}</div>
+      <div class="system pointer" draggable="true" data-id="${system.id}" onclick="if(!window.isDragging) openSystem('${system.id}')" style="background:#ffffff; border:1px solid #e3e8e4; border-radius:16px; padding:15px; display:flex; flex-direction:column;">
+        <div style="font-size:24px; margin-bottom:10px; background:#f4f6f5; width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:8px;">${system.icon || "🏠"}</div>
+        <strong style="color:#1d2c33; font-size:14px; margin-bottom:5px;">${escapeHTML(system.name)}</strong>
+        <div style="font-size:11px; font-weight:700; color:${system.color || "orange"}">● ${escapeHTML(system.status || "À configurer")}</div>
         ${equipmentHTML}
       </div>`;
   }).join("");
@@ -310,8 +310,202 @@ function displaySystems() {
   });
 }
 
+function openAddMenu() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">ACTION RAPIDE</div>
+    <h2>Que voulez-vous ajouter ?</h2>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px;">
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddSystemModal()"><span style="font-size:24px;">⚙️</span><strong>Nouveau<br>Système</strong></button>
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddEqModal()"><span style="font-size:24px;">🔌</span><strong>Nouvel<br>Équipement</strong></button>
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddAlertModal()"><span style="font-size:24px;">📅</span><strong>Rappel<br>d'Entretien</strong></button>
+      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddProModal()"><span style="font-size:24px;">👷</span><strong>Nouvel<br>Artisan</strong></button>
+    </div>`;
+  openModal();
+}
+
+function openAddSystemModal() {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">NOUVEAU SYSTÈME</div><h2>Ajouter un système</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitNewSystem(event); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <input type="text" id="add-sys-name" placeholder="Nom du système (Ex: Panneaux Solaires)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="add-sys-icon" placeholder="Émoji / Icône (Ex: ☀️, 📹...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Créer le système</button>
+    </form>`;
+  openModal();
+}
+async function submitNewSystem(event) {
+  const payload = { homeId: currentHomeId, name: document.getElementById("add-sys-name").value, icon: document.getElementById("add-sys-icon").value };
+  try {
+    const response = await fetch("/api/systems/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (response.ok) { showMessage("Système créé !"); closeModal(); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
+async function openSystem(systemId) {
+  try {
+    const response = await fetch(`/api/systems/${encodeURIComponent(systemId)}`);
+    if (!response.ok) throw new Error("Système introuvable");
+    const system = await response.json();
+
+    let generalSpecsHTML = "";
+    if (system.specs && Object.keys(system.specs).length > 0) {
+      generalSpecsHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:#f4f6f5; padding:15px; border-radius:8px; margin-top:15px;">` + 
+        Object.entries(system.specs).map(([key, value]) => `<div><span style="font-size:11px; color:#77827a; display:block;">${escapeHTML(key)}</span><strong style="font-size:14px; color:#1e362d;">${escapeHTML(value)}</strong></div>`).join("") + `</div>`;
+    }
+
+    let equipmentHTML = "";
+    if (system.equipment && system.equipment.length > 0) {
+      equipmentHTML = system.equipment.map(item => {
+        let specsHTML = "";
+        if (item.specs && Object.keys(item.specs).length > 0) {
+          specsHTML = `<div class="specs-grid" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">` + Object.entries(item.specs).filter(([k, v]) => v).map(([key, value]) => `<div class="spec-tag" style="background:#eef2ef; color:#3b453f; font-size:11px; padding:5px 10px; border-radius:8px; display:inline-block; border:1px solid #dce2dd;"><strong>${escapeHTML(key)}</strong>: ${escapeHTML(String(value))}</div>`).join("") + `</div>`;
+        }
+        let noticeBtn = item.model ? `<a href="https://www.google.com/search?q=${encodeURIComponent(`notice utilisation pdf ${item.name} ${item.model}`)}" target="_blank" style="color:#d18a35; text-decoration:none; font-size:11px; font-weight:bold; margin-right:8px;">🔍 Notice</a>` : '';
+        let notesHTML = item.notes ? `<div style="background:#f8f9f7; border-left:3px solid #d18a35; padding:8px 12px; margin-top:10px; border-radius:4px; font-size:12px; color:#59645d; line-height:1.4;"><strong>📌 Info :</strong> ${escapeHTML(item.notes)}</div>` : "";
+        const itemJSON = encodeURIComponent(JSON.stringify(item));
+
+        return `<div class="equipment-deep" style="background:#ffffff; border:1px solid #e3e8e4; border-radius:12px; padding:16px; margin-bottom:12px;">
+            <div class="equip-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <div><strong style="display:block; font-size:15px; color:#17211c;">${escapeHTML(item.name)}</strong><span style="font-size:12px; color:#77827a; font-family:monospace; background:#f4f6f3; padding:2px 6px; border-radius:6px; display:inline-block; margin-top:4px;">${item.model ? escapeHTML(item.model) : "Modèle non précisé"}</span></div>
+            </div>${specsHTML}${notesHTML}
+            <div class="equip-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:12px; padding-top:10px; border-top:1px solid #e3e8e4;">
+              <span style="font-size:11px; color:#77827a;">Installé : ${escapeHTML(item.installed || "—")}</span>
+              <div style="display:flex; align-items:center; gap:6px;">${noticeBtn}<button class="button secondary pointer" style="padding:4px 8px; font-size:11px;" onclick="openEditEquipmentModal('${itemJSON}', '${system.id}')">✏️ Éditer</button><button class="button secondary pointer" style="padding:4px 8px; font-size:11px; color:#d93025; border-color:#fce8e6; background:#fffafa;" onclick="deleteEquipment('${item.id}', '${system.id}')">🗑️</button></div>
+            </div></div>`;
+      }).join("");
+    } else {
+      equipmentHTML = `<div style="background:#f8f9f7; padding:20px; text-align:center; border-radius:12px; margin-top:10px;"><p style="color:#707a74; font-size:13px; margin:0;">Aucun équipement enregistré.</p></div>`;
+    }
+
+    document.getElementById("modal-content").innerHTML = `
+      <div class="eyebrow">${system.icon || "🏠"} SYSTÈME</div>
+      <div style="display:flex; justify-content:space-between; align-items:center;"><h2 style="margin:0;">${escapeHTML(system.name)}</h2><div style="display:flex; gap:5px;"><button class="button secondary pointer" style="padding:6px 8px; font-size:12px;" onclick="openEditSystemModal('${system.id}', '${escapeHTML(system.name)}', '${escapeHTML(system.icon)}')">✏️</button><button class="button secondary pointer" style="padding:6px 8px; font-size:12px; color:#d93025; background:#fffafa; border-color:#fce8e6;" onclick="deleteSystem('${system.id}')">🗑️</button><button class="button secondary pointer" style="padding:6px 12px; font-size:12px;" onclick="openConfigSystemModal('${system.id}', '${escapeHTML(system.name)}')">⚙️ Config.</button></div></div>
+      ${generalSpecsHTML}
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:30px; border-bottom:1px solid #e3e8e4; padding-bottom:10px;"><h3 style="margin:0;">Équipements</h3><button class="button secondary pointer" style="padding:4px 10px; font-size:12px;" onclick="openAddEqModal('${system.id}')">+ Ajouter</button></div>
+      <div style="margin-top:15px;">${equipmentHTML}</div>
+    `;
+    openModal();
+  } catch (error) { showMessage("Erreur d'ouverture"); }
+}
+
+function openEditSystemModal(id, currentName, currentIcon) {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">MODIFICATION</div><h2>Modifier le système</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitEditSystem(event, '${id}'); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <input type="text" id="edit-sys-name" value="${currentName}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="edit-sys-icon" value="${currentIcon}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder</button>
+    </form>`;
+}
+async function submitEditSystem(event, id) {
+  const payload = { id, name: document.getElementById("edit-sys-name").value, icon: document.getElementById("edit-sys-icon").value };
+  try {
+    const response = await fetch("/api/systems/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (response.ok) { showMessage("Système modifié !"); openSystem(id); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
+async function deleteSystem(id) {
+  if (!confirm("Voulez-vous supprimer ce système ? TOUS les équipements à l'intérieur seront effacés.")) return;
+  try {
+    const response = await fetch("/api/systems/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    if (response.ok) { showMessage("Système supprimé."); closeModal(); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
+function openConfigSystemModal(systemId, systemName) {
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">CONFIGURATION</div><h2>Général : ${systemName}</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitSystemConfig(event, '${systemId}'); return false;" style="margin-top:20px;">
+      <input type="text" data-key="Note Générale" placeholder="Informations globales (ex: Année de rénovation...)" class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing: border-box;">
+      <button type="submit" class="button primary pointer" style="width:100%; margin-top:20px;">Enregistrer</button>
+    </form>`;
+}
+async function submitSystemConfig(event, systemId) {
+  const specs = {};
+  document.querySelectorAll(".sys-spec-input").forEach(input => { if (input.value) specs[input.getAttribute("data-key")] = input.value; });
+  try {
+    const response = await fetch("/api/systems/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ systemId, specs }) });
+    if (response.ok) { showMessage("Configuration enregistrée !"); openSystem(systemId); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
+function openAddEqModal(preselectedSystem = "") {
+  const systemOptions = (homeData.systems || []).map(sys => `<option value="${escapeHTML(sys.id)}" ${sys.id === preselectedSystem ? "selected" : ""}>${escapeHTML(sys.name)}</option>`).join("");
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">NOUVEL ÉQUIPEMENT</div><h2>Ajouter un équipement</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitEquipment(event); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <select id="form-sys-id" required style="padding:10px; border-radius:8px; border:1px solid #ccc;" onchange="renderDynamicFields()"><option value="" disabled ${preselectedSystem ? "" : "selected"}>-- Choisissez la catégorie --</option>${systemOptions}</select>
+      <input type="text" id="form-name" placeholder="Nom (Ex : Pompe, Climatiseur...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="form-model" placeholder="Marque & Modèle (Crucial pour la notice)" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <div id="dynamic-fields-container" style="display:flex; flex-direction:column; gap:10px;"></div>
+      <textarea id="form-notes" placeholder="Commentaire, position, ou particularité d'utilisation..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;"></textarea>
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder l'appareil</button>
+    </form>`;
+  if (preselectedSystem) renderDynamicFields();
+}
+
+function renderDynamicFields() {
+  const sysId = document.getElementById("form-sys-id").value;
+  const container = document.getElementById("dynamic-fields-container");
+  if (!container) return;
+  
+  if (sysId.includes("piscine")) {
+    container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input type="text" data-key="Puissance/Débit" placeholder="Puissance/Débit (ex: 14m3/h)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><select data-key="Type Filtre" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><option value="">-- Filtre --</option><option value="Sable/Verre">Sable/Verre</option><option value="Cartouche">Cartouche</option></select><input type="text" data-key="Charge filtrante" placeholder="Média (ex: Verre 150kg)" class="eq-spec-input" style="grid-column: 1/-1; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"></div>`;
+  } else if (sysId.includes("elec")) {
+    container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input type="text" data-key="Protection" placeholder="Ampérage (ex: 16A, 32A)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><input type="text" data-key="Type Câble" placeholder="Section (ex: 3G2.5)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"></div>`;
+  } else if (sysId.includes("eau") || sysId.includes("plomberie") || sysId.includes("chauffe") || sysId.includes("clim")) {
+    container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input type="text" data-key="Caractéristique" placeholder="Info clé (ex: 200L, 12kW...)" class="eq-spec-input" style="grid-column: 1/-1; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"></div>`;
+  } else if (sysId.includes("domo") || sysId.includes("reseau")) {
+    container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><select data-key="Protocole" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><option value="">-- Protocole --</option><option value="Wi-Fi">Wi-Fi</option><option value="Zigbee">Zigbee</option><option value="RJ45">Filaire (RJ45)</option><option value="Radio (RTS/IO)">Radio RTS/IO</option></select><select data-key="Secours" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><option value="">-- Batterie Secours --</option><option value="Oui">Oui (Batterie)</option><option value="Non">Non</option></select></div>`;
+  } else if (sysId.includes("ext")) {
+    container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><select data-key="Alimentation" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><option value="">-- Alimentation --</option><option value="Secteur 230V">Secteur 230V</option><option value="Solaire / Batterie">Solaire / Batterie</option></select><input type="text" data-key="Mécanisme" placeholder="Méca (ex: Vérin)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"></div>`;
+  } else {
+    container.innerHTML = `<input type="text" data-key="Info clé" placeholder="Caractéristique principale..." class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">`;
+  }
+}
+
+async function submitEquipment(event) {
+  const payload = { systemId: document.getElementById("form-sys-id").value, name: document.getElementById("form-name").value, model: document.getElementById("form-model").value, notes: document.getElementById("form-notes").value, specs: {}, notice: null };
+  document.querySelectorAll(".eq-spec-input").forEach(input => { if (input.value) payload.specs[input.getAttribute("data-key")] = input.value; });
+  try {
+    const response = await fetch("/api/equipment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (response.ok) { showMessage("Équipement ajouté !"); openSystem(payload.systemId); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
+function openEditEquipmentModal(itemEncoded, systemId) {
+  const item = JSON.parse(decodeURIComponent(itemEncoded));
+  document.getElementById("modal-content").innerHTML = `
+    <div class="eyebrow">MODIFICATION</div><h2>Modifier l'équipement</h2>
+    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitEditEquipment(event, '${item.id}', '${systemId}'); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
+      <input type="text" id="edit-eq-name" value="${escapeHTML(item.name)}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="edit-eq-model" value="${escapeHTML(item.model)}" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="edit-eq-installed" value="${escapeHTML(item.installed)}" placeholder="ex: 12/05/2023" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <textarea id="edit-eq-notes" placeholder="Informations particulières..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;">${escapeHTML(item.notes || '')}</textarea>
+      <button type="submit" class="button primary pointer" style="margin-top:10px;">Enregistrer</button>
+    </form>`;
+  openModal();
+}
+
+async function submitEditEquipment(event, eqId, systemId) {
+  const name = document.getElementById("edit-eq-name").value; const model = document.getElementById("edit-eq-model").value; const installed = document.getElementById("edit-eq-installed").value; const notes = document.getElementById("edit-eq-notes").value; 
+  try {
+    const response = await fetch("/api/equipment/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: eqId, name, model, installed, specs: {}, notes }) });
+    if (response.ok) { showMessage("Équipement modifié !"); openSystem(systemId); loadHomeData(); }
+  } catch (e) { showMessage("Erreur réseau"); }
+}
+
+async function deleteEquipment(eqId, systemId) {
+  if (!confirm("Supprimer cet équipement ?")) return;
+  try {
+    const response = await fetch("/api/equipment/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: eqId }) });
+    if (response.ok) { showMessage("Équipement supprimé."); openSystem(systemId); loadHomeData(); }
+  } catch (e) { showMessage("Erreur"); }
+}
+
 /* ============================================================
-   ARTISANS (AFFICHAGE, AJOUT, MODIF ET SUPPRESSION)
+   ARTISANS
    ============================================================ */
 function displayProfessionals() { 
   const container = document.getElementById("professionals");
@@ -324,11 +518,10 @@ function displayProfessionals() {
     let notesHtml = p.notes ? `<div style="margin-top:6px; font-size:11px; color:#59645d; background:#f4f6f5; padding:6px; border-radius:4px; border-left:2px solid #4b9b69;"><i>"${escapeHTML(p.notes)}"</i></div>` : "";
     
     return `
-    <div class="pro" style="position:relative;">
-      <span class="access-active">Intervenu</span>
-      <button onclick="openEditProModal('${pJSON}')" style="position:absolute; right:0; top:10px; background:none; border:none; cursor:pointer; font-size:14px; color:#77827a; transition:0.2s;" onmouseover="this.style.color='#1e362d'" onmouseout="this.style.color='#77827a'">✏️</button>
-      <strong>${escapeHTML(p.name)}</strong>
-      <p style="margin:2px 0;">${escapeHTML(p.domain)}</p>
+    <div class="pro" style="position:relative; background:#fff; border:1px solid #e3e8e4; border-radius:12px; padding:15px; margin-bottom:10px;">
+      <button onclick="openEditProModal('${pJSON}')" style="position:absolute; right:10px; top:10px; background:none; border:none; cursor:pointer; font-size:14px; color:#77827a;">✏️</button>
+      <strong style="color:#1d2c33;">${escapeHTML(p.name)}</strong>
+      <p style="margin:2px 0; font-size:12px;">${escapeHTML(p.domain)}</p>
       ${notesHtml}
       <div style="display:flex; gap:10px; margin-top:8px;">
         ${p.phone ? `<a href="tel:${escapeHTML(p.phone)}" style="display:inline-flex; align-items:center; gap:5px; font-size:11px; color:#1e362d; background:#eef2ef; padding:4px 8px; border-radius:6px; text-decoration:none;">📞 Appeler</a>` : ''}
@@ -417,7 +610,7 @@ function displayAlerts() {
   let html = "";
   
   if (todo.length === 0) {
-    html += "<p style='font-size:13px; color:#77827a;'>Aucun rappel à faire.</p>";
+    html += "<p style='font-size:12px; color:#77827a;'>Aucun rappel à faire.</p>";
   } else {
     html += todo.map(a => {
       let isOverdue = false;
@@ -432,14 +625,14 @@ function displayAlerts() {
       const alertJSON = encodeURIComponent(JSON.stringify(a));
       
       return `
-        <div class="alert" style="position:relative; display:flex; align-items:flex-start; gap:12px;">
-          <button onclick="openEditAlertModal('${alertJSON}')" style="position:absolute; right:0; top:10px; background:none; border:none; cursor:pointer; font-size:14px; color:#77827a; transition:0.2s;">✏️</button>
+        <div class="alert" style="position:relative; display:flex; align-items:flex-start; gap:12px; margin-bottom:10px; padding:10px; background:#fff; border:1px solid #e3e8e4; border-radius:12px;">
+          <button onclick="openEditAlertModal('${alertJSON}')" style="position:absolute; right:10px; top:10px; background:none; border:none; cursor:pointer; font-size:14px; color:#77827a;">✏️</button>
           <input type="checkbox" onclick="toggleAlert(${a.id}, true)" style="margin-top:4px; transform:scale(1.2); cursor:pointer;">
           <div style="padding-right:25px;">
             <span class="date" style="background:#e3e8e4; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;">${dateStr}</span>
             ${overdueBadge}
             <strong style="display:block; margin-top:5px; color:${isOverdue ? '#d93025' : 'inherit'}">${escapeHTML(a.title)}</strong>
-            <p style="margin-top:2px; font-size:12px;">${escapeHTML(a.text)}</p>
+            <p style="margin-top:2px; font-size:12px; color:#59645d;">${escapeHTML(a.text)}</p>
           </div>
         </div>`;
     }).join("");
@@ -451,8 +644,8 @@ function displayAlerts() {
         <summary style="font-size:12px; color:#77827a; cursor:pointer; font-weight:bold;">Historique des réalisations (${done.length})</summary>
         <div style="margin-top:10px; opacity:0.6;">
           ${done.map(a => `
-            <div class="alert" style="position:relative; display:flex; align-items:flex-start; gap:12px;">
-              <button onclick="deleteAlert(${a.id})" style="position:absolute; right:0; top:10px; background:none; border:none; cursor:pointer; font-size:14px; color:#d93025; transition:0.2s;">🗑️</button>
+            <div class="alert" style="position:relative; display:flex; align-items:flex-start; gap:12px; margin-bottom:10px;">
+              <button onclick="deleteAlert(${a.id})" style="position:absolute; right:0; top:0; background:none; border:none; cursor:pointer; font-size:14px; color:#d93025;">🗑️</button>
               <input type="checkbox" checked onclick="toggleAlert(${a.id}, false)" style="margin-top:4px; transform:scale(1.2); cursor:pointer;">
               <div style="padding-right:25px;">
                 <strong style="display:block; text-decoration:line-through;">${escapeHTML(a.title)}</strong>
@@ -476,7 +669,7 @@ function openAddAlertModal() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">NOUVEL ENTRETIEN</div><h2>Ajouter un rappel</h2>
     <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitAlert(event); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="add-alert-title" placeholder="Titre (Ex: Nettoyage Filtres Climatisation)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="add-alert-title" placeholder="Titre (Ex: Nettoyage Filtres)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
       <input type="date" id="add-alert-date" required style="padding:10px; border-radius:8px; border:1px solid #ccc; font-family:inherit;">
       <textarea id="add-alert-text" placeholder="Détails (Optionnel)..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;"></textarea>
       <button type="submit" class="button primary pointer" style="margin-top:10px;">Programmer le rappel</button>
@@ -528,726 +721,15 @@ async function deleteAlert(alertId) {
 }
 
 /* ============================================================
-   AFFICHAGE SYSTÈMES ET ÉQUIPEMENTS
+   OUTILS DIVERS (QR CODE, ETC)
    ============================================================ */
-async function openSystem(systemId) {
-  try {
-    const response = await fetch(`/api/systems/${encodeURIComponent(systemId)}`);
-    if (!response.ok) throw new Error("Système introuvable");
-    const system = await response.json();
-
-    let generalSpecsHTML = "";
-    if (system.specs && Object.keys(system.specs).length > 0) {
-      generalSpecsHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:#f4f6f5; padding:15px; border-radius:8px; margin-top:15px;">` + 
-        Object.entries(system.specs).map(([key, value]) => `<div><span style="font-size:11px; color:#77827a; display:block;">${escapeHTML(key)}</span><strong style="font-size:14px; color:#1e362d;">${escapeHTML(value)}</strong></div>`).join("") + `</div>`;
-    }
-
-    let equipmentHTML = "";
-    if (system.equipment && system.equipment.length > 0) {
-      equipmentHTML = system.equipment.map(item => {
-        let specsHTML = "";
-        if (item.specs && Object.keys(item.specs).length > 0) {
-          specsHTML = `<div class="specs-grid" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">` + Object.entries(item.specs).filter(([k, v]) => v).map(([key, value]) => `<div class="spec-tag" style="background:#eef2ef; color:#3b453f; font-size:11px; padding:5px 10px; border-radius:8px; display:inline-block; border:1px solid #dce2dd;"><strong>${escapeHTML(key)}</strong>: ${escapeHTML(String(value))}</div>`).join("") + `</div>`;
-        }
-        let noticeBtn = item.model ? `<a href="https://www.google.com/search?q=${encodeURIComponent(`notice utilisation pdf ${item.name} ${item.model}`)}" target="_blank" style="color:#d18a35; text-decoration:none; font-size:11px; font-weight:bold; margin-right:8px;">🔍 Notice</a>` : '';
-        let notesHTML = item.notes ? `<div style="background:#f8f9f7; border-left:3px solid #d18a35; padding:8px 12px; margin-top:10px; border-radius:4px; font-size:12px; color:#59645d; line-height:1.4;"><strong>📌 Info :</strong> ${escapeHTML(item.notes)}</div>` : "";
-        const itemJSON = encodeURIComponent(JSON.stringify(item));
-
-        return `<div class="equipment-deep" style="background:#ffffff; border:1px solid #e3e8e4; border-radius:12px; padding:16px; margin-bottom:12px;">
-            <div class="equip-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
-              <div><strong style="display:block; font-size:15px; color:#17211c;">${escapeHTML(item.name)}</strong><span style="font-size:12px; color:#77827a; font-family:monospace; background:#f4f6f3; padding:2px 6px; border-radius:6px; display:inline-block; margin-top:4px;">${item.model ? escapeHTML(item.model) : "Modèle non précisé"}</span></div>
-            </div>${specsHTML}${notesHTML}
-            <div class="equip-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:12px; padding-top:10px; border-top:1px solid #e3e8e4;">
-              <span style="font-size:11px; color:#77827a;">Installé : ${escapeHTML(item.installed || "—")}</span>
-              <div style="display:flex; align-items:center; gap:6px;">${noticeBtn}<button class="button secondary pointer" style="padding:4px 8px; font-size:11px;" onclick="openEditEquipmentModal('${itemJSON}', '${system.id}')">✏️ Éditer</button><button class="button secondary pointer" style="padding:4px 8px; font-size:11px; color:#d93025; border-color:#fce8e6; background:#fffafa;" onclick="deleteEquipment('${item.id}', '${system.id}')">🗑️</button></div>
-            </div></div>`;
-      }).join("");
-    } else {
-      equipmentHTML = `<div style="background:#f8f9f7; padding:20px; text-align:center; border-radius:12px; margin-top:10px;"><p style="color:#707a74; font-size:13px; margin:0;">Aucun équipement enregistré.</p></div>`;
-    }
-
-    document.getElementById("modal-content").innerHTML = `
-      <div class="eyebrow">${system.icon || "🏠"} SYSTÈME</div>
-      <div style="display:flex; justify-content:space-between; align-items:center;"><h2 style="margin:0;">${escapeHTML(system.name)}</h2><div style="display:flex; gap:5px;"><button class="button secondary pointer" style="padding:6px 8px; font-size:12px;" onclick="openEditSystemModal('${system.id}', '${escapeHTML(system.name)}', '${escapeHTML(system.icon)}')">✏️</button><button class="button secondary pointer" style="padding:6px 8px; font-size:12px; color:#d93025; background:#fffafa; border-color:#fce8e6;" onclick="deleteSystem('${system.id}')">🗑️</button><button class="button secondary pointer" style="padding:6px 12px; font-size:12px;" onclick="openConfigSystemModal('${system.id}', '${escapeHTML(system.name)}')">⚙️ Config.</button></div></div>
-      ${generalSpecsHTML}
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:30px; border-bottom:1px solid #e3e8e4; padding-bottom:10px;"><h3 style="margin:0;">Équipements</h3><button class="button secondary pointer" style="padding:4px 10px; font-size:12px;" onclick="openAddEquipmentModal('${system.id}')">+ Ajouter</button></div>
-      <div style="margin-top:15px;">${equipmentHTML}</div>
-    `;
-    openModal();
-  } catch (error) { showMessage("Erreur d'ouverture"); }
-}
-
-function openAddMenu() {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">ACTION RAPIDE</div>
-    <h2>Que voulez-vous ajouter ?</h2>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px;">
-      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddSystemModal()"><span style="font-size:24px;">⚙️</span><strong>Nouveau<br>Système</strong></button>
-      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddEquipmentModal()"><span style="font-size:24px;">🔌</span><strong>Nouvel<br>Équipement</strong></button>
-      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddAlertModal()"><span style="font-size:24px;">📅</span><strong>Rappel<br>d'Entretien</strong></button>
-      <button class="button secondary pointer" style="padding:15px; text-align:center; height:100px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;" onclick="openAddProModal()"><span style="font-size:24px;">👷</span><strong>Nouvel<br>Artisan</strong></button>
-    </div>`;
-  openModal();
-}
-
-function openAddSystemModal() {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">NOUVEAU SYSTÈME</div><h2>Ajouter un système</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitNewSystem(event); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="add-sys-name" placeholder="Nom du système (Ex: Panneaux Solaires)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="text" id="add-sys-icon" placeholder="Émoji / Icône (Ex: ☀️, 📹...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Créer le système</button>
-    </form>`;
-  openModal();
-}
-async function submitNewSystem(event) {
-  const payload = { homeId: currentHomeId, name: document.getElementById("add-sys-name").value, icon: document.getElementById("add-sys-icon").value };
-  try {
-    const response = await fetch("/api/systems/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (response.ok) { showMessage("Système créé !"); closeModal(); loadHomeData(); }
-  } catch (e) { showMessage("Erreur réseau"); }
-}
-
-function openEditSystemModal(id, currentName, currentIcon) {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">MODIFICATION</div><h2>Modifier le système</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitEditSystem(event, '${id}'); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="edit-sys-name" value="${currentName}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="text" id="edit-sys-icon" value="${currentIcon}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder</button>
-    </form>`;
-}
-async function submitEditSystem(event, id) {
-  const payload = { id, name: document.getElementById("edit-sys-name").value, icon: document.getElementById("edit-sys-icon").value };
-  try {
-    const response = await fetch("/api/systems/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (response.ok) { showMessage("Système modifié !"); openSystem(id); loadHomeData(); }
-  } catch (e) { showMessage("Erreur réseau"); }
-}
-
-async function deleteSystem(id) {
-  if (!confirm("Voulez-vous supprimer ce système ? TOUS les équipements à l'intérieur seront effacés.")) return;
-  try {
-    const response = await fetch("/api/systems/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-    if (response.ok) { showMessage("Système supprimé."); closeModal(); loadHomeData(); }
-  } catch (e) { showMessage("Erreur réseau"); }
-}
-
-function openConfigSystemModal(systemId, systemName) {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">CONFIGURATION</div><h2>Général : ${systemName}</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitSystemConfig(event, '${systemId}'); return false;" style="margin-top:20px;">
-      <input type="text" data-key="Note Générale" placeholder="Informations globales (ex: Année de rénovation...)" class="sys-spec-input" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing: border-box;">
-      <button type="submit" class="button primary pointer" style="width:100%; margin-top:20px;">Enregistrer</button>
-    </form>`;
-}
-async function submitSystemConfig(event, systemId) {
-  const specs = {};
-  document.querySelectorAll(".sys-spec-input").forEach(input => { if (input.value) specs[input.getAttribute("data-key")] = input.value; });
-  try {
-    const response = await fetch("/api/systems/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ systemId, specs }) });
-    if (response.ok) { showMessage("Configuration enregistrée !"); openSystem(systemId); loadHomeData(); }
-  } catch (e) { showMessage("Erreur réseau"); }
-}
-
-function openAddEquipmentModal(preselectedSystem = "") {
-  const systemOptions = (homeData.systems || []).map(sys => `<option value="${escapeHTML(sys.id)}" ${sys.id === preselectedSystem ? "selected" : ""}>${escapeHTML(sys.name)}</option>`).join("");
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">NOUVEL ÉQUIPEMENT</div><h2>Ajouter un équipement</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitEquipment(event); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <select id="form-sys-id" required style="padding:10px; border-radius:8px; border:1px solid #ccc;" onchange="renderDynamicFields()"><option value="" disabled ${preselectedSystem ? "" : "selected"}>-- Choisissez la catégorie --</option>${systemOptions}</select>
-      <input type="text" id="form-name" placeholder="Nom (Ex : Pompe, Climatiseur...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="text" id="form-model" placeholder="Marque & Modèle (Crucial pour la notice)" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <div id="dynamic-fields-container" style="display:flex; flex-direction:column; gap:10px;"></div>
-      <textarea id="form-notes" placeholder="Commentaire, position, ou particularité d'utilisation..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;"></textarea>
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder l'appareil</button>
-    </form>`;
-  if (preselectedSystem) renderDynamicFields();
-}
-
-function renderDynamicFields() {
-  const sysId = document.getElementById("form-sys-id").value;
-  const container = document.getElementById("dynamic-fields-container");
-  if (!container) return;
-  
-  if (sysId.includes("piscine")) {
-    container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input type="text" data-key="Puissance/Débit" placeholder="Puissance/Débit (ex: 14m3/h)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><select data-key="Type Filtre" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><option value="">-- Filtre --</option><option value="Sable/Verre">Sable/Verre</option><option value="Cartouche">Cartouche</option></select><input type="text" data-key="Charge filtrante" placeholder="Média (ex: Verre 150kg)" class="eq-spec-input" style="grid-column: 1/-1; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"></div>`;
-  } else if (sysId.includes("elec")) {
-    container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input type="text" data-key="Protection" placeholder="Ampérage (ex: 16A, 32A)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><input type="text" data-key="Type Câble" placeholder="Section (ex: 3G2.5)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"></div>`;
-  } else if (sysId.includes("eau") || sysId.includes("plomberie") || sysId.includes("chauffe") || sysId.includes("clim")) {
-    container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input type="text" data-key="Caractéristique" placeholder="Info clé (ex: 200L, 12kW...)" class="eq-spec-input" style="grid-column: 1/-1; padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"></div>`;
-  } else if (sysId.includes("domo") || sysId.includes("reseau")) {
-    container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><select data-key="Protocole" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><option value="">-- Protocole --</option><option value="Wi-Fi">Wi-Fi</option><option value="Zigbee">Zigbee</option><option value="RJ45">Filaire (RJ45)</option><option value="Radio (RTS/IO)">Radio RTS/IO</option></select><select data-key="Secours" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><option value="">-- Batterie Secours --</option><option value="Oui">Oui (Batterie)</option><option value="Non">Non</option></select></div>`;
-  } else if (sysId.includes("ext")) {
-    container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><select data-key="Alimentation" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"><option value="">-- Alimentation --</option><option value="Secteur 230V">Secteur 230V</option><option value="Solaire / Batterie">Solaire / Batterie</option></select><input type="text" data-key="Mécanisme" placeholder="Méca (ex: Vérin)" class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;"></div>`;
-  } else {
-    container.innerHTML = `<input type="text" data-key="Info clé" placeholder="Caractéristique principale..." class="eq-spec-input" style="padding:10px; border-radius:8px; border:1px solid #ccc; box-sizing:border-box;">`;
-  }
-}
-
-async function submitEquipment(event) {
-  const payload = { systemId: document.getElementById("form-sys-id").value, name: document.getElementById("form-name").value, model: document.getElementById("form-model").value, notes: document.getElementById("form-notes").value, specs: {}, notice: null };
-  document.querySelectorAll(".eq-spec-input").forEach(input => { if (input.value) payload.specs[input.getAttribute("data-key")] = input.value; });
-  try {
-    const response = await fetch("/api/equipment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (response.ok) { showMessage("Équipement ajouté !"); openSystem(payload.systemId); loadHomeData(); }
-  } catch (e) { showMessage("Erreur réseau"); }
-}
-
-function openEditEquipmentModal(itemEncoded, systemId) {
-  const item = JSON.parse(decodeURIComponent(itemEncoded));
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">MODIFICATION</div><h2>Modifier l'équipement</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitEditEquipment(event, '${item.id}', '${systemId}'); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="edit-eq-name" value="${escapeHTML(item.name)}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="text" id="edit-eq-model" value="${escapeHTML(item.model)}" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="text" id="edit-eq-installed" value="${escapeHTML(item.installed)}" placeholder="ex: 12/05/2023" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <textarea id="edit-eq-notes" placeholder="Informations particulières..." style="padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; min-height:60px;">${escapeHTML(item.notes || '')}</textarea>
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Enregistrer</button>
-    </form>`;
-  openModal();
-}
-
-async function submitEditEquipment(event, eqId, systemId) {
-  const name = document.getElementById("edit-eq-name").value; const model = document.getElementById("edit-eq-model").value; const installed = document.getElementById("edit-eq-installed").value; const notes = document.getElementById("edit-eq-notes").value; 
-  try {
-    const response = await fetch("/api/equipment/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: eqId, name, model, installed, specs: {}, notes }) });
-    if (response.ok) { showMessage("Équipement modifié !"); openSystem(systemId); loadHomeData(); }
-  } catch (e) { showMessage("Erreur réseau"); }
-}
-
-async function deleteEquipment(eqId, systemId) {
-  if (!confirm("Supprimer cet équipement ?")) return;
-  try {
-    const response = await fetch("/api/equipment/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: eqId }) });
-    if (response.ok) { showMessage("Équipement supprimé."); openSystem(systemId); loadHomeData(); }
-  } catch (e) { showMessage("Erreur"); }
-}
-
-/* ============================================================
-   CARTOGRAPHIE / PLANS
-   ============================================================ */
-function triggerNewPlan() {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">CARTOGRAPHIE</div><h2>Ajouter un plan</h2>
-    <div style="margin-top:20px;">
-      <input type="text" id="new-plan-name" placeholder="Nom du plan (ex: RDC)" required style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:15px; box-sizing: border-box;">
-      <button class="button primary pointer" style="width:100%;" onclick="openFileSelector()">Sélectionner l'image</button>
-      <input type="file" id="plan-upload-input" accept="image/*" style="display: none;" onchange="handlePlanUpload(event)">
-    </div>`;
-  openModal();
-}
-
-function openFileSelector() {
-  if (!document.getElementById("new-plan-name").value.trim()) { showMessage("Donnez un nom au plan."); return; }
-  document.getElementById("plan-upload-input").click();
-}
-
-function handlePlanUpload(event) {
-  const file = event.target.files[0]; if (!file) return;
-  const planName = document.getElementById("new-plan-name").value.trim();
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    try {
-      showMessage("Sauvegarde en cours...");
-      const response = await fetch("/api/home/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, name: planName, image: e.target.result }) });
-      if (response.ok) { showMessage("Plan ajouté !"); closeModal(); loadHomeData(); } else { showMessage("Erreur"); }
-    } catch (err) { showMessage("Erreur réseau."); }
-  };
-  reader.readAsDataURL(file);
-}
-
-function viewPlanFullscreen(imageSrc, planName) {
-  document.getElementById("modal-content").innerHTML = `
-    <div style="display:flex; flex-direction:column; height: 75vh;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-        <h2 style="margin:0; font-size:18px;">Plan : ${escapeHTML(planName)}</h2>
-        <button class="button secondary pointer" style="padding:4px 10px; font-size:11px;" onclick="togglePlanZoom()">🔍 Zoomer</button>
-      </div>
-      <div style="flex:1; overflow:auto; background:#f4f6f5; border-radius:8px; border:1px solid #e3e8e4; text-align:center;">
-        <img id="fullscreen-plan-img" src="${imageSrc}" style="max-width:100%; height:auto; transition: width 0.3s ease; cursor: zoom-in;" onclick="togglePlanZoom()">
-      </div>
-    </div>`;
-  openModal();
-}
-
-function togglePlanZoom() {
-  const img = document.getElementById("fullscreen-plan-img");
-  if (img.style.maxWidth === "100%") { img.style.maxWidth = "none"; img.style.width = "200%"; img.style.cursor = "zoom-out"; } 
-  else { img.style.maxWidth = "100%"; img.style.width = "auto"; img.style.cursor = "zoom-in"; }
-}
-
-/* ============================================================
-   PROFIL ET GÉNÉRATION DE PLAQUE
-   ============================================================ */
-function openProfileModal() {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">PROFIL</div><h2>Modifier ma maison</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitProfileEdit(event); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="edit-name" value="${escapeHTML(homeData.name)}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="number" id="edit-year" value="${escapeHTML(String(homeData.year))}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <div style="display:flex; gap:10px;">
-        <input type="number" id="edit-surface" value="${escapeHTML(String(homeData.surface))}" placeholder="Surface" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
-        <input type="number" id="edit-land" value="${escapeHTML(String(homeData.land))}" placeholder="Terrain" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
-      </div>
-      <input type="password" id="edit-password" required placeholder="Mot de passe actuel *" style="padding:10px; border-radius:8px; border:1px solid #ccc; border-left:4px solid #d93025;">
-      <button type="submit" class="button primary pointer">Enregistrer</button>
-    </form>
-    
-    <div style="margin-top: 30px; border-top: 1px solid #e3e8e4; padding-top: 15px; text-align: center;">
-      <button class="button secondary pointer" onclick="generateMyQrCard()">🖨️ Imprimer la plaque de ma maison</button>
-    </div>
-  `;
-  openModal();
-}
-
-async function submitProfileEdit(event) {
-  const payload = { id: currentHomeId, name: document.getElementById("edit-name").value, year: document.getElementById("edit-year").value, surface: document.getElementById("edit-surface").value, land: document.getElementById("edit-land").value, currentPassword: document.getElementById("edit-password").value };
-  try {
-    const res = await fetch("/api/home/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (res.ok) { closeModal(); showMessage("Mise à jour réussie !"); loadHomeData(); } else { showMessage("Mot de passe incorrect."); }
-  } catch(e) { showMessage("Erreur"); }
-}
-
-function generateMyQrCard() {
-  const qrUrl = `https://home-id.onrender.com/scan/${currentHomeId}`;
-  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}&margin=0`;
-
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow" style="color:#4b9b69;">VOTRE PLAQUE OFFICIELLE</div>
-    <h2>Votre QR Code Unique</h2>
-    <p style="font-size:13px; color:#59645d;">Voici la plaque officielle de votre maison. Vous pouvez l'imprimer pour la coller dans votre tableau électrique.</p>
-    
-    <div style="display:flex; justify-content:center; margin:25px 0;">
-      <div id="print-plaque" style="width: 320px; background: #ffffff; border-radius: 20px; box-shadow: 0 15px 35px rgba(23, 33, 28, 0.15); border: 4px solid #17211c; display: flex; flex-direction: column; align-items: center; padding: 25px 20px; text-align: center; position: relative; overflow: hidden; box-sizing: border-box;">
-        <div style="position: absolute; top: 0; left: 0; right: 0; height: 110px; background: #17211c; border-bottom: 5px solid #4b9b69;"></div>
-        <div style="font-size: 40px; background: white; width: 80px; height: 80px; display: flex; justify-content: center; align-items: center; border-radius: 50%; border: 4px solid #4b9b69; z-index: 10; margin-top: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">🏠</div>
-        <div style="margin-top: 15px; font-size: 24px; color: #17211c; font-weight: 800; letter-spacing: 2px;">HOME ID</div>
-        <div style="font-size: 11px; color: #77827a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; font-weight: 700;">${escapeHTML(homeData.name)}</div>
-        <div style="background: white; padding: 12px; border-radius: 16px; border: 2px dashed #cdd4ce;">
-          <img src="${qrApiUrl}" style="width: 140px; height: 140px; display: block;">
-        </div>
-        <div style="font-family: monospace; background: #f4f6f5; padding: 6px 12px; border-radius: 8px; margin-top: 15px; font-size: 12px; color: #1e362d; border: 1px solid #e3e8e4; font-weight: bold; letter-spacing: 1px;">
-          ID: ${currentHomeId}
-        </div>
-      </div>
-    </div>
-    <div style="display:flex; gap:10px;">
-      <button class="button secondary pointer" style="flex:1;" onclick="closeModal()">Fermer</button>
-      <button class="button primary pointer" style="flex:2;" onclick="printPlaque()">🖨️ Imprimer la plaque</button>
-    </div>
-  `;
-}
-
-function printPlaque() {
-  const plaqueHtml = document.getElementById("print-plaque").outerHTML;
-  const printWindow = window.open('', '', 'height=800,width=600');
-  printWindow.document.write('<html><head><title>Impression Plaque HOME ID</title>');
-  printWindow.document.write('<style>body { display:flex; justify-content:center; align-items:center; height:100vh; margin:0; font-family:sans-serif; background:white; }</style>');
-  printWindow.document.write('</head><body>');
-  printWindow.document.write(plaqueHtml);
-  printWindow.document.write('</body></html>');
-  printWindow.document.close();
-  setTimeout(() => { printWindow.print(); }, 500);
-}
-
-/* ============================================================
-   UTILITAIRES
-   ============================================================ */
-function openModal() { document.getElementById("modal").classList.remove("hidden"); }
-function closeModal() { document.getElementById("modal").classList.add("hidden"); }
-document.addEventListener("click", e => { const m = document.getElementById("modal"); if (m && e.target === m) closeModal(); });
-function showMessage(msg) { const t = document.getElementById("toast"); if(!t) return; t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2500); }
-function escapeHTML(str) { return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 function openQrSimulatorModal() { window.open(`/scan/${currentHomeId}`, "_blank"); }
+document.addEventListener("click", e => { const m = document.getElementById("modal"); if (m && e.target === m) closeModal(); });
+
 
 /* ============================================================
-   DIAGNOSTICS IMMOBILIERS (Avec Images / Preuves visuelles)
+   👇👇👇 LES FONCTIONNALITÉS JUMELLES & WIDGETS 👇👇👇
    ============================================================ */
-function displayDiagnostics() {
-  const container = document.getElementById("diagnostics-container");
-  if (!container) return;
-  const diags = homeData.diagnostics || [];
-  
-  if (diags.length === 0) {
-    container.innerHTML = `<p style="font-size:13px; color:#77827a;">Aucun diagnostic enregistré.</p>`;
-    return;
-  }
-
-  // Couleurs officielles du DPE
-  const dpeColors = { 'A':'#009c6d', 'B':'#52b153', 'C':'#a5cc74', 'D':'#f4d35e', 'E':'#f0ac4c', 'F':'#eb8235', 'G':'#d7352b' };
-
-  container.innerHTML = diags.map((d, index) => {
-    let resultVisual = `<strong>${escapeHTML(d.result)}</strong>`;
-    
-    // Si c'est un DPE, on fait un beau badge de couleur
-    if (d.name.toUpperCase().includes("DPE") && dpeColors[d.result.toUpperCase()]) {
-      resultVisual = `<span style="background:${dpeColors[d.result.toUpperCase()]}; color:white; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:16px;">${d.result.toUpperCase()}</span>`;
-    }
-
-    // Gestion de la vignette visuelle (Si une image a été uploadée)
-    let imgHtml = d.image 
-      ? `<img src="${d.image}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 1px solid #cdd4ce; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="viewDiagFullscreen('${d.image}', '${escapeHTML(d.name)}')">`
-      : `<div style="width: 50px; height: 50px; border-radius: 8px; background: #f4f6f5; border: 1px dashed #cdd4ce; display: flex; align-items: center; justify-content: center; font-size: 20px;">📄</div>`;
-
-    return `
-      <div style="background:#ffffff; border:1px solid #e3e8e4; border-radius:10px; padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-        <div style="display:flex; align-items:center; gap:12px;">
-          ${imgHtml}
-          <div>
-            <strong style="display:block; color:#17211c; font-size:13px; text-transform:uppercase;">${escapeHTML(d.name)}</strong>
-            <span style="font-size:11px; color:#77827a;">Fait le : ${escapeHTML(d.date || "Inconnue")}</span>
-          </div>
-        </div>
-        <div style="display:flex; align-items:center; gap:15px;">
-          ${resultVisual}
-          <button onclick="deleteDiagnostic(${index})" style="background:none; border:none; cursor:pointer; font-size:12px; color:#d93025; padding:5px;">🗑️</button>
-        </div>
-      </div>
-    `;
-  }).join("");
-}
-
-// Ouvre le document en plein écran (Réutilise la logique de zoom des plans)
-function viewDiagFullscreen(imageSrc, diagName) {
-  document.getElementById("modal-content").innerHTML = `
-    <div style="display:flex; flex-direction:column; height: 75vh;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-        <h2 style="margin:0; font-size:18px;">Résultat : ${escapeHTML(diagName)}</h2>
-        <button class="button secondary pointer" style="padding:4px 10px; font-size:11px;" onclick="togglePlanZoom()">🔍 Zoomer</button>
-      </div>
-      <div style="flex:1; overflow:auto; background:#f4f6f5; border-radius:8px; border:1px solid #e3e8e4; text-align:center;">
-        <img id="fullscreen-plan-img" src="${imageSrc}" style="max-width:100%; height:auto; transition: width 0.3s ease; cursor: zoom-in;" onclick="togglePlanZoom()">
-      </div>
-    </div>`;
-  openModal();
-}
-
-function openAddDiagModal() {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">DIAGNOSTIC</div>
-    <h2>Ajouter un document</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); processDiagSubmit(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      
-      <select id="diag-name" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-        <option value="DPE (Énergie)">DPE (Énergie)</option>
-        <option value="GES (Climat)">GES (Climat)</option>
-        <option value="Amiante">Amiante</option>
-        <option value="Électricité">Électricité</option>
-        <option value="Plomb">Plomb</option>
-        <option value="Termites">Termites</option>
-        <option value="Autre Diagnostic">Autre Diagnostic...</option>
-      </select>
-      
-      <div style="display:flex; gap:10px;">
-        <input type="text" id="diag-result" placeholder="Résultat (Ex: A, B, Présence...)" required style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
-        <input type="date" id="diag-date" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
-      </div>
-
-      <div style="background:#f4f6f5; padding:15px; border-radius:8px; border:1px dashed #cdd4ce; margin-top:5px;">
-        <label style="font-size:12px; font-weight:bold; color:#59645d; display:block; margin-bottom:8px;">📸 Joindre le document (Photo ou capture)</label>
-        <input type="file" id="diag-image" accept="image/*" style="width:100%; font-size:13px;">
-      </div>
-
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Enregistrer le diagnostic</button>
-    </form>`;
-  openModal();
-}
-
-function processDiagSubmit() {
-  const name = document.getElementById("diag-name").value;
-  const result = document.getElementById("diag-result").value;
-  const date = document.getElementById("diag-date").value;
-  const fileInput = document.getElementById("diag-image");
-
-  if (fileInput.files.length > 0) {
-    // Si une image est sélectionnée, on la lit d'abord en Base64
-    showMessage("⏳ Traitement de l'image...");
-    const file = fileInput.files[0];
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      submitDiagnosticData({ name, result, date, image: e.target.result });
-    };
-    reader.readAsDataURL(file);
-  } else {
-    // S'il n'y a pas d'image, on sauvegarde juste le texte
-    submitDiagnosticData({ name, result, date, image: null });
-  }
-}
-
-async function submitDiagnosticData(newDiag) {
-  showMessage("Sauvegarde en cours...");
-  const diags = homeData.diagnostics || [];
-  diags.push(newDiag);
-
-  try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: diags }) });
-    if (res.ok) { 
-      closeModal(); 
-      loadHomeData(); 
-      showMessage("Diagnostic ajouté !");
-    }
-  } catch(e) { showMessage("Erreur réseau"); }
-}
-
-async function deleteDiagnostic(index) {
-  if(!confirm("Voulez-vous vraiment supprimer ce diagnostic et son image associée ?")) return;
-  const diags = homeData.diagnostics;
-  diags.splice(index, 1);
-  try {
-    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: diags }) });
-    loadHomeData();
-    showMessage("Diagnostic supprimé.");
-  } catch(e) { showMessage("Erreur"); }
-}
-
-/* ============================================================
-   ESPACES PERSONNALISÉS (WIDGETS DANS LA BIBLIOTHÈQUE)
-   ============================================================ */
-function displayCustomWidgets() {
-  const container = document.getElementById("custom-widgets-container");
-  if (!container) return;
-  const widgets = homeData.customWidgets || [];
-
-  container.innerHTML = widgets.map((w, index) => {
-    // Rend les liens cliquables s'il y a un "http"
-    const textFormatted = escapeHTML(w.content).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#4b9b69; text-decoration:underline; font-weight:bold;">Ouvrir le lien 🔗</a>');
-
-    // Design repris de l'ancienne bibliothèque !
-    return `
-      <div class="document" style="flex: 1; min-width: 200px; position: relative;">
-        <button onclick="deleteCustomWidget(${index})" style="position:absolute; right:10px; top:10px; background:none; border:none; cursor:pointer; font-size:12px; color:#d93025; padding:5px;">🗑️</button>
-        <div class="document-icon">📌</div>
-        <strong>${escapeHTML(w.title)}</strong>
-        <span style="font-size:11px; margin-top:5px; white-space:pre-wrap; color:#59645d;">${textFormatted}</span>
-      </div>
-    `;
-  }).join("");
-}
-
-function openAddCustomWidgetModal() {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">BIBLIOTHÈQUE</div>
-    <h2>Créer un Widget</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitCustomWidget(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="widget-title" placeholder="Titre (ex: Lien Google Drive, Portail...)" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <textarea id="widget-content" placeholder="Collez un lien internet, ou tapez votre texte ici..." required style="padding:10px; border-radius:8px; border:1px solid #ccc; min-height:80px; resize:vertical;"></textarea>
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Ajouter le widget</button>
-    </form>`;
-  openModal();
-}
-
-async function submitCustomWidget() {
-  const newWidget = {
-    title: document.getElementById("widget-title").value,
-    content: document.getElementById("widget-content").value
-  };
-  
-  const widgets = homeData.customWidgets || [];
-  widgets.push(newWidget);
-
-  try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
-    if (res.ok) { closeModal(); loadHomeData(); }
-  } catch(e) { showMessage("Erreur réseau"); }
-}
-
-async function deleteCustomWidget(index) {
-  if(!confirm("Supprimer ce widget ?")) return;
-  const widgets = homeData.customWidgets;
-  widgets.splice(index, 1);
-  try {
-    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
-    loadHomeData();
-  } catch(e) { showMessage("Erreur"); }
-}
-
-/* ============================================================
-   CADASTRE - GESTION MULTI-IMAGES (Mise à jour)
-   ============================================================ */
-function displayCadastre() {
-  const textContainer = document.getElementById("cadastre-text-container");
-  const galleryContainer = document.getElementById("cadastre-gallery");
-  if (!textContainer || !galleryContainer) return;
-
-  const c = homeData.cadastre || {};
-  const images = c.images || [];
-
-  // --- 1. Affichage du texte (Références) ---
-  if (!c.section && !c.numero && !c.commune) {
-    textContainer.innerHTML = `<p style="font-size:12px; color:#77827a; margin:0; text-align:center;">Cliquez sur 📝 Infos pour renseigner la section et le numéro de parcelle.</p>`;
-  } else {
-    // Génération du lien officiel basé sur le code postal de la maison (affiché dans la card principale)
-    const cpHome = homeData.land || ""; // On suppose que le CP est dans un champ land ou surface pour le test
-    const officialLink = `https://www.cadastre.gouv.fr/scpc/rechercherParcelle.do?section=${c.section}&parcelle=${c.numero}&commune=${encodeURIComponent(c.commune)}`;
-
-    textContainer.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="background:#f4f6f5; border-radius:8px; padding:8px 15px;">
-          <div class="eyebrow" style="margin-bottom:2px;">RÉFÉRENCES PARCELLE</div>
-          <strong style="font-size:16px; color:#1d2c33; font-family:monospace; letter-spacing:1px;">
-            ${escapeHTML(c.section).toUpperCase()} ${escapeHTML(c.numero)}
-          </strong>
-        </div>
-        <div style="text-align:right;">
-          <p style="font-size:12px; color:#17211c; margin:0;">Commune : <strong>${escapeHTML(c.commune)}</strong></p>
-          <a href="${officialLink}" target="_blank" style="font-size:11px; color:#4b9b69; text-decoration:underline;">📄 Voir sur cadastre.gouv.fr</a>
-        </div>
-      </div>
-    `;
-  }
-
-  // --- 2. Affichage de la galerie d'images ---
-  if (images.length === 0) {
-    galleryContainer.innerHTML = `<p style="font-size:12px; color:#77827a; margin:10px 0; text-align:center;">Aucune image de cadastre (plan, satellite...) ajoutée.</p>`;
-    return;
-  }
-
-  galleryContainer.innerHTML = images.map((img, index) => `
-    <div class="cadastre-thumbnail">
-      <button onclick="deleteCadastreImage(${index})" style="position:absolute; top:-5px; right:-5px; background:#d93025; color:white; border:none; border-radius:50%; width:20px; height:20px; font-size:12px; cursor:pointer; z-index:10;">×</button>
-      <img src="${img.base64}" class="cadastre-img" alt="Cadastre" onclick="viewDiagFullscreen('${img.base64}', 'Visuel Cadastre n°${index+1}')">
-    </div>
-  `).join("");
-}
-
-// Modal pour éditer les références textes (Section, Numéro...)
-function openEditCadastreTextModal() {
-  const c = homeData.cadastre || {};
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">FONCIER</div>
-    <h2>Références Cadastrales</h2>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitCadastreText(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      
-      <input type="text" id="cad-commune" placeholder="Nom de la commune" required value="${escapeHTML(c.commune||"")}" style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-
-      <div style="display:flex; gap:10px;">
-        <input type="text" id="cad-section" placeholder="Section (ex: AH)" required value="${escapeHTML(c.section||"")}" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
-        <input type="text" id="cad-numero" placeholder="Numéro parcelle (ex: 123)" required value="${escapeHTML(c.numero||"")}" style="flex:2; padding:10px; border-radius:8px; border:1px solid #ccc;">
-      </div>
-
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Sauvegarder les références</button>
-    </form>`;
-  openModal();
-}
-
-async function submitCadastreText() {
-  const commune = document.getElementById("cad-commune").value;
-  const section = document.getElementById("cad-section").value;
-  const numero = document.getElementById("cad-numero").value;
-  
-  // On récupère l'objet cadastre existant pour ne pas écraser les images !
-  let currentCadastre = homeData.cadastre || {};
-  currentCadastre.commune = commune;
-  currentCadastre.section = section;
-  currentCadastre.numero = numero;
-
-  showMessage("Sauvegarde...");
-  try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: currentCadastre }) });
-    if (res.ok) { closeModal(); loadHomeData(); showMessage("Références mises à jour !"); }
-  } catch(e) { showMessage("Erreur"); }
-}
-
-// Modal pour ajouter UNE image à la galerie existante
-function openAddCadastreImageModal() {
-  document.getElementById("modal-content").innerHTML = `
-    <div class="eyebrow">FONCIER</div>
-    <h2>Ajouter une image</h2>
-    <p style="font-size:13px; color:#59645d; margin-top:5px;">Sélectionnez un plan cadastral, une vue satellite, ou une photo du terrain.</p>
-    <form action="javascript:void(0);" onsubmit="event.preventDefault(); processCadastreImageSubmit(); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      
-      <div style="background:#f4f6f5; padding:20px; border-radius:8px; border:1px dashed #cdd4ce; text-align:center;">
-        <input type="file" id="cad-image-file" accept="image/*" required style="font-size:13px;">
-      </div>
-
-      <button type="submit" class="button primary pointer" style="margin-top:10px;">Uploader l'image</button>
-    </form>`;
-  openModal();
-}
-
-function processCadastreImageSubmit() {
-  const fileInput = document.getElementById("cad-image-file");
-  if (fileInput.files.length > 0) {
-    showMessage("⏳ Compression de l'image...");
-    const file = fileInput.files[0];
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      submitNewCadastreImage(e.target.result);
-    };
-    reader.readAsDataURL(file);
-  }
-}
-
-async function submitNewCadastreImage(base64Image) {
-  let currentCadastre = homeData.cadastre || {};
-  let images = currentCadastre.images || [];
-  
-  // On ajoute la nouvelle image au tableau existant
-  images.push({
-    id: "CAD-" + Date.now(),
-    base64: base64Image
-  });
-  
-  currentCadastre.images = images;
-
-  showMessage("Sauvegarde...");
-  try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: currentCadastre }) });
-    if (res.ok) { closeModal(); loadHomeData(); showMessage("Image ajoutée !"); }
-  } catch(e) { showMessage("Erreur"); }
-}
-
-async function deleteCadastreImage(index) {
-  if(!confirm("Supprimer cette image de cadastre ?")) return;
-  
-  let currentCadastre = homeData.cadastre;
-  currentCadastre.images.splice(index, 1);
-  
-  try {
-    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: currentCadastre }) });
-    loadHomeData();
-    showMessage("Image supprimée.");
-  } catch(e) { showMessage("Erreur"); }
-}
-
-/* ============================================================
-   OUTILS DE COMPRESSION ET AFFICHAGE PLEIN ECRAN
-   ============================================================ */
-function compressImage(base64Str, maxWidth = 1200, maxHeight = 1200) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = base64Str;
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      let width = img.width;
-      let height = img.height;
-      if (width > height) {
-        if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
-      } else {
-        if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
-      }
-      canvas.width = width; canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL("image/jpeg", 0.7)); 
-    };
-  });
-}
-
-function viewDocumentFullscreen(imageSrc, docName) {
-  document.getElementById("modal-content").innerHTML = `
-    <div style="display:flex; flex-direction:column; height: 75vh;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-        <h2 style="margin:0; font-size:18px;">${escapeHTML(docName)}</h2>
-        <button class="button secondary pointer" style="padding:4px 10px; font-size:11px;" onclick="togglePlanZoom()">🔍 Zoomer</button>
-      </div>
-      <div style="flex:1; overflow:auto; background:#f4f6f5; border-radius:8px; border:1px solid #e3e8e4; text-align:center;">
-        <img id="fullscreen-plan-img" src="${imageSrc}" style="max-width:100%; height:auto; transition: width 0.3s ease; cursor: zoom-in;" onclick="togglePlanZoom()">
-      </div>
-    </div>`;
-  openModal();
-}
 
 /* ============================================================
    1. DIAGNOSTICS - PHILOSOPHIE "ARRAY" ( Twin #1 )
@@ -1392,7 +874,6 @@ function processCadastreSubmit() {
   const reader = new FileReader();
   reader.onload = async (e) => {
     try {
-      // ON COMPRESSE (Même philosophie)
       const compressed = await compressImage(e.target.result);
       submitCadastreSave({ name, info, date, image: compressed });
     } catch(err) { showMessage("Erreur compression."); }
@@ -1403,7 +884,7 @@ function processCadastreSubmit() {
 async function submitCadastreSave(newCadItem) {
   showMessage("Sauvegarde...");
   const cadastreArray = homeData.cadastre || [];
-  cadastreArray.push(newCadItem); // Ajout au tableau
+  cadastreArray.push(newCadItem);
 
   try {
     const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: cadastreArray }) });
@@ -1422,7 +903,7 @@ async function deleteCadastreItem(index) {
 }
 
 /* ============================================================
-   3. ESPACES LIBRES (WIDGETS PERSONNALISÉS) (Ton code existant)
+   3. ESPACES LIBRES (WIDGETS PERSONNALISÉS)
    ============================================================ */
 function displayCustomWidgets() {
   const container = document.getElementById("custom-widgets-container");
@@ -1453,4 +934,5 @@ async function deleteCustomWidget(index) {
     loadHomeData();
   } catch(e) { showMessage("Erreur"); }
 }
+
 init();
