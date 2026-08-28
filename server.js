@@ -1,12 +1,34 @@
 const express = require("express");
 const path = require("path");
 const { Pool } = require("pg");
-const crypto = require("crypto"); // NOUVEAU : Module de cryptographie pour le coffre-fort
+const crypto = require("crypto"); // Module de cryptographie pour le coffre-fort
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '50mb' }));
+
+// --- 🛡️ BOUCLIER DE PROTECTION POUR LA DÉMO ---
+app.use((req, res, next) => {
+  // On détecte si la requête concerne la démo (via le body, l'URL, ou la provenance de la page)
+  const isDemoRequest = 
+    (req.body && JSON.stringify(req.body).includes('demo-officielle')) || 
+    (req.query && JSON.stringify(req.query).includes('demo-officielle')) ||
+    (req.headers.referer && req.headers.referer.includes('demo-officielle'));
+
+  // On autorise UNIQUEMENT la connexion et la consultation du coffre
+  const isAllowedAction = req.path.includes('/login') || req.path.includes('/vault/check') || req.path.includes('/vault/unlock');
+
+  // Si c'est la démo, que c'est une requête de type POST (modification), et que ce n'est pas autorisé : ON BLOQUE
+  if (isDemoRequest && req.method === 'POST' && !isAllowedAction) {
+    console.log("🛡️ Action sur la démo interceptée et annulée :", req.path);
+    // On renvoie un succès factice pour que l'interface de l'utilisateur reste fluide
+    return res.json({ ok: true, message: "Mode démo : modification simulée." });
+  }
+
+  next(); // Si ce n'est pas la démo ou si c'est autorisé, on laisse passer
+});
+// ----------------------------------------------
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || "postgres://localhost:5432/homeid",
@@ -62,7 +84,7 @@ async function initDB() {
     // Ajout du code PIN du coffre à la maison
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS vault_pin VARCHAR(255);`);
 
-    // --- NOUVEAUTÉ : Ajout des colonnes JSON pour Diagnostics, Widgets et CADASTRE ---
+    // --- Ajout des colonnes JSON pour Diagnostics, Widgets et CADASTRE ---
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS diagnostics JSONB DEFAULT '[]'::jsonb;`);
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS custom_widgets JSONB DEFAULT '[]'::jsonb;`);
     await pool.query(`ALTER TABLE home ADD COLUMN IF NOT EXISTS cadastre JSONB DEFAULT '[]'::jsonb;`);
@@ -119,6 +141,7 @@ app.post("/api/setup", async (req, res) => {
     res.status(500).json({ error: "Erreur serveur" }); 
   }
 });
+
 app.get("/api/home", async (req, res) => {
   const homeId = req.query.id; 
   try {
@@ -146,7 +169,6 @@ app.get("/api/home", async (req, res) => {
       systems, 
       alerts, 
       professionals: pros,
-      // --- NOUVEAUTÉ : On inclut les diagnostics, Widgets et Cadastre dans la réponse ! ---
       diagnostics: homeResult.rows[0].diagnostics || [], 
       customWidgets: homeResult.rows[0].custom_widgets || [],
       cadastre: homeResult.rows[0].cadastre || []
@@ -175,7 +197,6 @@ app.post("/api/home/plan", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur serveur." }); }
 });
 
-// --- NOUVELLE ROUTE UNIFIÉE POUR SAUVEGARDER LES DIAGNOSTICS, WIDGETS ET CADASTRE ---
 app.post("/api/home/update-fields", async (req, res) => {
   const { id, diagnostics, customWidgets, cadastre } = req.body;
   if (!id) return res.status(400).json({ error: "ID manquant" });
@@ -335,7 +356,7 @@ app.post("/api/professionals/delete", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur." }); }
 });
 
-// --- NOUVELLES ROUTES : COFFRE-FORT DE MOTS DE PASSE ---
+// --- ROUTES : COFFRE-FORT DE MOTS DE PASSE ---
 
 app.post("/api/vault/check", async (req, res) => {
   const { homeId } = req.body;
