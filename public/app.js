@@ -1,23 +1,23 @@
 /* ============================================================
-   HOME ID — APPLICATION JAVASCRIPT GLOBALE
+   MAISON ID — APPLICATION JAVASCRIPT GLOBALE
    ============================================================ */
 
-let homeData = null;
-let currentHomeId = null; 
+let maisonData = null;
+let currentMaisonId = null; 
 window.isDragging = false; 
 let sessionVaultPin = null; 
 
 async function init() {
   const urlParams = new URLSearchParams(window.location.search);
-  currentHomeId = urlParams.get("id");
+  currentMaisonId = urlParams.get("id");
 
-  if (!currentHomeId) {
+  if (!currentMaisonId) {
     document.body.innerHTML = `<div style="display:flex; justify-content:center; align-items:center; height:100vh; flex-direction:column; background:#f4f6f5;">
         <div style="font-size:40px; margin-bottom:15px;">📱</div><h2 style="font-family:sans-serif; color:#1e362d; margin:0;">Veuillez scanner un QR Code</h2></div>`;
     return;
   }
-  const activeSession = sessionStorage.getItem("homeid_session");
-  if (activeSession === currentHomeId) loadHomeData();
+  const activeSession = sessionStorage.getItem("maisonid_session");
+  if (activeSession === currentMaisonId) loadMaisonData();
   else openLoginModal();
 }
 
@@ -44,27 +44,27 @@ async function submitLogin(event) {
   const password = document.getElementById("login-password").value;
   const errDiv = document.getElementById("login-error");
   try {
-    const response = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, password: password }) });
+    const response = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentMaisonId, password: password }) });
     if (response.ok) {
-      sessionStorage.setItem("homeid_session", currentHomeId);
+      sessionStorage.setItem("maisonid_session", currentmaisonId);
       document.getElementById("modal").classList.add("hidden");
       const closeBtn = document.querySelector('.close');
       if (closeBtn) closeBtn.style.display = 'block'; 
-      loadHomeData();
+      loadmaisonData();
     } else { errDiv.textContent = "Mot de passe incorrect."; errDiv.style.display = "block"; }
   } catch (error) { errDiv.textContent = "Erreur serveur."; errDiv.style.display = "block"; }
 }
 
-async function loadHomeData() {
+async function loadmaisonData() {
   try {
-    const response = await fetch(`/api/home?id=${currentHomeId}`);
+    const response = await fetch(`/api/maison?id=${currentmaisonId}`);
     if (response.status === 404) {
-      sessionStorage.removeItem("homeid_session");
-      window.location.href = `/scan/${currentHomeId}`;
+      sessionStorage.removeItem("maisonid_session");
+      window.location.href = `/scan/${currentmaisonId}`;
       return;
     }
     if (!response.ok) throw new Error("Erreur");
-    homeData = await response.json();
+    maisonData = await response.json();
     
     document.getElementById("main-content").style.display = "block";
 
@@ -81,16 +81,16 @@ async function loadHomeData() {
 }
 
 function populatemaisonInfo() {
-  document.getElementById("display-maison-name").textContent = homeData.name || "Ma Maison";
-  document.getElementById("display-maison-id").textContent = `Maison #${homeData.id}`;
-  document.getElementById("display-maison-year").textContent = homeData.year || "—";
-  document.getElementById("display-maison-surface").textContent = homeData.surface ? `${homeData.surface} m²` : "—";
-  document.getElementById("display-maison-land").textContent = homeData.land ? `${homeData.land} m²` : "—";
+  document.getElementById("display-maison-name").textContent = maisonData.name || "Ma Maison";
+  document.getElementById("display-maison-id").textContent = `Maison #${maisonData.id}`;
+  document.getElementById("display-maison-year").textContent = maisonData.year || "—";
+  document.getElementById("display-maison-surface").textContent = maisonData.surface ? `${maisonData.surface} m²` : "—";
+  document.getElementById("display-maison-land").textContent = maisonData.land ? `${maisonData.land} m²` : "—";
 
   const gallery = document.getElementById("plans-gallery");
   const docPlans = document.getElementById("doc-plans");
   const docNotices = document.getElementById("doc-notices");
-  const plans = homeData.plans || [];
+  const plans = maisonData.plans || [];
   
   if (gallery) {
     if (plans.length === 0) {
@@ -105,8 +105,8 @@ function populatemaisonInfo() {
     }
   }
   if (docPlans) docPlans.innerText = `${plans.length} fichier(s)`;
-  if (docNotices && homeData.systems) {
-    const totalEquip = homeData.systems.reduce((acc, sys) => acc + (sys.equipment || 0), 0);
+  if (docNotices && maisonData.systems) {
+    const totalEquip = maisonData.systems.reduce((acc, sys) => acc + (sys.equipment || 0), 0);
     docNotices.textContent = `${totalEquip} fichier(s)`;
   }
 }
@@ -116,7 +116,7 @@ function populatemaisonInfo() {
    ============================================================ */
 async function openVaultCheck() {
   try {
-    const response = await fetch("/api/vault/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ homeId: currentHomeId }) });
+    const response = await fetch("/api/vault/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ maisonId: currentmaisonId }) });
     const data = await response.json();
     
     if (!data.isSetup) {
@@ -140,7 +140,7 @@ async function openVaultCheck() {
 async function setupVault() {
   const pin = document.getElementById("vault-setup-pin").value;
   try {
-    const res = await fetch("/api/vault/setup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ homeId: currentHomeId, pin }) });
+    const res = await fetch("/api/vault/setup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ maisonId: currentmaisonId, pin }) });
     if(res.ok) { sessionVaultPin = pin; showMessage("Coffre-fort créé !"); loadVaultDashboard(); }
   } catch(e) { showMessage("Erreur réseau."); }
 }
@@ -169,7 +169,7 @@ async function unlockVault() {
   const pin = document.getElementById("vault-unlock-pin").value;
   const errDiv = document.getElementById("vault-error");
   try {
-    const res = await fetch("/api/vault/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ homeId: currentHomeId, pin }) });
+    const res = await fetch("/api/vault/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ maisonId: currentmaisonId, pin }) });
     if(res.ok) { sessionVaultPin = pin; loadVaultDashboard(); } 
     else { errDiv.textContent = "Code PIN incorrect."; errDiv.style.display = "block"; }
   } catch(e) { errDiv.textContent = "Erreur réseau."; errDiv.style.display = "block"; }
@@ -177,7 +177,7 @@ async function unlockVault() {
 
 async function loadVaultDashboard() {
   try {
-    const res = await fetch("/api/vault/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ homeId: currentHomeId, pin: sessionVaultPin }) });
+    const res = await fetch("/api/vault/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ maisonId: currentmaisonId, pin: sessionVaultPin }) });
     if(!res.ok) { sessionVaultPin = null; openVaultCheck(); return; }
     
     const data = await res.json();
@@ -245,7 +245,7 @@ function openAddVaultItemModal() {
 
 async function submitVaultItem(event) {
   const payload = {
-    homeId: currentHomeId, pin: sessionVaultPin, title: document.getElementById("vault-add-title").value,
+    maisonId: currentmaisonId, pin: sessionVaultPin, title: document.getElementById("vault-add-title").value,
     login: document.getElementById("vault-add-login").value, password: document.getElementById("vault-add-pwd").value
   };
   try {
@@ -258,7 +258,7 @@ async function submitVaultItem(event) {
 async function deleteVaultItem(itemId) {
   if(!confirm("Supprimer ce mot de passe définitivement ?")) return;
   try {
-    const res = await fetch("/api/vault/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ homeId: currentHomeId, pin: sessionVaultPin, itemId }) });
+    const res = await fetch("/api/vault/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ maisonId: currentmaisonId, pin: sessionVaultPin, itemId }) });
     if(res.ok) { showMessage("Mot de passe supprimé."); loadVaultDashboard(); }
   } catch(e) { showMessage("Erreur réseau"); }
 }
@@ -269,7 +269,7 @@ async function deleteVaultItem(itemId) {
 function displaySystems() {
   const container = document.getElementById("systems");
   if (!container) return;
-  const systems = homeData.systems || [];
+  const systems = maisonData.systems || [];
   if (systems.length === 0) { container.innerHTML = `<p>Aucun système.</p>`; return; }
 
   container.innerHTML = systems.map(system => {
@@ -315,7 +315,7 @@ function displaySystems() {
 function displayProfessionals() { 
   const container = document.getElementById("professionals");
   if (!container) return;
-  const pros = homeData.professionals || [];
+  const pros = maisonData.professionals || [];
   if (pros.length === 0) { container.innerHTML = "<p style='font-size:13px; color:#77827a;'>Aucun artisan enregistré.</p>"; return; }
 
   container.innerHTML = pros.map(p => {
@@ -355,10 +355,10 @@ function openAddProModal() {
 }
 
 async function submitPro(event) {
-  const payload = { homeId: currentHomeId, name: document.getElementById("add-pro-name").value, domain: document.getElementById("add-pro-domain").value, phone: document.getElementById("add-pro-phone").value, email: document.getElementById("add-pro-email").value, notes: document.getElementById("add-pro-notes").value };
+  const payload = { maisonId: currentmaisonId, name: document.getElementById("add-pro-name").value, domain: document.getElementById("add-pro-domain").value, phone: document.getElementById("add-pro-phone").value, email: document.getElementById("add-pro-email").value, notes: document.getElementById("add-pro-notes").value };
   try {
     const response = await fetch("/api/professionals/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (response.ok) { showMessage("Artisan ajouté !"); closeModal(); loadHomeData(); }
+    if (response.ok) { showMessage("Artisan ajouté !"); closeModal(); loadmaisonData(); }
   } catch (e) { showMessage("Erreur réseau"); }
 }
 
@@ -390,7 +390,7 @@ async function submitEditPro(event, proId) {
   const payload = { id: proId, name: document.getElementById("edit-pro-name").value, domain: document.getElementById("edit-pro-domain").value, phone: document.getElementById("edit-pro-phone").value, email: document.getElementById("edit-pro-email").value, notes: document.getElementById("edit-pro-notes").value };
   try {
     const response = await fetch("/api/professionals/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (response.ok) { showMessage("Artisan modifié !"); closeModal(); loadHomeData(); }
+    if (response.ok) { showMessage("Artisan modifié !"); closeModal(); loadmaisonData(); }
   } catch (e) { showMessage("Erreur réseau"); }
 }
 
@@ -398,7 +398,7 @@ async function deletePro(proId) {
   if (!confirm("Voulez-vous vraiment supprimer cet artisan de votre carnet ?")) return;
   try {
     const response = await fetch("/api/professionals/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: proId }) });
-    if (response.ok) { showMessage("Artisan supprimé."); closeModal(); loadHomeData(); }
+    if (response.ok) { showMessage("Artisan supprimé."); closeModal(); loadmaisonData(); }
   } catch (e) { showMessage("Erreur"); }
 }
 
@@ -408,7 +408,7 @@ async function deletePro(proId) {
 function displayAlerts() {
   const container = document.getElementById("alerts");
   if (!container) return;
-  const alerts = homeData.alerts || [];
+  const alerts = maisonData.alerts || [];
 
   const todo = alerts.filter(a => !a.is_done);
   const done = alerts.filter(a => a.is_done);
@@ -467,7 +467,7 @@ function displayAlerts() {
 async function toggleAlert(id, isDone) {
   try {
     await fetch("/api/alerts/toggle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, is_done: isDone }) });
-    loadHomeData(); 
+    loadmaisonData(); 
   } catch (error) { showMessage("Erreur."); }
 }
 
@@ -484,10 +484,10 @@ function openAddAlertModal() {
 }
 
 async function submitAlert(event) {
-  const payload = { homeId: currentHomeId, title: document.getElementById("add-alert-title").value, date: document.getElementById("add-alert-date").value, text: document.getElementById("add-alert-text").value };
+  const payload = { maisonId: currentmaisonId, title: document.getElementById("add-alert-title").value, date: document.getElementById("add-alert-date").value, text: document.getElementById("add-alert-text").value };
   try {
     const response = await fetch("/api/alerts/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (response.ok) { showMessage("Rappel programmé !"); closeModal(); loadHomeData(); }
+    if (response.ok) { showMessage("Rappel programmé !"); closeModal(); loadmaisonData(); }
   } catch (e) { showMessage("Erreur réseau"); }
 }
 
@@ -514,7 +514,7 @@ async function submitEditAlert(event, alertId) {
   const payload = { id: alertId, title: document.getElementById("edit-alert-title").value, date: document.getElementById("edit-alert-date").value, text: document.getElementById("edit-alert-text").value };
   try {
     const response = await fetch("/api/alerts/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (response.ok) { showMessage("Entretien modifié !"); closeModal(); loadHomeData(); }
+    if (response.ok) { showMessage("Entretien modifié !"); closeModal(); loadmaisonData(); }
   } catch (e) { showMessage("Erreur"); }
 }
 
@@ -522,7 +522,7 @@ async function deleteAlert(alertId) {
   if (!confirm("Voulez-vous vraiment supprimer cet entretien ?")) return;
   try {
     const response = await fetch("/api/alerts/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: alertId }) });
-    if (response.ok) { showMessage("Entretien supprimé."); closeModal(); loadHomeData(); }
+    if (response.ok) { showMessage("Entretien supprimé."); closeModal(); loadmaisonData(); }
   } catch (e) { showMessage("Erreur"); }
 }
 
@@ -601,10 +601,10 @@ function openAddSystemModal() {
 }
 
 async function submitNewSystem(event) {
-  const payload = { homeId: currentHomeId, name: document.getElementById("add-sys-name").value, icon: document.getElementById("add-sys-icon").value };
+  const payload = { maisonId: currentmaisonId, name: document.getElementById("add-sys-name").value, icon: document.getElementById("add-sys-icon").value };
   try {
     const response = await fetch("/api/systems/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (response.ok) { showMessage("Système créé !"); closeModal(); loadHomeData(); }
+    if (response.ok) { showMessage("Système créé !"); closeModal(); loadmaisonData(); }
   } catch (e) { showMessage("Erreur réseau"); }
 }
 
@@ -622,7 +622,7 @@ async function submitEditSystem(event, id) {
   const payload = { id, name: document.getElementById("edit-sys-name").value, icon: document.getElementById("edit-sys-icon").value };
   try {
     const response = await fetch("/api/systems/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (response.ok) { showMessage("Système modifié !"); openSystem(id); loadHomeData(); }
+    if (response.ok) { showMessage("Système modifié !"); openSystem(id); loadmaisonData(); }
   } catch (e) { showMessage("Erreur réseau"); }
 }
 
@@ -630,7 +630,7 @@ async function deleteSystem(id) {
   if (!confirm("Voulez-vous supprimer ce système ? TOUS les équipements à l'intérieur seront effacés.")) return;
   try {
     const response = await fetch("/api/systems/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-    if (response.ok) { showMessage("Système supprimé."); closeModal(); loadHomeData(); }
+    if (response.ok) { showMessage("Système supprimé."); closeModal(); loadmaisonData(); }
   } catch (e) { showMessage("Erreur réseau"); }
 }
 
@@ -648,12 +648,12 @@ async function submitSystemConfig(event, systemId) {
   document.querySelectorAll(".sys-spec-input").forEach(input => { if (input.value) specs[input.getAttribute("data-key")] = input.value; });
   try {
     const response = await fetch("/api/systems/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ systemId, specs }) });
-    if (response.ok) { showMessage("Configuration enregistrée !"); openSystem(systemId); loadHomeData(); }
+    if (response.ok) { showMessage("Configuration enregistrée !"); openSystem(systemId); loadmaisonData(); }
   } catch (e) { showMessage("Erreur réseau"); }
 }
 
 function openAddEqModal(preselectedSystem = "") {
-  const systemOptions = (homeData.systems || []).map(sys => `<option value="${escapeHTML(sys.id)}" ${sys.id === preselectedSystem ? "selected" : ""}>${escapeHTML(sys.name)}</option>`).join("");
+  const systemOptions = (maisonData.systems || []).map(sys => `<option value="${escapeHTML(sys.id)}" ${sys.id === preselectedSystem ? "selected" : ""}>${escapeHTML(sys.name)}</option>`).join("");
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">NOUVEL ÉQUIPEMENT</div><h2>Ajouter un équipement</h2>
     <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitEquipment(event); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
@@ -692,7 +692,7 @@ async function submitEquipment(event) {
   document.querySelectorAll(".eq-spec-input").forEach(input => { if (input.value) payload.specs[input.getAttribute("data-key")] = input.value; });
   try {
     const response = await fetch("/api/equipment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (response.ok) { showMessage("Équipement ajouté !"); openSystem(payload.systemId); loadHomeData(); }
+    if (response.ok) { showMessage("Équipement ajouté !"); openSystem(payload.systemId); loadmaisonData(); }
   } catch (e) { showMessage("Erreur réseau"); }
 }
 
@@ -714,7 +714,7 @@ async function submitEditEquipment(event, eqId, systemId) {
   const name = document.getElementById("edit-eq-name").value; const model = document.getElementById("edit-eq-model").value; const installed = document.getElementById("edit-eq-installed").value; const notes = document.getElementById("edit-eq-notes").value; 
   try {
     const response = await fetch("/api/equipment/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: eqId, name, model, installed, specs: {}, notes }) });
-    if (response.ok) { showMessage("Équipement modifié !"); openSystem(systemId); loadHomeData(); }
+    if (response.ok) { showMessage("Équipement modifié !"); openSystem(systemId); loadmaisonData(); }
   } catch (e) { showMessage("Erreur réseau"); }
 }
 
@@ -722,7 +722,7 @@ async function deleteEquipment(eqId, systemId) {
   if (!confirm("Supprimer cet équipement ?")) return;
   try {
     const response = await fetch("/api/equipment/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: eqId }) });
-    if (response.ok) { showMessage("Équipement supprimé."); openSystem(systemId); loadHomeData(); }
+    if (response.ok) { showMessage("Équipement supprimé."); openSystem(systemId); loadmaisonData(); }
   } catch (e) { showMessage("Erreur"); }
 }
 
@@ -752,8 +752,8 @@ function handlePlanUpload(event) {
   reader.onload = async function(e) {
     try {
       showMessage("Sauvegarde en cours...");
-      const response = await fetch("/api/home/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, name: planName, image: e.target.result }) });
-      if (response.ok) { showMessage("Plan ajouté !"); closeModal(); loadHomeData(); } else { showMessage("Erreur"); }
+      const response = await fetch("/api/maison/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentmaisonId, name: planName, image: e.target.result }) });
+      if (response.ok) { showMessage("Plan ajouté !"); closeModal(); loadmaisonData(); } else { showMessage("Erreur"); }
     } catch (err) { showMessage("Erreur réseau."); }
   };
   reader.readAsDataURL(file);
@@ -766,11 +766,11 @@ function openProfileModal() {
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">PROFIL</div><h2>Modifier ma maison</h2>
     <form action="javascript:void(0);" onsubmit="event.preventDefault(); submitProfileEdit(event); return false;" style="display:flex; flex-direction:column; gap:12px; margin-top:15px;">
-      <input type="text" id="edit-name" value="${escapeHTML(homeData.name)}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
-      <input type="number" id="edit-year" value="${escapeHTML(String(homeData.year))}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="text" id="edit-name" value="${escapeHTML(maisonData.name)}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
+      <input type="number" id="edit-year" value="${escapeHTML(String(maisonData.year))}" required style="padding:10px; border-radius:8px; border:1px solid #ccc;">
       <div style="display:flex; gap:10px;">
-        <input type="number" id="edit-surface" value="${escapeHTML(String(homeData.surface))}" placeholder="Surface" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
-        <input type="number" id="edit-land" value="${escapeHTML(String(homeData.land))}" placeholder="Terrain" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="number" id="edit-surface" value="${escapeHTML(String(maisonData.surface))}" placeholder="Surface" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
+        <input type="number" id="edit-land" value="${escapeHTML(String(maisonData.land))}" placeholder="Terrain" style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;">
       </div>
       <input type="password" id="edit-password" required placeholder="Mot de passe actuel *" style="padding:10px; border-radius:8px; border:1px solid #ccc; border-left:4px solid #d93025;">
       <button type="submit" class="button primary pointer">Enregistrer</button>
@@ -784,15 +784,15 @@ function openProfileModal() {
 }
 
 async function submitProfileEdit(event) {
-  const payload = { id: currentHomeId, name: document.getElementById("edit-name").value, year: document.getElementById("edit-year").value, surface: document.getElementById("edit-surface").value, land: document.getElementById("edit-land").value, currentPassword: document.getElementById("edit-password").value };
+  const payload = { id: currentmaisonId, name: document.getElementById("edit-name").value, year: document.getElementById("edit-year").value, surface: document.getElementById("edit-surface").value, land: document.getElementById("edit-land").value, currentPassword: document.getElementById("edit-password").value };
   try {
-    const res = await fetch("/api/home/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (res.ok) { closeModal(); showMessage("Mise à jour réussie !"); loadHomeData(); } else { showMessage("Mot de passe incorrect."); }
+    const res = await fetch("/api/maison/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (res.ok) { closeModal(); showMessage("Mise à jour réussie !"); loadmaisonData(); } else { showMessage("Mot de passe incorrect."); }
   } catch(e) { showMessage("Erreur"); }
 }
 
 function generateMyQrCard() {
-  const qrUrl = `https://home-id.onrender.com/scan/${currentHomeId}`;
+  const qrUrl = `https://maison-id.onrender.com/scan/${currentmaisonId}`;
   const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}&margin=0`;
 
   document.getElementById("modal-content").innerHTML = `
@@ -804,13 +804,13 @@ function generateMyQrCard() {
       <div id="print-plaque" style="width: 320px; background: #ffffff; border-radius: 20px; box-shadow: 0 15px 35px rgba(23, 33, 28, 0.15); border: 4px solid #17211c; display: flex; flex-direction: column; align-items: center; padding: 25px 20px; text-align: center; position: relative; overflow: hidden; box-sizing: border-box;">
         <div style="position: absolute; top: 0; left: 0; right: 0; height: 110px; background: #17211c; border-bottom: 5px solid #4b9b69;"></div>
         <div style="font-size: 40px; background: white; width: 80px; height: 80px; display: flex; justify-content: center; align-items: center; border-radius: 50%; border: 4px solid #4b9b69; z-index: 10; margin-top: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">🏠</div>
-        <div style="margin-top: 15px; font-size: 24px; color: #17211c; font-weight: 800; letter-spacing: 2px;">HOME ID</div>
-        <div style="font-size: 11px; color: #77827a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; font-weight: 700;">${escapeHTML(homeData.name)}</div>
+        <div style="margin-top: 15px; font-size: 24px; color: #17211c; font-weight: 800; letter-spacing: 2px;">maison ID</div>
+        <div style="font-size: 11px; color: #77827a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; font-weight: 700;">${escapeHTML(maisonData.name)}</div>
         <div style="background: white; padding: 12px; border-radius: 16px; border: 2px dashed #cdd4ce;">
           <img src="${qrApiUrl}" style="width: 140px; height: 140px; display: block;">
         </div>
         <div style="font-family: monospace; background: #f4f6f5; padding: 6px 12px; border-radius: 8px; margin-top: 15px; font-size: 12px; color: #1e362d; border: 1px solid #e3e8e4; font-weight: bold; letter-spacing: 1px;">
-          ID: ${currentHomeId}
+          ID: ${currentmaisonId}
         </div>
       </div>
     </div>
@@ -824,7 +824,7 @@ function generateMyQrCard() {
 function printPlaque() {
   const plaqueHtml = document.getElementById("print-plaque").outerHTML;
   const printWindow = window.open('', '', 'height=800,width=600');
-  printWindow.document.write('<html><head><title>Impression Plaque HOME ID</title>');
+  printWindow.document.write('<html><head><title>Impression Plaque maison ID</title>');
   printWindow.document.write('<style>body { display:flex; justify-content:center; align-items:center; height:100vh; margin:0; font-family:sans-serif; background:white; }</style>');
   printWindow.document.write('</head><body>');
   printWindow.document.write(plaqueHtml);
@@ -841,7 +841,7 @@ function closeModal() { document.getElementById("modal").classList.add("hidden")
 document.addEventListener("click", e => { const m = document.getElementById("modal"); if (m && e.target === m) closeModal(); });
 function showMessage(msg) { const t = document.getElementById("toast"); if(!t) return; t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2500); }
 function escapeHTML(str) { return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
-function openQrSimulatorModal() { window.open(`/scan/${currentHomeId}`, "_blank"); }
+function openQrSimulatorModal() { window.open(`/scan/${currentmaisonId}`, "_blank"); }
 
 /* ============================================================
    OUTILS DE COMPRESSION ET AFFICHAGE PLEIN ECRAN
@@ -898,7 +898,7 @@ function displayDiagnostics() {
   const container = document.getElementById("diagnostics-container");
   if (!container) return;
   
-  let diags = homeData.diagnostics;
+  let diags = maisonData.diagnostics;
   if (!Array.isArray(diags)) diags = [];
   
   if (diags.length === 0) {
@@ -988,18 +988,18 @@ function processDiagSubmit() {
 
 async function submitDiagnosticData(newDiag) {
   showMessage("Sauvegarde en cours...");
-  let diags = homeData.diagnostics;
+  let diags = maisonData.diagnostics;
   if (!Array.isArray(diags)) diags = [];
   diags.push(newDiag);
 
   try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: diags }) });
-    if (res.ok) { closeModal(); loadHomeData(); showMessage("Diagnostic ajouté !"); }
+    const res = await fetch("/api/maison/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentmaisonId, diagnostics: diags }) });
+    if (res.ok) { closeModal(); loadmaisonData(); showMessage("Diagnostic ajouté !"); }
   } catch(e) { showMessage("Erreur réseau"); }
 }
 
 function openEditDiagModal(index) {
-  const d = homeData.diagnostics[index];
+  const d = maisonData.diagnostics[index];
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">MODIFICATION</div>
     <h2>Modifier ${escapeHTML(d.name)}</h2>
@@ -1052,27 +1052,27 @@ function submitEditDiag(index) {
     reader.readAsDataURL(fileInput.files[0]);
   } else {
     // Garder l'ancienne image si non modifiée
-    updateDiagnosticData(index, { name, result, date, image: homeData.diagnostics[index].image });
+    updateDiagnosticData(index, { name, result, date, image: maisonData.diagnostics[index].image });
   }
 }
 
 async function updateDiagnosticData(index, updatedDiag) {
   showMessage("Sauvegarde en cours...");
-  homeData.diagnostics[index] = updatedDiag;
+  maisonData.diagnostics[index] = updatedDiag;
   try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: homeData.diagnostics }) });
-    if (res.ok) { closeModal(); loadHomeData(); showMessage("Diagnostic modifié !"); }
+    const res = await fetch("/api/maison/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentmaisonId, diagnostics: maisonData.diagnostics }) });
+    if (res.ok) { closeModal(); loadmaisonData(); showMessage("Diagnostic modifié !"); }
   } catch(e) { showMessage("Erreur réseau"); }
 }
 
 async function deleteDiagnostic(index) {
   if(!confirm("Voulez-vous vraiment supprimer ce diagnostic ?")) return;
-  let diags = homeData.diagnostics;
+  let diags = maisonData.diagnostics;
   diags.splice(index, 1);
   try {
-    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, diagnostics: diags }) });
+    await fetch("/api/maison/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentmaisonId, diagnostics: diags }) });
     closeModal();
-    loadHomeData();
+    loadmaisonData();
     showMessage("Diagnostic supprimé.");
   } catch(e) { showMessage("Erreur"); }
 }
@@ -1084,7 +1084,7 @@ function displayCadastre() {
   const container = document.getElementById("cadastre-container");
   if (!container) return;
   
-  let cadastreItems = homeData.cadastre;
+  let cadastreItems = maisonData.cadastre;
   if (!Array.isArray(cadastreItems)) cadastreItems = [];
   
   if (cadastreItems.length === 0) {
@@ -1164,18 +1164,18 @@ function processCadastreSubmit() {
 
 async function submitCadastreSave(newCadItem) {
   showMessage("Sauvegarde...");
-  let cadastreArray = homeData.cadastre;
+  let cadastreArray = maisonData.cadastre;
   if (!Array.isArray(cadastreArray)) cadastreArray = [];
   cadastreArray.push(newCadItem);
 
   try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: cadastreArray }) });
-    if (res.ok) { closeModal(); loadHomeData(); showMessage("Plan ajouté !"); }
+    const res = await fetch("/api/maison/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentmaisonId, cadastre: cadastreArray }) });
+    if (res.ok) { closeModal(); loadmaisonData(); showMessage("Plan ajouté !"); }
   } catch(e) { showMessage("Erreur."); }
 }
 
 function openEditCadastreModal(index) {
-  const c = homeData.cadastre[index];
+  const c = maisonData.cadastre[index];
   document.getElementById("modal-content").innerHTML = `
     <div class="eyebrow">MODIFICATION FONCIER</div>
     <h2>Modifier ${escapeHTML(c.name)}</h2>
@@ -1226,27 +1226,27 @@ function submitEditCadastre(index) {
     reader.readAsDataURL(fileInput.files[0]);
   } else {
     // Garder l'ancienne image si non modifiée
-    updateCadastreData(index, { name, info, date, image: homeData.cadastre[index].image });
+    updateCadastreData(index, { name, info, date, image: maisonData.cadastre[index].image });
   }
 }
 
 async function updateCadastreData(index, updatedCad) {
   showMessage("Sauvegarde en cours...");
-  homeData.cadastre[index] = updatedCad;
+  maisonData.cadastre[index] = updatedCad;
   try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: homeData.cadastre }) });
-    if (res.ok) { closeModal(); loadHomeData(); showMessage("Plan modifié !"); }
+    const res = await fetch("/api/maison/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentmaisonId, cadastre: maisonData.cadastre }) });
+    if (res.ok) { closeModal(); loadmaisonData(); showMessage("Plan modifié !"); }
   } catch(e) { showMessage("Erreur réseau"); }
 }
 
 async function deleteCadastreItem(index) {
   if(!confirm("Supprimer ce plan cadastral ?")) return;
-  let cadastreArray = homeData.cadastre;
+  let cadastreArray = maisonData.cadastre;
   cadastreArray.splice(index, 1);
   try {
-    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: cadastreArray }) });
+    await fetch("/api/maison/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentmaisonId, cadastre: cadastreArray }) });
     closeModal();
-    loadHomeData();
+    loadmaisonData();
   } catch(e) { showMessage("Erreur"); }
 }
 
@@ -1267,7 +1267,7 @@ function toggleHiddenWidgets() {
 function displayCustomWidgets() {
   const container = document.getElementById("custom-widgets-container");
   if (!container) return;
-  const widgets = homeData.customWidgets || [];
+  const widgets = maisonData.customWidgets || [];
 
   // 1. Affichage des widgets
   container.innerHTML = widgets.map((w, index) => {
@@ -1318,7 +1318,7 @@ function displayCustomWidgets() {
       
       // Si on a bien déposé sur un autre élément
       if (draggedWidgetIndex !== null && draggedWidgetIndex !== targetIndex) {
-        const widgetsArray = homeData.customWidgets;
+        const widgetsArray = maisonData.customWidgets;
         
         // On intervertit l'ordre dans le tableau
         const movedItem = widgetsArray.splice(draggedWidgetIndex, 1)[0];
@@ -1326,8 +1326,8 @@ function displayCustomWidgets() {
         
         try {
           // On sauvegarde la nouvelle position sur le serveur
-          await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgetsArray }) });
-          loadHomeData();
+          await fetch("/api/maison/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentmaisonId, customWidgets: widgetsArray }) });
+          loadmaisonData();
         } catch(err) { showMessage("Erreur de sauvegarde de l'ordre."); }
       }
     });
@@ -1336,11 +1336,11 @@ function displayCustomWidgets() {
 
 // Fonction pour Masquer / Afficher un widget spécifique
 async function toggleWidgetVisibility(index) {
-  const widgets = homeData.customWidgets;
+  const widgets = maisonData.customWidgets;
   widgets[index].isHidden = !widgets[index].isHidden; // Inverse l'état (true/false)
   try {
-    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
-    loadHomeData();
+    await fetch("/api/maison/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentmaisonId, customWidgets: widgets }) });
+    loadmaisonData();
   } catch(e) { showMessage("Erreur réseau"); }
 }
 
@@ -1363,22 +1363,22 @@ async function submitCustomWidget() {
     isHidden: false // Par défaut, un nouveau widget est visible
   };
   
-  const widgets = homeData.customWidgets || [];
+  const widgets = maisonData.customWidgets || [];
   widgets.push(newWidget);
 
   try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
-    if (res.ok) { closeModal(); loadHomeData(); }
+    const res = await fetch("/api/maison/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentmaisonId, customWidgets: widgets }) });
+    if (res.ok) { closeModal(); loadmaisonData(); }
   } catch(e) { showMessage("Erreur réseau"); }
 }
 
 async function deleteCustomWidget(index) {
   if(!confirm("Supprimer ce widget ?")) return;
-  const widgets = homeData.customWidgets;
+  const widgets = maisonData.customWidgets;
   widgets.splice(index, 1);
   try {
-    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, customWidgets: widgets }) });
-    loadHomeData();
+    await fetch("/api/maison/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentmaisonId, customWidgets: widgets }) });
+    loadmaisonData();
   } catch(e) { showMessage("Erreur"); }
 }
 
@@ -1389,7 +1389,7 @@ function displayCadastre() {
   const container = document.getElementById("cadastre-container");
   if (!container) return;
   
-  let cadastreItems = homeData.cadastre;
+  let cadastreItems = maisonData.cadastre;
   
   // Sécurité : si le cadastre était sauvegardé sous l'ancien format (objet), on le transforme en tableau
   if (!Array.isArray(cadastreItems)) {
@@ -1479,18 +1479,18 @@ function processCadastreSubmit() {
 
 async function submitCadastreSave(newCadItem) {
   showMessage("Sauvegarde...");
-  let cadastreArray = homeData.cadastre;
+  let cadastreArray = maisonData.cadastre;
   if (!Array.isArray(cadastreArray)) cadastreArray = [];
   cadastreArray.push(newCadItem);
 
   try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: cadastreArray }) });
-    if (res.ok) { closeModal(); loadHomeData(); showMessage("Plan ajouté !"); }
+    const res = await fetch("/api/maison/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentmaisonId, cadastre: cadastreArray }) });
+    if (res.ok) { closeModal(); loadmaisonData(); showMessage("Plan ajouté !"); }
   } catch(e) { showMessage("Erreur."); }
 }
 
 function openEditCadastreModal(index) {
-  let cadastreArray = homeData.cadastre;
+  let cadastreArray = maisonData.cadastre;
   if (!Array.isArray(cadastreArray)) return;
   const c = cadastreArray[index];
   if(!c) return;
@@ -1545,28 +1545,28 @@ function submitEditCadastre(index) {
     reader.readAsDataURL(fileInput.files[0]);
   } else {
     // Garder l'ancienne image si non modifiée
-    let oldImg = homeData.cadastre[index].image || homeData.cadastre[index].base64;
+    let oldImg = maisonData.cadastre[index].image || maisonData.cadastre[index].base64;
     updateCadastreData(index, { name, info, date, image: oldImg });
   }
 }
 
 async function updateCadastreData(index, updatedCad) {
   showMessage("Sauvegarde en cours...");
-  homeData.cadastre[index] = updatedCad;
+  maisonData.cadastre[index] = updatedCad;
   try {
-    const res = await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: homeData.cadastre }) });
-    if (res.ok) { closeModal(); loadHomeData(); showMessage("Plan modifié !"); }
+    const res = await fetch("/api/maison/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentmaisonId, cadastre: maisonData.cadastre }) });
+    if (res.ok) { closeModal(); loadmaisonData(); showMessage("Plan modifié !"); }
   } catch(e) { showMessage("Erreur réseau"); }
 }
 
 async function deleteCadastreItem(index) {
   if(!confirm("Voulez-vous vraiment supprimer ce plan cadastral ?")) return;
-  let cadastreArray = homeData.cadastre;
+  let cadastreArray = maisonData.cadastre;
   cadastreArray.splice(index, 1);
   try {
-    await fetch("/api/home/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentHomeId, cadastre: cadastreArray }) });
+    await fetch("/api/maison/update-fields", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentmaisonId, cadastre: cadastreArray }) });
     closeModal();
-    loadHomeData();
+    loadmaisonData();
     showMessage("Plan supprimé.");
   } catch(e) { showMessage("Erreur"); }
 }
