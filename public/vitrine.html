@@ -15,21 +15,30 @@
     
     :root { --dark: #1d2c33; --light-blue: #7bd0df; --green: #4b9b69; --bg: #f4f6f5; --white: #ffffff; }
 
-    .btn { display: inline-block; padding: 14px 28px; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; text-align: center; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 28px; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; text-align: center; }
     .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
     .btn-primary { background-color: var(--dark); color: var(--white); border: 2px solid var(--dark); }
     .btn-secondary { background-color: var(--light-blue); color: var(--dark); border: 2px solid var(--light-blue); }
+    .btn-outline { background-color: transparent; color: var(--white); border: 2px solid rgba(255,255,255,0.3); }
+    .btn-outline:hover { border-color: var(--white); background: rgba(255,255,255,0.1); }
 
     header { background: var(--dark); border-bottom: 4px solid var(--light-blue); padding: 15px 5%; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
     .logo { display: flex; align-items: center; gap: 10px; color: var(--white); font-weight: 800; font-size: 24px; letter-spacing: -1px; }
     .logo svg { width: 35px; height: 35px; }
     .logo-home { color: #51838d; } .logo-id { color: var(--light-blue); }
 
-    .hero { background: var(--dark); color: var(--white); padding: 100px 5%; text-align: center; overflow: hidden; position: relative; }
-    .hero h1 { font-size: 48px; font-weight: 800; margin-bottom: 20px; line-height: 1.2; }
+    .hero { background: var(--dark); color: var(--white); padding: 80px 5%; position: relative; overflow: hidden; }
+    .hero-container { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 50px; }
+    .hero-text { flex: 1; }
+    .hero h1 { font-size: 42px; font-weight: 800; margin-bottom: 20px; line-height: 1.2; }
     .hero h1 span { color: var(--light-blue); }
-    .hero p { font-size: 18px; color: #aab7af; max-width: 600px; margin: 0 auto 40px auto; }
-    .hero-buttons { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
+    .hero p { font-size: 16px; color: #aab7af; margin-bottom: 30px; line-height: 1.6; }
+    .hero-buttons { display: flex; gap: 15px; flex-wrap: wrap; }
+    
+    /* Encart Vidéo */
+    .hero-media { flex: 1; position: relative; width: 100%; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); overflow: hidden; background: #000; border: 4px solid #32434a; aspect-ratio: 16/9; display: flex; justify-content: center; align-items: center; }
+    .hero-media iframe, .hero-media video { width: 100%; height: 100%; border: none; object-fit: cover; }
+    .video-placeholder { color: #77827a; font-size: 14px; text-align: center; padding: 20px; }
 
     .section { padding: 80px 5%; max-width: 1200px; margin: 0 auto; }
     .section-title { text-align: center; font-size: 32px; font-weight: 800; margin-bottom: 15px; color: var(--dark); }
@@ -57,9 +66,10 @@
 
     footer { background: var(--dark); color: #aab7af; text-align: center; padding: 40px 5%; margin-top: 80px; }
 
-    @media (max-width: 768px) {
-      .hero h1 { font-size: 32px; }
-      .hero-buttons { flex-direction: column; }
+    @media (max-width: 900px) {
+      .hero-container { flex-direction: column; text-align: center; }
+      .hero-buttons { justify-content: center; }
+      .hero h1 { font-size: 36px; }
     }
   </style>
 </head>
@@ -74,11 +84,28 @@
   </header>
 
   <section class="hero">
-    <h1>La mémoire de votre maison,<br><span>enfin sécurisée.</span></h1>
-    <p>Passez au carnet d'information du logement 100% phygital. Collez votre sticker QR Code où vous voulez dans votre maison et accédez à toute l'identité de votre bien en un scan.</p>
-    <div class="hero-buttons">
-      <a href="#commander" class="btn btn-secondary">Commander mon sticker</a>
-      <a href="#concept" class="btn btn-primary">Découvrir le concept</a>
+    <div class="hero-container">
+      <div class="hero-text">
+        <h1>La mémoire de votre maison,<br><span>enfin sécurisée.</span></h1>
+        <p>Le carnet d'information du logement 100% phygital. Collez le sticker QR Code dans votre tableau électrique et accédez à l'identité de votre bien en un scan.</p>
+        <div class="hero-buttons">
+          <a href="#commander" class="btn btn-secondary">Commander mon sticker</a>
+          <!-- Le lien de démo mène vers le tableau de bord d'une maison pré-configurée avec l'ID "demo" -->
+          <a href="/scan/demo" target="_blank" class="btn btn-outline">👁️ Voir la Démo</a>
+        </div>
+      </div>
+      
+      <div class="hero-media">
+        <!-- Remplacer cet espace par ta vraie vidéo YouTube ou ton fichier .mp4 -->
+        <div class="video-placeholder">
+          <span style="font-size: 40px; display: block; margin-bottom: 10px;">▶️</span>
+          Emplacement Vidéo Explicative<br>
+          <small>(Collez le lien YouTube, Vimeo, ou une balise &lt;video&gt; ici)</small>
+        </div>
+        
+        <!-- EXEMPLE POUR UNE VIDÉO YOUTUBE (Enlève les commentaires pour tester) -->
+        <!-- <iframe src="https://www.youtube.com/embed/VOTRE_ID_VIDEO?autoplay=1&mute=1&loop=1&rel=1" title="Présentation Maison ID" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe> -->
+      </div>
     </div>
   </section>
 
@@ -134,7 +161,7 @@
         <div class="step">
           <div class="step-number">2</div>
           <h3>Je colle</h3>
-          <p style="font-size: 14px; color: #59645d;">Fixez facilement l'autocollant où vous vous voulez.</p>
+          <p style="font-size: 14px; color: #59645d;">Fixez facilement l'autocollant sur ou à l'intérieur de votre tableau électrique.</p>
         </div>
         <div class="step">
           <div class="step-number">3</div>
