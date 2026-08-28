@@ -1,7 +1,7 @@
 {
-  "name": "maison-id",
+  "name": "home-id",
   "version": "1.0.0",
-  "description": "MAISON ID - La mémoire numérique de votre maison",
+  "description": "HOME ID - La mémoire numérique de votre maison",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
