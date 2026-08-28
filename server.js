@@ -97,8 +97,9 @@ app.post("/api/login", async (req, res) => {
 
 app.post("/api/setup", async (req, res) => {
   const { id, name, year, surface, land, password } = req.body;
-  try {
+ try {
     await pool.query(`INSERT INTO home (id, name, year, surface, land, owner_password, is_setup, plans) VALUES ($1, $2, $3, $4, $5, $6, TRUE, '[]'::jsonb)`, [id, name, parseInt(year), parseInt(surface)||0, parseInt(land)||0, password]);
+    
     const defaultSystems = [
       { id: `elec_${id}`, name: "Électricité", icon: "⚡", status: "À configurer", color: "orange", order: 1 },
       { id: `eau_${id}`, name: "Plomberie & Eau", icon: "💧", status: "À configurer", color: "orange", order: 2 },
@@ -108,10 +109,15 @@ app.post("/api/setup", async (req, res) => {
       { id: `ext_${id}`, name: "Extérieur", icon: "🌳", status: "À configurer", color: "orange", order: 6 },
       { id: `domo_${id}`, name: "Réseau", icon: "📡", status: "À configurer", color: "orange", order: 7 }
     ];
-    for (let sys of defaultSystems) { await pool.query(`INSERT INTO systems (id, home_id, name, icon, status, color, display_order) VALUES ($1, $2, $3, $4, 'À configurer', 'orange', 99)`, [sys.id, id, sys.name, sys.icon, sys.status, sys.color, sys.order]); }
+    
+    for (let sys of defaultSystems) { 
+      await pool.query(`INSERT INTO systems (id, home_id, name, icon, status, color, display_order) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [sys.id, id, sys.name, sys.icon, sys.status, sys.color, sys.order]); 
+    }
+    
     res.json({ ok: true, id: id });
-  } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
-});
+  } catch (err) { 
+    res.status(500).json({ error: "Erreur serveur" }); 
+  }
 
 app.get("/api/home", async (req, res) => {
   const homeId = req.query.id; 
