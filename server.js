@@ -118,7 +118,7 @@ app.post("/api/setup", async (req, res) => {
   } catch (err) { 
     res.status(500).json({ error: "Erreur serveur" }); 
   }
-
+});
 app.get("/api/home", async (req, res) => {
   const homeId = req.query.id; 
   try {
