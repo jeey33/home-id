@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HOUSE ID — Tableau de bord</title>
+  <title>MAISON ID — Tableau de bord</title>
   <link rel="stylesheet" href="/style.css">
   
   <!-- Police d'écriture pour le nouveau logo -->
@@ -80,7 +80,7 @@
       margin-top: 2px;
     }
     
-    .house-word { color: #51838d; }
+    .maison-word { color: #51838d; }
     .id-word { color: #7bd0df; }
 
     /* Le style du menu déroulant */
@@ -121,7 +121,7 @@
     /* ============================================
        NOUVELLE PASTILLE MAISON (Dashboard)
        ============================================ */
-    .house-image {
+    .maison-image {
       display: flex;
       justify-content: center;
       align-items: center;
@@ -151,7 +151,7 @@
           <rect x="56" y="68" width="8" height="4" fill="#7bd0df"/>
         </svg>
         <div class="brand-text">
-          <span class="house-word">house</span> <span class="id-word">id</span>
+          <span class="maison-word">maison</span> <span class="id-word">id</span>
         </div>
       </div>
       
@@ -161,7 +161,7 @@
         <a href="javascript:void(0)" onclick="openInfoModal('aide')">❓ Centre d'aide (FAQ)</a>
         <a href="javascript:void(0)" onclick="openInfoModal('contact')">✉️ Contacter le support</a>
         <hr>
-        <a href="javascript:void(0)" onclick="openInfoModal('a_propos')">ℹ️ À propos de HOUSE ID</a>
+        <a href="javascript:void(0)" onclick="openInfoModal('a_propos')">ℹ️ À propos de maison ID</a>
       </div>
     </div>
     
@@ -175,16 +175,16 @@
     <section class="welcome">
       <div>
         <div class="eyebrow">IDENTITÉ NUMÉRIQUE</div>
-        <h1 id="display-house-name">Chargement...</h1>
+        <h1 id="display-maison-name">Chargement...</h1>
         <p>Toute la mémoire technique de votre maison, au même endroit.</p>
       </div>
       <button class="button primary" onclick="openAddMenu()">+ Ajouter</button>
     </section>
 
     <!-- SECTION MA MAISON -->
-    <section class="house-card">
-      <div class="house-info">
-        <div class="house-image">
+    <section class="maison-card">
+      <div class="maison-info">
+        <div class="maison-image">
           <svg width="35" height="35" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M 8 45 L 50 12 L 92 45" stroke="#7bd0df" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M 22 35 V 80 Q 22 88 30 88 H 70 Q 78 88 78 80 V 35" stroke="#7bd0df" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -192,14 +192,14 @@
         </div>
         <div>
           <div class="eyebrow">MA MAISON</div>
-          <h2 id="display-house-id">...</h2>
+          <h2 id="display-maison-id">...</h2>
           <p>Votre maison, son histoire et tous ses systèmes.</p>
         </div>
       </div>
-      <div class="house-details">
-        <div><span>Construction</span><strong id="display-house-year">-</strong></div>
-        <div><span>Surface</span><strong id="display-house-surface">-</strong></div>
-        <div><span>Terrain</span><strong id="display-house-land">-</strong></div>
+      <div class="maison-details">
+        <div><span>Construction</span><strong id="display-maison-year">-</strong></div>
+        <div><span>Surface</span><strong id="display-maison-surface">-</strong></div>
+        <div><span>Terrain</span><strong id="display-maison-land">-</strong></div>
       </div>
       
       <div style="margin-top: 20px; border-top: 1px solid #e3e8e4; padding-top: 15px;">
@@ -370,10 +370,10 @@
         content.innerHTML = `
           <div class="eyebrow">SUPPORT</div><h2>Nous contacter</h2>
           <div style="font-size:14px; color:#59645d; line-height:1.6; margin-top:15px; font-family:'Inter', sans-serif;">
-            <p>Vous rencontrez un problème technique, vous avez perdu votre plaque ou vous avez une suggestion d'amélioration ? L'équipe HOUSE ID est là pour vous.</p>
+            <p>Vous rencontrez un problème technique, vous avez perdu votre plaque ou vous avez une suggestion d'amélioration ? L'équipe maison ID est là pour vous.</p>
             <div style="background:#f4f6f5; padding:20px; border-radius:12px; margin-top:20px; text-align:center; border: 1px dashed #cdd4ce;">
               <strong style="color:#1d2c33; display:block; margin-bottom:5px;">✉️ Par Email :</strong> 
-              <a href="mailto:support@house-id.fr" style="color:#4b9b69; text-decoration:none; font-weight:bold;">support@house-id.fr</a>
+              <a href="mailto:support@maison-id.fr" style="color:#4b9b69; text-decoration:none; font-weight:bold;">support@maison-id.fr</a>
               <br><br>
               <strong style="color:#1d2c33; display:block; margin-bottom:5px;">📞 Par Téléphone :</strong> 
               <span style="color:#59645d;">01 23 45 67 89</span><br>
@@ -383,7 +383,7 @@
         `;
       } else if(type === 'a_propos') {
         content.innerHTML = `
-          <div class="eyebrow">À PROPOS</div><h2>HOUSE ID</h2>
+          <div class="eyebrow">À PROPOS</div><h2>maison ID</h2>
           <div style="font-size:14px; color:#59645d; line-height:1.6; margin-top:25px; text-align:center; font-family:'Inter', sans-serif;">
             <svg width="70" height="70" viewBox="0 0 100 100" fill="none" style="margin-bottom:15px;">
               <path d="M 8 45 L 50 12 L 92 45" stroke="#7bd0df" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -397,7 +397,7 @@
             <p style="font-size:16px; color:#1d2c33;"><strong>Le carnet d'entretien numérique du 21e siècle.</strong></p>
             <p style="margin-top:20px;">L'outil indispensable pour valoriser votre patrimoine, centraliser vos informations techniques et simplifier la transmission de votre bien immobilier.</p>
             <div style="margin-top:30px; font-size:11px; color:#aab7af; border-top:1px solid #e3e8e4; padding-top:15px;">
-              Version 1.0.0<br>© 2026 HOUSE ID. Tous droits réservés.
+              Version 1.0.0<br>© 2026 maison ID. Tous droits réservés.
             </div>
           </div>
         `;
