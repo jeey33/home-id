@@ -68,7 +68,7 @@ async function loadHomeData() {
     
     document.getElementById("main-content").style.display = "block";
 
-    populateHouseInfo();
+    populatemaisonInfo();
     displaySystems();
     displayAlerts();
     displayProfessionals();
@@ -80,12 +80,12 @@ async function loadHomeData() {
   } catch (error) { showMessage("Impossible de charger les données."); }
 }
 
-function populateHouseInfo() {
-  document.getElementById("display-house-name").textContent = homeData.name || "Ma Maison";
-  document.getElementById("display-house-id").textContent = `Maison #${homeData.id}`;
-  document.getElementById("display-house-year").textContent = homeData.year || "—";
-  document.getElementById("display-house-surface").textContent = homeData.surface ? `${homeData.surface} m²` : "—";
-  document.getElementById("display-house-land").textContent = homeData.land ? `${homeData.land} m²` : "—";
+function populatemaisonInfo() {
+  document.getElementById("display-maison-name").textContent = homeData.name || "Ma Maison";
+  document.getElementById("display-maison-id").textContent = `Maison #${homeData.id}`;
+  document.getElementById("display-maison-year").textContent = homeData.year || "—";
+  document.getElementById("display-maison-surface").textContent = homeData.surface ? `${homeData.surface} m²` : "—";
+  document.getElementById("display-maison-land").textContent = homeData.land ? `${homeData.land} m²` : "—";
 
   const gallery = document.getElementById("plans-gallery");
   const docPlans = document.getElementById("doc-plans");
