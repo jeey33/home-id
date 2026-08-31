@@ -19,8 +19,8 @@ app.get("/reset-demo", async (req, res) => {
     // 2. On recrée la maison (DPE, Widgets, Cadastre et Plans corrigés avec la clé "image")
     const hashedPin = crypto.createHash('sha256').update('1234').digest('hex');
     await pool.query(`INSERT INTO home (id, name, year, surface, land, owner_password, is_setup, vault_pin, plans, diagnostics, custom_widgets, cadastre) 
-      VALUES ($1, 'Villa des Pins 🏡 (DPE : B)', 2018, 145, 650, '1234', TRUE, $2,
-      '[{"id":"PLN-1","name":"Plan d''architecte (RDC & Étage)","image":"https://images.unsplash.com/photo-1628624747186-a941c476b7ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"}]'::jsonb,
+      VALUES ($1, 'Maison témoin 🏡 ', 2018, 145, 650, '1234', TRUE, $2,
+      '[{"id":"PLN-1","name":"Plan d''architecte (RDC & Étage)","image":"https://images.unsplash.com/photo-1503387762-592deb58ef4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"}]'::jsonb,
       '[{"name":"DPE (Énergie)","result":"Classe B (71 kWh/m²/an)","date":"2024-02-12"},{"name":"GES (Climat)","result":"Classe A (2 kg CO2/m²/an)","date":"2024-02-12"},{"name":"Amiante","result":"Néant","date":"2024-02-12"}]'::jsonb,
       '[{"title":"📄 Rapport DPE Officiel","content":"Consommation annuelle estimée : entre 850€ et 1150€. Logement très performant, aucune anomalie détectée sur l''isolation.","isHidden":false},{"title":"🔑 Code Portail Électrique","content":"Le code visiteur est : 4589B","isHidden":false}]'::jsonb,
       '{"commune":"Bordeaux","section":"AH","numero":"452","images":[]}'::jsonb
