@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '50mb' }));
 
-// --- 🧹 DÉMO AUTO-NETTOYANTE (VERSION COMPLÈTE) ---
+// --- 🧹 DÉMO AUTO-NETTOYANTE (AVEC PLANS LOCAUX PNG) ---
 app.get("/reset-demo", async (req, res) => {
   try {
     const id = 'demo-officielle';
@@ -16,11 +16,11 @@ app.get("/reset-demo", async (req, res) => {
     // 1. On efface l'ancienne démo
     await pool.query(`DELETE FROM home WHERE id = $1`, [id]);
     
-    // 2. On recrée la maison (DPE, Widgets, Cadastre et Plans corrigés avec la clé "image")
+    // 2. On recrée la maison avec les deux plans PNG
     const hashedPin = crypto.createHash('sha256').update('1234').digest('hex');
-    await pool.query(`INSERT INTO home (id, name, year, surface, land, owner_password, is_setup, vault_pin, plans, diagnostics, custom_widgets, cadastre) 
-      VALUES ($1, 'Maison témoin 🏡 - vous pouvez tout modifier, ajouter, modifier pour essayer toutes les fonctionnalités', 2018, 145, 650, '1234', TRUE, $2,
-      '[{"id":"PLN-1","name":"Plan d''architecte (RDC & Étage)","image":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MDAiIGhlaWdodD0iNjAwIiBzdHlsZT0iYmFja2dyb3VuZDojZjRmYmZmOyI+PHBhdGggZD0iTTUwIDUwaDcwMHY1MDBINTB6IiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzciIHN0cm9rZS13aWR0aD0iNCIvPjxwb2x5Z29uIHBvaW50cz0iNTAsMjUwIDI1MCw1MCA1NTAsNTAgNzUwLDI1MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMzM3IiBzdHJva2Utd2lkdGg9IjQiLz48cGF0aCBkPSJNMjUwIDUwdjUwMG0zMDAtNTAwdjUwMG0tMzAwLTI1MGgzMDAiIHN0cm9rZT0iIzMzNyIgc3Ryb2tlLXdpZHRoPSI0Ii8+PHRleHQgeD0iMTAwIiB5PSIzNTAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjI0IiBmaWxsPSIjMzMzIj5HQUJBUklUPC90ZXh0Pjwvc3ZnPg=="}]'::jsonb,
+    await pool.query(`INSERT INTO home (id, name, year, surface, land, owner_password, is_setup, vault_pin, plans, diagnostics, custom_widgets, cadastre)
+    VALUES ($1, 'Maison témoin 🏡 - vous pouvez tout modifier, ajouter, modifier pour essayer toutes les fonctionnalités', 2018, 145, 650, '1234', TRUE, $2,
+      '[{"id":"PLN-1","name":"Plan Rez-de-Chaussée","image":"/rdc.png"}, {"id":"PLN-2","name":"Plan Étage","image":"/etage.png"}]'::jsonb,
       '[{"name":"DPE (Énergie)","result":"Classe B (71 kWh/m²/an)","date":"2024-02-12"},{"name":"GES (Climat)","result":"Classe A (2 kg CO2/m²/an)","date":"2024-02-12"},{"name":"Amiante","result":"Néant","date":"2024-02-12"}]'::jsonb,
       '[{"title":"📄 Rapport DPE Officiel","content":"Consommation annuelle estimée : entre 850€ et 1150€. Logement très performant, aucune anomalie détectée sur l''isolation.","isHidden":false},{"title":"🔑 Code Portail Électrique","content":"Le code visiteur est : 4589B","isHidden":false}]'::jsonb,
       '{"commune":"Bordeaux","section":"AH","numero":"452","images":[]}'::jsonb
