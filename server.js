@@ -7,60 +7,56 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '50mb' }));
+ 
 
-// --- 🧹 DÉMO AUTO-NETTOYANTE (AVEC PLANS LOCAUX PNG) ---
 app.get("/reset-demo", async (req, res) => {
   try {
     const id = 'demo-officielle';
-    
-    // 1. On efface l'ancienne démo
     await pool.query(`DELETE FROM home WHERE id = $1`, [id]);
     
-    // 2. On recrée la maison avec les deux plans PNG
+    // 1. Données de la maison
     const hashedPin = crypto.createHash('sha256').update('1234').digest('hex');
-    await pool.query(`INSERT INTO home (id, name, year, surface, land, owner_password, is_setup, vault_pin, plans, diagnostics, custom_widgets, cadastre) 
-       VALUES ($1, 'Maison témoin 🏡 - vous pouvez tout modifier, ajouter, modifier pour essayer toutes les fonctionnalités', 2018, 145, 650, '1234', TRUE, $2, $3, $4, $5, $6), 
-      '[{"id":"PLN-1","name":"Plan Rez-de-Chaussée","image":"/rdc.png"}, {"id":"PLN-2","name":"Plan Étage","image":"/etage.png"}]'::jsonb,
-      '[{"name":"DPE (Énergie)","result":"Classe B (71 kWh/m²/an)","date":"2024-02-12"},{"name":"GES (Climat)","result":"Classe A (2 kg CO2/m²/an)","date":"2024-02-12"},{"name":"Amiante","result":"Néant","date":"2024-02-12"}]'::jsonb,
-      '[{"title":"📄 Rapport DPE Officiel","content":"Consommation annuelle estimée : entre 850€ et 1150€. Logement très performant, aucune anomalie détectée sur l''isolation.","isHidden":false},{"title":"🔑 Code Portail Électrique","content":"Le code visiteur est : 4589B","isHidden":false}]'::jsonb,
-      '{"commune":"Bordeaux","section":"AH","numero":"452","images":[]}'::jsonb
-      )`, [id, hashedPin]);
+    const plans = [{ id: "PLN-1", name: "Plan Rez-de-Chaussée", image: "/rdc.png" }, { id: "PLN-2", name: "Plan Étage", image: "/etage.png" }];
+    const diags = [{ name: "DPE (Énergie)", result: "Classe B (71 kWh/m²/an)", date: "2024-02-12" }, { name: "GES (Climat)", result: "Classe A (2 kg CO2/m²/an)", date: "2024-02-12" }, { name: "Amiante", result: "Néant", date: "2024-02-12" }];
+    const widgets = [{ title: "📄 Rapport DPE Officiel", content: "Consommation estimée : entre 850€ et 1150€. Logement très performant, aucune anomalie détectée sur l'isolation.", isHidden: false }, { title: "🔑 Code Portail Électrique", content: "Le code visiteur est : 4589B", isHidden: false }];
+    const cad = { commune: "Bordeaux", section: "AH", numero: "452", images: [] };
 
-    // 3. On ajoute TOUTES les catégories par défaut
-    await pool.query(`INSERT INTO systems (id, home_id, name, icon, status, color, display_order) VALUES 
-      ('elec_demo', $1, 'Électricité', '⚡', 'À jour', 'green', 1),
-      ('eau_demo', $1, 'Plomberie & Eau', '💧', 'À jour', 'green', 2),
-      ('chauffe_demo', $1, 'Chauffage', '🔥', 'À jour', 'green', 3),
-      ('clim_demo', $1, 'Clim & VMC', '❄️', 'À configurer', 'orange', 4),
-      ('piscine_demo', $1, 'Piscine', '🏊', 'À configurer', 'orange', 5),
-      ('ext_demo', $1, 'Extérieur', '🌳', 'À configurer', 'orange', 6),
-      ('domo_demo', $1, 'Réseau', '📡', 'À configurer', 'orange', 7)`
-    , [id]);
+    await pool.query(
+      `INSERT INTO home (id, name, year, surface, land, owner_password, is_setup, vault_pin, plans, diagnostics, custom_widgets, cadastre) 
+      VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7, $8, $9, $10, $11)`, 
+      [id, 'Maison témoin 🏡 - vous pouvez tout modifier, ajouter, modifier pour essayer toutes les fonctionnalités', 2018, 145, 650, '1234', hashedPin, JSON.stringify(plans), JSON.stringify(diags), JSON.stringify(widgets), JSON.stringify(cad)]
+    );
 
-    // 4. On ajoute les équipements
-    await pool.query(`INSERT INTO equipment (id, system_id, name, model, installed, notes) VALUES 
-      ('EQ-1', 'chauffe_demo', 'Pompe à Chaleur', 'Daikin Altherma 3', '15/09/2023', 'Entretien programmé chaque mois d''octobre.'),
-      ('EQ-2', 'elec_demo', 'Tableau Électrique', 'Legrand Drivia', '10/04/2020', 'Disjoncteur différentiel 30mA testé.'),
-      ('EQ-3', 'eau_demo', 'Adoucisseur d''eau', 'Culligan', '10/06/2021', 'Vérifier le niveau de sel tous les 3 mois.'),
-      ('EQ-4', 'elec_demo', 'Four Encastrable', 'De Dietrich', '24/11/2022', 'Garantie 5 ans.')`);
+    // 2. Systèmes
+    const sysQ = `INSERT INTO systems (id, home_id, name, icon, status, color, display_order) VALUES ($1, $2, $3, $4, $5, $6, $7)`;
+    await pool.query(sysQ, ['elec_demo', id, 'Électricité', '⚡', 'À jour', 'green', 1]);
+    await pool.query(sysQ, ['eau_demo', id, 'Plomberie & Eau', '💧', 'À jour', 'green', 2]);
+    await pool.query(sysQ, ['chauffe_demo', id, 'Chauffage', '🔥', 'À jour', 'green', 3]);
+    await pool.query(sysQ, ['clim_demo', id, 'Clim & VMC', '❄️', 'À configurer', 'orange', 4]);
+    await pool.query(sysQ, ['piscine_demo', id, 'Piscine', '🏊', 'À configurer', 'orange', 5]);
+    await pool.query(sysQ, ['ext_demo', id, 'Extérieur', '🌳', 'À configurer', 'orange', 6]);
+    await pool.query(sysQ, ['domo_demo', id, 'Réseau', '📡', 'À configurer', 'orange', 7]);
 
-    // 5. On ajoute les artisans
-    await pool.query(`INSERT INTO professionals (home_id, name, domain, phone, email, access) VALUES 
-      ($1, 'Artisan Dupont', 'Plombier-Chauffagiste', '06 12 34 56 78', 'contact@dupont-plomberie.fr', 'Intervenu'),
-      ($1, 'Volt & Co', 'Électricien', '06 98 76 54 32', 'hello@voltco.fr', 'Intervenu')`
-    , [id]);
+    // 3. Équipements
+    const eqQ = `INSERT INTO equipment (id, system_id, name, model, installed, notes) VALUES ($1, $2, $3, $4, $5, $6)`;
+    await pool.query(eqQ, ['EQ-1', 'chauffe_demo', 'Pompe à Chaleur', 'Daikin Altherma 3', '15/09/2023', "Entretien programmé chaque mois d'octobre."]);
+    await pool.query(eqQ, ['EQ-2', 'elec_demo', 'Tableau Électrique', 'Legrand Drivia', '10/04/2020', 'Disjoncteur différentiel 30mA testé.']);
+    await pool.query(eqQ, ['EQ-3', 'eau_demo', "Adoucisseur d'eau", 'Culligan', '10/06/2021', 'Vérifier le niveau de sel tous les 3 mois.']);
+    await pool.query(eqQ, ['EQ-4', 'elec_demo', 'Four Encastrable', 'De Dietrich', '24/11/2022', 'Garantie 5 ans.']);
 
-    // 6. On ajoute l'entretien (Alertes)
-    await pool.query(`INSERT INTO alerts (home_id, title, text, date, is_done) VALUES 
-      ($1, 'Entretien Pompe à Chaleur', 'Contacter Artisan Dupont pour la révision annuelle.', '2026-10-15', FALSE),
-      ($1, 'Ramonage Cheminée', 'Prévoir le ramonage avant l''hiver.', '2026-11-01', FALSE)`
-    , [id]);
+    // 4. Artisans et Alertes
+    const proQ = `INSERT INTO professionals (home_id, name, domain, phone, email, access) VALUES ($1, $2, $3, $4, $5, $6)`;
+    await pool.query(proQ, [id, 'Artisan Dupont', 'Plombier-Chauffagiste', '06 12 34 56 78', 'contact@dupont-plomberie.fr', 'Intervenu']);
+    await pool.query(proQ, [id, 'Volt & Co', 'Électricien', '06 98 76 54 32', 'hello@voltco.fr', 'Intervenu']);
 
-    // 7. Redirection
+    const altQ = `INSERT INTO alerts (home_id, title, text, date, is_done) VALUES ($1, $2, $3, $4, FALSE)`;
+    await pool.query(altQ, [id, 'Entretien Pompe à Chaleur', 'Contacter Artisan Dupont pour la révision annuelle.', '2026-10-15']);
+    await pool.query(altQ, [id, 'Ramonage Cheminée', "Prévoir le ramonage avant l'hiver.", '2026-11-01']);
+
     res.redirect(`/?id=${id}`);
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Erreur lors de la génération de la démo.");
+    console.error("Détail erreur :", err);
+    res.status(500).send("Erreur.");
   }
 });
 
