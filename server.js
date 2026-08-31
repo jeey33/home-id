@@ -19,7 +19,7 @@ app.get("/reset-demo", async (req, res) => {
     // 2. On recrée la maison avec les deux plans PNG
     const hashedPin = crypto.createHash('sha256').update('1234').digest('hex');
     await pool.query(`INSERT INTO home (id, name, year, surface, land, owner_password, is_setup, vault_pin, plans, diagnostics, custom_widgets, cadastre) 
-       VALUES ($1, 'Maison témoin 🏡 - vous pouvez tout modifier, ajouter, modifier pour essayer toutes les fonctionnalités', 2018, 145, 650, '1234', TRUE, $2, $3, $4, $5, $6)`, 
+       VALUES ($1, 'Maison témoin 🏡 - vous pouvez tout modifier, ajouter, modifier pour essayer toutes les fonctionnalités', 2018, 145, 650, '1234', TRUE, $2, $3, $4, $5, $6), 
       '[{"id":"PLN-1","name":"Plan Rez-de-Chaussée","image":"/rdc.png"}, {"id":"PLN-2","name":"Plan Étage","image":"/etage.png"}]'::jsonb,
       '[{"name":"DPE (Énergie)","result":"Classe B (71 kWh/m²/an)","date":"2024-02-12"},{"name":"GES (Climat)","result":"Classe A (2 kg CO2/m²/an)","date":"2024-02-12"},{"name":"Amiante","result":"Néant","date":"2024-02-12"}]'::jsonb,
       '[{"title":"📄 Rapport DPE Officiel","content":"Consommation annuelle estimée : entre 850€ et 1150€. Logement très performant, aucune anomalie détectée sur l''isolation.","isHidden":false},{"title":"🔑 Code Portail Électrique","content":"Le code visiteur est : 4589B","isHidden":false}]'::jsonb,
