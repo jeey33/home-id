@@ -8,44 +8,62 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '50mb' }));
 
-// --- 🧹 DÉMO AUTO-NETTOYANTE ---
+// --- 🧹 DÉMO AUTO-NETTOYANTE (VERSION COMPLÈTE) ---
 app.get("/reset-demo", async (req, res) => {
   try {
     const id = 'demo-officielle';
     
-    // 1. On efface l'ancienne démo (la base supprimera les équipements liés automatiquement)
+    // 1. On efface l'ancienne démo
     await pool.query(`DELETE FROM home WHERE id = $1`, [id]);
     
-    // 2. On recrée la maison parfaite avec son DPE et ses plans
+    // 2. On recrée la maison (DPE, Widgets, Cadastre et Plans corrigés avec la clé "image")
     const hashedPin = crypto.createHash('sha256').update('1234').digest('hex');
     await pool.query(`INSERT INTO home (id, name, year, surface, land, owner_password, is_setup, vault_pin, plans, diagnostics, custom_widgets, cadastre) 
       VALUES ($1, 'Villa des Pins 🏡 (DPE : B)', 2018, 145, 650, '1234', TRUE, $2,
-      '[{"id":"PLN-1","name":"Plan d''architecte","type":"image","url":"https://images.unsplash.com/photo-1628624747186-a941c476b7ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"}]'::jsonb,
-      '[{"name":"DPE (Énergie)","result":"Classe B (71 kWh/m²/an)","date":"2024-02-12"},{"name":"Amiante","result":"Néant","date":"2024-02-12"}]'::jsonb,
-      '[{"title":"📄 Rapport DPE Officiel","content":"Logement très performant.","isHidden":false},{"title":"🔑 Code Portail","content":"Le code est 4589B","isHidden":false}]'::jsonb,
+      '[{"id":"PLN-1","name":"Plan d''architecte (RDC & Étage)","image":"https://images.unsplash.com/photo-1628624747186-a941c476b7ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"}]'::jsonb,
+      '[{"name":"DPE (Énergie)","result":"Classe B (71 kWh/m²/an)","date":"2024-02-12"},{"name":"GES (Climat)","result":"Classe A (2 kg CO2/m²/an)","date":"2024-02-12"},{"name":"Amiante","result":"Néant","date":"2024-02-12"}]'::jsonb,
+      '[{"title":"📄 Rapport DPE Officiel","content":"Consommation annuelle estimée : entre 850€ et 1150€. Logement très performant, aucune anomalie détectée sur l''isolation.","isHidden":false},{"title":"🔑 Code Portail Électrique","content":"Le code visiteur est : 4589B","isHidden":false}]'::jsonb,
       '{"commune":"Bordeaux","section":"AH","numero":"452","images":[]}'::jsonb
       )`, [id, hashedPin]);
 
-    // 3. On ajoute les catégories
+    // 3. On ajoute TOUTES les catégories par défaut
     await pool.query(`INSERT INTO systems (id, home_id, name, icon, status, color, display_order) VALUES 
       ('elec_demo', $1, 'Électricité', '⚡', 'À jour', 'green', 1),
-      ('eau_demo', $1, 'Plomberie & Eau', '💧', 'À configurer', 'orange', 2),
+      ('eau_demo', $1, 'Plomberie & Eau', '💧', 'À jour', 'green', 2),
       ('chauffe_demo', $1, 'Chauffage', '🔥', 'À jour', 'green', 3),
-      ('ext_demo', $1, 'Extérieur', '🌳', 'À configurer', 'orange', 4)`
+      ('clim_demo', $1, 'Clim & VMC', '❄️', 'À configurer', 'orange', 4),
+      ('piscine_demo', $1, 'Piscine', '🏊', 'À configurer', 'orange', 5),
+      ('ext_demo', $1, 'Extérieur', '🌳', 'À configurer', 'orange', 6),
+      ('domo_demo', $1, 'Réseau', '📡', 'À configurer', 'orange', 7)`
     , [id]);
 
     // 4. On ajoute les équipements
     await pool.query(`INSERT INTO equipment (id, system_id, name, model, installed, notes) VALUES 
-      ('EQ-1', 'chauffe_demo', 'Pompe à Chaleur', 'Daikin Altherma 3', '15/09/2023', 'Entretien en octobre.'),
-      ('EQ-2', 'elec_demo', 'Tableau Électrique', 'Legrand Drivia', '10/04/2020', 'Disjoncteur testé.')`);
+      ('EQ-1', 'chauffe_demo', 'Pompe à Chaleur', 'Daikin Altherma 3', '15/09/2023', 'Entretien programmé chaque mois d''octobre.'),
+      ('EQ-2', 'elec_demo', 'Tableau Électrique', 'Legrand Drivia', '10/04/2020', 'Disjoncteur différentiel 30mA testé.'),
+      ('EQ-3', 'eau_demo', 'Adoucisseur d''eau', 'Culligan', '10/06/2021', 'Vérifier le niveau de sel tous les 3 mois.'),
+      ('EQ-4', 'elec_demo', 'Four Encastrable', 'De Dietrich', '24/11/2022', 'Garantie 5 ans.')`);
 
-    // 5. On redirige instantanément le visiteur vers la démo toute neuve
+    // 5. On ajoute les artisans
+    await pool.query(`INSERT INTO professionals (home_id, name, domain, phone, email, access) VALUES 
+      ($1, 'Artisan Dupont', 'Plombier-Chauffagiste', '06 12 34 56 78', 'contact@dupont-plomberie.fr', 'Intervenu'),
+      ($1, 'Volt & Co', 'Électricien', '06 98 76 54 32', 'hello@voltco.fr', 'Intervenu')`
+    , [id]);
+
+    // 6. On ajoute l'entretien (Alertes)
+    await pool.query(`INSERT INTO alerts (home_id, title, text, date, is_done) VALUES 
+      ($1, 'Entretien Pompe à Chaleur', 'Contacter Artisan Dupont pour la révision annuelle.', '2026-10-15', FALSE),
+      ($1, 'Ramonage Cheminée', 'Prévoir le ramonage avant l''hiver.', '2026-11-01', FALSE)`
+    , [id]);
+
+    // 7. Redirection
     res.redirect(`/?id=${id}`);
   } catch (err) {
     console.error(err);
     res.status(500).send("Erreur lors de la génération de la démo.");
   }
 });
+
 
 // ----------------------------------------------
 
