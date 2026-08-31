@@ -8,26 +8,45 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '50mb' }));
 
-// --- 🛡️ BOUCLIER DE PROTECTION POUR LA DÉMO ---
-app.use((req, res, next) => {
-  // On détecte si la requête concerne la démo (via le body, l'URL, ou la provenance de la page)
-  const isDemoRequest = 
-    (req.body && JSON.stringify(req.body).includes('demo-officielle')) || 
-    (req.query && JSON.stringify(req.query).includes('demo-officielle')) ||
-    (req.headers.referer && req.headers.referer.includes('demo-officielle'));
+// --- 🧹 DÉMO AUTO-NETTOYANTE ---
+app.get("/reset-demo", async (req, res) => {
+  try {
+    const id = 'demo-officielle';
+    
+    // 1. On efface l'ancienne démo (la base supprimera les équipements liés automatiquement)
+    await pool.query(`DELETE FROM home WHERE id = $1`, [id]);
+    
+    // 2. On recrée la maison parfaite avec son DPE et ses plans
+    const hashedPin = crypto.createHash('sha256').update('1234').digest('hex');
+    await pool.query(`INSERT INTO home (id, name, year, surface, land, owner_password, is_setup, vault_pin, plans, diagnostics, custom_widgets, cadastre) 
+      VALUES ($1, 'Villa des Pins 🏡 (DPE : B)', 2018, 145, 650, '1234', TRUE, $2,
+      '[{"id":"PLN-1","name":"Plan d''architecte","type":"image","url":"https://images.unsplash.com/photo-1628624747186-a941c476b7ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"}]'::jsonb,
+      '[{"name":"DPE (Énergie)","result":"Classe B (71 kWh/m²/an)","date":"2024-02-12"},{"name":"Amiante","result":"Néant","date":"2024-02-12"}]'::jsonb,
+      '[{"title":"📄 Rapport DPE Officiel","content":"Logement très performant.","isHidden":false},{"title":"🔑 Code Portail","content":"Le code est 4589B","isHidden":false}]'::jsonb,
+      '{"commune":"Bordeaux","section":"AH","numero":"452","images":[]}'::jsonb
+      )`, [id, hashedPin]);
 
-  // On autorise UNIQUEMENT la connexion et la consultation du coffre
-  const isAllowedAction = req.path.includes('/login') || req.path.includes('/vault/check') || req.path.includes('/vault/unlock');
+    // 3. On ajoute les catégories
+    await pool.query(`INSERT INTO systems (id, home_id, name, icon, status, color, display_order) VALUES 
+      ('elec_demo', $1, 'Électricité', '⚡', 'À jour', 'green', 1),
+      ('eau_demo', $1, 'Plomberie & Eau', '💧', 'À configurer', 'orange', 2),
+      ('chauffe_demo', $1, 'Chauffage', '🔥', 'À jour', 'green', 3),
+      ('ext_demo', $1, 'Extérieur', '🌳', 'À configurer', 'orange', 4)`
+    , [id]);
 
-  // Si c'est la démo, que c'est une requête de type POST (modification), et que ce n'est pas autorisé : ON BLOQUE
-  if (isDemoRequest && req.method === 'POST' && !isAllowedAction) {
-    console.log("🛡️ Action sur la démo interceptée et annulée :", req.path);
-    // On renvoie un succès factice pour que l'interface de l'utilisateur reste fluide
-    return res.json({ ok: true, message: "Mode démo : modification simulée." });
+    // 4. On ajoute les équipements
+    await pool.query(`INSERT INTO equipment (id, system_id, name, model, installed, notes) VALUES 
+      ('EQ-1', 'chauffe_demo', 'Pompe à Chaleur', 'Daikin Altherma 3', '15/09/2023', 'Entretien en octobre.'),
+      ('EQ-2', 'elec_demo', 'Tableau Électrique', 'Legrand Drivia', '10/04/2020', 'Disjoncteur testé.')`);
+
+    // 5. On redirige instantanément le visiteur vers la démo toute neuve
+    res.redirect(`/?id=${id}`);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Erreur lors de la génération de la démo.");
   }
-
-  next(); // Si ce n'est pas la démo ou si c'est autorisé, on laisse passer
 });
+
 // ----------------------------------------------
 
 const pool = new Pool({
