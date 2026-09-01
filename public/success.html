@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paiement réussi — Maison ID</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Montserrat', sans-serif; 
+      background-color: #f4f6f5; 
+      color: #17211c; 
+      line-height: 1.6;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    :root { --dark: #1d2c33; --light-blue: #7bd0df; --green: #4b9b69; --white: #ffffff; }
+
+    .success-card {
+      background: var(--white);
+      padding: 50px 40px;
+      border-radius: 16px;
+      box-shadow: 0 15px 40px rgba(29, 44, 51, 0.1);
+      max-width: 500px;
+      width: 100%;
+      border-top: 5px solid var(--green);
+    }
+
+    .icon {
+      font-size: 60px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--dark);
+      margin-bottom: 15px;
+    }
+
+    p {
+      color: #59645d;
+      margin-bottom: 30px;
+      font-size: 16px;
+    }
+
+    .btn-primary {
+      display: inline-block;
+      background-color: var(--dark);
+      color: var(--white);
+      padding: 15px 30px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="success-card">
+    <div class="icon">✅</div>
+    <h1>Paiement réussi !</h1>
+    <p>Merci pour votre commande. Votre sticker Maison ID avec son QR Code unique est en cours de préparation et sera expédié sous 48h à votre adresse.</p>
+    
+    <a href="/" class="btn-primary">Retour à l'accueil</a>
+  </div>
+
+</body>
+</html>
