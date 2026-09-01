@@ -188,7 +188,7 @@ app.get("/scan/:id", async (req, res) => {
   try {
     const checkHome = await pool.query(`SELECT is_setup FROM home WHERE id = $1`, [scannedId]);
     if (checkHome.rows.length === 0) return res.redirect(`/setup.html?id=${scannedId}`);
-    return res.redirect(`/?id=${scannedId}`);
+    return res.redirect(`/dashboard.html?id=${scannedId}`);
   } catch (err) { res.status(500).send("Erreur de lecture."); }
 });
 
