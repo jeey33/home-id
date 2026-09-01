@@ -62,7 +62,7 @@ app.get("/reset-demo", async (req, res) => {
     , [id]);
 
     // 7. Redirection
-    res.redirect(`/?id=${id}`);
+    res.redirect(`/dashboard.html?id=${id}`);
   } catch (err) {
     console.error(err);
     res.status(500).send("Erreur lors de la génération de la démo.");
