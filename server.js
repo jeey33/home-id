@@ -3,6 +3,10 @@ const path = require("path");
 const { Pool } = require("pg");
 const crypto = require("crypto"); // Module de cryptographie pour le coffre-fort
 
+// --- NOUVEAUX IMPORTS POUR LE PAIEMENT ---
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY || 'sk_test_TA_CLE_SECRETE_STRIPE'); // ⚠️ Remplace par ta vraie clé ou utilise un fichier .env
+const { v4: uuidv4 } = require("uuid"); 
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -133,6 +137,50 @@ async function initDB() {
 initDB();
 
 app.use(express.static(path.join(__dirname, "public")));
+
+// ==========================================
+// --- ROUTE STRIPE (COMMANDE DE STICKER) ---
+// ==========================================
+app.post('/create-checkout-session', async (req, res) => {
+  try {
+    // Génère un ID unique et un peu plus lisible pour la maison (ex: "ID-1A2B3C4D")
+    const newMaisonId = 'ID-' + uuidv4().split('-')[0].toUpperCase(); 
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card', 'paypal'], // Tu peux rajouter d'autres moyens selon ta conf Stripe
+      shipping_address_collection: {
+        allowed_countries: ['FR', 'BE', 'CH'], // Demander l'adresse pour envoyer le sticker
+      },
+      line_items: [
+        {
+          price_data: {
+            currency: 'eur',
+            product_data: {
+              name: 'Sticker Officiel Maison ID',
+              description: 'Carnet d\'entretien numérique avec QR Code unique pré-configuré.',
+            },
+            unit_amount: 999, // 9,99€
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+      metadata: {
+        maison_id: newMaisonId // C'est CA qui va lier l'achat à l'identifiant !
+      },
+      // Redirections dynamiques basées sur l'URL de ton site
+      success_url: `${req.protocol}://${req.get('host')}/success.html?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.protocol}://${req.get('host')}/`,
+    });
+
+    res.json({ id: session.id });
+  } catch (error) {
+    console.error("Erreur Stripe:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+// ==========================================
+
 
 // --- ROUTES MAISON ET CONNEXION ---
 app.get("/scan/:id", async (req, res) => {
